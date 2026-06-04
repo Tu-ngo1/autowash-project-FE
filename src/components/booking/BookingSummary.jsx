@@ -16,13 +16,13 @@ export default function BookingSummary({
   voucherAmount,
 }) {
   return (
-    <aside className="lg:col-span-4">
-      <div className="sticky top-24 rounded-2xl border border-[#bfc7d5]/30 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
-        <h3 className="mb-6 text-2xl font-semibold text-[#0061a5]">
+    <aside className="lg:sticky lg:top-24 lg:col-span-4 lg:self-start">
+      <div className="max-h-none overflow-hidden rounded-2xl border border-[#bfc7d5]/30 bg-white/90 p-5 shadow-lg shadow-[#0061a5]/5 backdrop-blur-xl transition-shadow duration-300 hover:shadow-xl lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto lg:p-6">
+        <h3 className="mb-5 text-2xl font-semibold text-[#0061a5]">
           Tóm tắt đơn hàng
         </h3>
 
-        <div className="mb-6 h-40 w-full overflow-hidden rounded-xl shadow-md">
+        <div className="mb-5 h-32 w-full overflow-hidden rounded-xl shadow-md xl:h-36">
           <img
             alt="Car wash visual"
             className="h-full w-full object-cover"
@@ -30,7 +30,7 @@ export default function BookingSummary({
           />
         </div>
 
-        <div className="mb-6 space-y-4">
+        <div className="mb-5 space-y-3">
           <div className="flex items-center justify-between border-b border-[#bfc7d5]/30 pb-2">
             <span className="text-[#3f4753]">Loại xe:</span>
             <span className="font-bold">
@@ -53,7 +53,7 @@ export default function BookingSummary({
           </div>
         </div>
 
-        <div className="mb-8 space-y-2">
+        <div className="mb-6 space-y-2">
           <div className="flex justify-between">
             <span className="text-[#3f4753]">Gói dịch vụ</span>
             <span>{formatPrice(subtotal)}</span>
