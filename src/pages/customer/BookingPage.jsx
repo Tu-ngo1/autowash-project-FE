@@ -266,7 +266,7 @@ export default function BookingPage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           <form onSubmit={handleSubmit} className="space-y-8 lg:col-span-8">
             <section className="rounded-xl bg-white p-6 shadow-[0_4px_20px_rgba(13,153,255,0.05)] md:p-8">
               <h2 className="mb-6 flex items-center gap-3 text-2xl font-semibold text-[#0061a5]">
@@ -320,7 +320,13 @@ export default function BookingPage() {
 
                 <button
                   type="button"
-                  onClick={() => navigate("/profile?addVehicle=1")}
+                  onClick={() =>
+                    navigate(
+                      `/profile?returnTo=${encodeURIComponent(
+                        "/booking",
+                      )}`,
+                    )
+                  }
                   className="flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#bfc7d5] bg-white p-4 text-center transition-all hover:border-[#0061a5] hover:bg-[#e0f2fe]"
                 >
                   <span className="material-symbols-outlined mb-2 text-4xl text-[#707884]">
