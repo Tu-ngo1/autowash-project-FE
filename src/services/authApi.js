@@ -142,7 +142,7 @@ export async function login({ account, password }) {
   }
 }
 
-export async function register({ name, email, phone, password }) {
+export async function register({ name, email, phone, password, otp }) {
   const normalized = {
     id: `local-customer-${Date.now()}`,
     name: name.trim(),
@@ -164,6 +164,8 @@ export async function register({ name, email, phone, password }) {
       phone: normalized.phone,
       phoneNumber: normalized.phone,
       password: normalized.password,
+      otp: otp?.trim(),
+      code: otp?.trim(),
       role: normalized.role,
     });
     return response.data;
@@ -179,6 +181,76 @@ export async function register({ name, email, phone, password }) {
     setLocalUsers([...users, normalized]);
     return { message: "Đăng ký thành công.", user: normalized };
   }
+}
+
+export async function sendRegistrationOtp(email) {
+  const normalizedEmail = email.trim();
+  const payload = {
+    email: normalizedEmail,
+    purpose: "REGISTER",
+    type: "REGISTER",
+  };
+
+  const endpoints = [
+    "/auth/send-otp",
+    "/auth/register/send-otp",
+    "/auth/otp/send",
+  ];
+
+  let lastError;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await api.post(apiPath(endpoint), payload);
+      return response.data;
+    } catch (err) {
+      lastError = err;
+      if (err?.response?.status && err.response.status !== 404) throw err;
+    }
+  }
+
+  if (!shouldUseLocalAuth(lastError)) throw lastError;
+  sessionStorage.setItem(`autowash_register_otp:${normalizedEmail}`, "123456");
+  return {
+    message: `Mã OTP đã được gửi tới ${normalizedEmail}. Vui lòng kiểm tra hộp thư.`,
+  };
+}
+
+export async function verifyRegistrationOtp(email, otp) {
+  const normalizedEmail = email.trim();
+  const normalizedOtp = otp.trim();
+  const payload = {
+    email: normalizedEmail,
+    otp: normalizedOtp,
+    code: normalizedOtp,
+    purpose: "REGISTER",
+    type: "REGISTER",
+  };
+
+  const endpoints = [
+    "/auth/verify-otp",
+    "/auth/register/verify-otp",
+    "/auth/otp/verify",
+  ];
+
+  let lastError;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await api.post(apiPath(endpoint), payload);
+      return response.data;
+    } catch (err) {
+      lastError = err;
+      if (err?.response?.status && err.response.status !== 404) throw err;
+    }
+  }
+
+  if (!shouldUseLocalAuth(lastError)) throw lastError;
+  const expected = sessionStorage.getItem(
+    `autowash_register_otp:${normalizedEmail}`,
+  );
+  if (expected !== normalizedOtp) {
+    throw new Error("Mã OTP không đúng hoặc đã hết hạn.");
+  }
+  return { message: "Xác thực OTP thành công." };
 }
 
 export const testAccounts = TEST_ACCOUNTS.map(({ password, ...user }) => ({
