@@ -1,0 +1,57 @@
+export const TOKEN_KEY = "token";
+export const USER_KEY = "user";
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || null;
+}
+
+export function getUser() {
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuth({ token, user }) {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+}
+
+export function updateUser(updates) {
+  const current = getUser() || {};
+  const next = { ...current, ...updates };
+  localStorage.setItem(USER_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function clearAuth() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+export function isAuthenticated() {
+  return Boolean(getToken());
+}
+
+export function getUserRole() {
+  return getUser()?.role || null;
+}
+
+export function getUserTier() {
+  return getUser()?.tier || "Member";
+}
+
+export function getUserName() {
+  return getUser()?.name || "Khách hàng";
+}
+
+export function getUserWalletBalance() {
+  return getUser()?.walletBalance || 0;
+}
