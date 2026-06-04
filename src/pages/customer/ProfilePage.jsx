@@ -62,6 +62,8 @@ export default function ProfilePage() {
   const user = getUser() || {};
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState(null);
+  const [profileReturnTo, setProfileReturnTo] = useState("");
+  const [vehicleReturnTo, setVehicleReturnTo] = useState("");
   const [selectedQrBooking, setSelectedQrBooking] = useState(null);
   const [vehicleError, setVehicleError] = useState("");
   const [vehicleForm, setVehicleForm] = useState({
@@ -149,8 +151,24 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get("addVehicle") === "1") {
+    const returnTo = searchParams.get("returnTo") || "";
+    const safeReturnTo = returnTo.startsWith("/") ? returnTo : "";
+    if (safeReturnTo) {
+      setProfileReturnTo(safeReturnTo);
+    }
+
+    if (
+      searchParams.get("vehicleForm") === "add" ||
+      searchParams.get("addVehicle") === "1"
+    ) {
+      setVehicleReturnTo(safeReturnTo);
+      setEditingVehicleId(null);
+      setVehicleForm({ plate: "", type: "ice" });
+      setVehicleError("");
       setShowVehicleForm(true);
+    }
+
+    if (searchParams.toString()) {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -161,6 +179,7 @@ export default function ProfilePage() {
 
   const openAddVehicleForm = () => {
     setEditingVehicleId(null);
+    setVehicleReturnTo(profileReturnTo);
     setVehicleForm({ plate: "", type: "ice" });
     setVehicleError("");
     setShowVehicleForm(true);
@@ -168,6 +187,7 @@ export default function ProfilePage() {
 
   const openEditVehicleForm = (vehicle) => {
     setEditingVehicleId(vehicle.id || vehicle.plate);
+    setVehicleReturnTo("");
     setVehicleForm({
       plate: vehicle.plate || "",
       type:
@@ -182,8 +202,17 @@ export default function ProfilePage() {
   const closeVehicleForm = () => {
     setShowVehicleForm(false);
     setEditingVehicleId(null);
+    setVehicleReturnTo("");
     setVehicleForm({ plate: "", type: "ice" });
     setVehicleError("");
+  };
+
+  const handleVehicleFormBack = () => {
+    if (vehicleReturnTo) {
+      navigate(vehicleReturnTo, { replace: true });
+      return;
+    }
+    closeVehicleForm();
   };
 
   const handleSaveVehicle = (event) => {
@@ -236,7 +265,11 @@ export default function ProfilePage() {
       ...prev,
       vehicles: nextVehicles,
     }));
+    const shouldReturnToBooking = vehicleReturnTo && !editingVehicleId;
     closeVehicleForm();
+    if (shouldReturnToBooking) {
+      navigate(vehicleReturnTo, { replace: true });
+    }
   };
 
   const avatarUrl = getAvatarUrl(user);
@@ -564,17 +597,17 @@ export default function ProfilePage() {
       </main>
 
       {showVehicleForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-[#f7f9fb]/95 p-4 backdrop-blur-sm">
-          <div className="flex w-full max-w-[560px] flex-col gap-8">
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#f7f9fb]/95 px-4 py-5 backdrop-blur-sm sm:py-8">
+          <div className="mx-auto flex min-h-full w-full max-w-[560px] flex-col gap-5">
             <button
               type="button"
-              onClick={closeVehicleForm}
-              className="group inline-flex w-fit items-center gap-2 text-xs font-semibold text-[#0061a5] transition-all hover:text-[#005bbf]"
+              onClick={handleVehicleFormBack}
+              className="group sticky top-3 z-10 inline-flex w-fit items-center gap-2 rounded-full bg-[#f7f9fb]/95 px-3 py-2 text-xs font-semibold text-[#0061a5] shadow-sm ring-1 ring-[#0061a5]/10 backdrop-blur transition-all hover:text-[#005bbf]"
             >
               <span className="material-symbols-outlined transition-transform group-hover:-translate-x-1">
                 arrow_back
               </span>
-                Quay lại Profile
+              {vehicleReturnTo ? "Quay lại đặt lịch" : "Quay lại Profile"}
             </button>
 
             <div className="rounded-xl border border-[#0d99ff]/10 bg-white/80 p-8 shadow-[0px_4px_20px_rgba(13,153,255,0.05)] backdrop-blur-xl">
