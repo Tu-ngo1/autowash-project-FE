@@ -12,8 +12,6 @@ export const deleteVoucher = (id) =>
   api.delete(apiPath(`/admin/vouchers/${id}`));
 export const updateVoucherStatus = (id, isActive) =>
   api.patch(apiPath(`/admin/vouchers/${id}/status`), { isActive });
-export const validateVoucher = (code) =>
-  api.post(apiPath("/vouchers/validate"), { code });
 
 export default {
   getTiers,
@@ -23,5 +21,4 @@ export default {
   updateVoucher,
   deleteVoucher,
   updateVoucherStatus,
-  validateVoucher,
 };
