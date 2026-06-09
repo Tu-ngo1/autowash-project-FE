@@ -1,23 +1,23 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 // Public Pages
-import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
 // Customer Pages
-import BookingPage from "./pages/customer/BookingPage";
-import HistoryPage from "./pages/customer/HistoryPage";
-import ProfilePage from "./pages/customer/ProfilePage";
-import LoyaltyDashboard, { VoucherPage } from "./pages/customer/LoyaltyDashboard";
+import CustomerBooking from "./pages/customer/CustomerBooking";
+import CustomerDashboard from "./pages/customer/CustomerDashboard";
+import CustomerHistory from "./pages/customer/CustomerHistory";
+import CustomerProfile from "./pages/customer/CustomerProfile";
+import CustomerLoyalty, { VoucherPage } from "./pages/customer/CustomerLoyalty";
 
 // Admin Pages
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminPromotionTier from "./pages/admin/AdminPromotionTier";
 import AdminServices from "./pages/admin/AdminServices";
-import AdminCustomers from "./pages/admin/AdminCustomers";
-import AdminBookings from "./pages/admin/AdminBookings"; // ← Trang Booking Admin
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminBookings from "./pages/admin/AdminBookings";
 
 // Staff Pages
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -31,17 +31,17 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* ================= PUBLIC ROUTES ================= */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<RegisterPage />} />
 
         {/* ================= CUSTOMER ROUTES ================= */}
         <Route element={<ProtectedRoute role="CUSTOMER" />}>
-          <Route path="/booking" element={<BookingPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/dashboard" element={<LoyaltyDashboard />} />
-          <Route path="/rewards" element={<LoyaltyDashboard />} />
+          <Route path="/dashboard" element={<CustomerDashboard />} />
+          <Route path="/booking" element={<CustomerBooking />} />
+          <Route path="/history" element={<CustomerHistory />} />
+          <Route path="/profile" element={<CustomerProfile />} />
+          <Route path="/rewards" element={<CustomerLoyalty />} />
           <Route path="/rewards/vouchers" element={<VoucherPage />} />
         </Route>
 
@@ -52,7 +52,7 @@ function App() {
             <Route path="/admin/bookings" element={<AdminBookings />} />
             <Route path="/admin/promotions" element={<AdminPromotionTier />} />
             <Route path="/admin/services" element={<AdminServices />} />
-            <Route path="/admin/customers" element={<AdminCustomers />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
           </Route>
         </Route>
 

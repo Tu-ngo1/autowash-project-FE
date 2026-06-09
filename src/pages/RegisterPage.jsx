@@ -6,15 +6,16 @@ import {
   sendRegistrationOtp,
   verifyRegistrationOtp,
 } from "../services/authApi";
+import { getFriendlyErrorMessage } from "../utils/errorMessage";
 
 const RESEND_SECONDS = 60;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
     otp: "",
@@ -50,7 +51,7 @@ export default function RegisterPage() {
 
   const validateEmail = () => {
     if (!normalizedEmail) return "Email không được để trống.";
-    if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
       return "Email không đúng định dạng.";
     }
     return "";
@@ -61,11 +62,6 @@ export default function RegisterPage() {
     if (!form.name.trim()) next.name = "Họ và tên không được để trống.";
     const emailError = validateEmail();
     if (emailError) next.email = emailError;
-    if (!form.phone.trim()) {
-      next.phone = "Số điện thoại không được để trống.";
-    } else if (!/^[0-9]{10}$/.test(form.phone.trim())) {
-      next.phone = "Số điện thoại phải bao gồm 10 chữ số.";
-    }
     if (!form.password) {
       next.password = "Mật khẩu không được để trống.";
     } else if (form.password.length < 6) {
@@ -97,12 +93,9 @@ export default function RegisterPage() {
       }
       setErrors((current) => ({ ...current, ...next }));
     }
-    return (
-      payload?.message ||
-      payload?.error ||
-      (typeof payload === "string" ? payload : "") ||
-      err?.message ||
-      "Thao tác thất bại, vui lòng thử lại."
+    return getFriendlyErrorMessage(
+      err,
+      "Thao tác chưa thực hiện được. Vui lòng thử lại sau.",
     );
   };
 
@@ -192,11 +185,10 @@ export default function RegisterPage() {
       await register({
         name: form.name,
         email: form.email,
-        phone: form.phone,
         password: form.password,
         otp: form.otp,
       });
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       setSubmitError(applyBackendErrors(err));
     } finally {
@@ -205,29 +197,71 @@ export default function RegisterPage() {
   };
 
   const inputClass =
-    "mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
+    "mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-950 outline-none shadow-inner shadow-cyan-950/[0.03] transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100";
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <main className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8">
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-600">
-              Đăng ký tài khoản
-            </p>
-            <h1 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">
-              Tạo tài khoản khách hàng
+    <div className="relative min-h-screen overflow-hidden bg-[#eefbff] px-4 py-6 text-slate-950 sm:px-6 lg:px-10">
+      <div className="pointer-events-none fixed inset-0">
+        <img
+          src="https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=2400&auto=format&fit=crop"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-24"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(3,24,44,0.56),rgba(12,112,151,0.28)_45%,rgba(239,253,255,0.96)_82%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.09)_1px,transparent_1px)] bg-[size:72px_72px]" />
+        <div className="absolute right-[-120px] top-[-80px] h-[520px] w-[520px] rounded-full bg-cyan-200/50 blur-3xl" />
+        <div className="wash-foam-drift absolute bottom-[-110px] left-[-120px] h-72 w-[78vw] rounded-[50%] bg-white/40 blur-3xl" />
+      </div>
+
+      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between rounded-[24px] border border-white/70 bg-white/72 px-4 py-3 shadow-[0_22px_70px_rgba(2,40,70,0.16)] backdrop-blur-2xl sm:px-6">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex items-center gap-3 text-left transition hover:-translate-y-0.5"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-cyan-200 shadow-lg shadow-cyan-900/10">
+            <span className="material-symbols-outlined text-[23px]">water_drop</span>
+          </span>
+          <span>
+            <span className="block text-xl font-black leading-none">autoWash</span>
+            <span className="block text-[10px] font-bold uppercase tracking-[0.26em] text-cyan-700">
+              clean mobility
+            </span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="rounded-full bg-white px-5 py-2.5 text-sm font-black text-cyan-800 shadow-sm ring-1 ring-cyan-100 transition hover:-translate-y-0.5 hover:ring-cyan-300"
+        >
+          Đăng nhập
+        </button>
+      </header>
+
+      <div className="relative z-10 mx-auto grid max-w-7xl gap-7 py-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:py-10">
+        <main className="relative overflow-hidden rounded-[30px] border border-white/90 bg-white/94 p-5 shadow-[0_30px_90px_rgba(2,55,88,0.18)] backdrop-blur-xl sm:p-8">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-200/55 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" />
+
+          <div className="relative mb-8 max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50/80 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+              <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_18px_rgba(34,211,238,0.85)]" />
+              Email OTP access
+            </div>
+            <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl">
+              Tạo tài khoản để đưa xe vào khoang rửa.
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Xác thực email bằng OTP trước khi hoàn tất đăng ký để bảo vệ tài
-              khoản và nhận thông báo đặt lịch.
+            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-700">
+              Xác thực email bằng OTP, sau đó dùng tài khoản này để đặt lịch,
+              xem trạng thái rửa xe và lưu lịch sử chăm sóc.
             </p>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="grid gap-5 sm:grid-cols-2">
+          <form className="relative space-y-6" onSubmit={handleSubmit}>
+            <div className="grid gap-5">
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">
+                <span className="text-sm font-black text-slate-900">
                   Họ và tên
                 </span>
                 <input
@@ -242,35 +276,18 @@ export default function RegisterPage() {
                   <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
                 )}
               </label>
-
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700">
-                  Số điện thoại
-                </span>
-                <input
-                  name="phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="tel"
-                />
-                {errors.phone && (
-                  <p className="mt-2 text-sm text-rose-600">{errors.phone}</p>
-                )}
-              </label>
             </div>
 
-            <section className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
+            <section className="rounded-[26px] border border-cyan-100 bg-cyan-50/88 p-4 shadow-inner shadow-white/70 sm:p-5">
               <div className="flex items-start gap-3">
-                <span className="mt-1 rounded-xl bg-white p-2 text-sky-700 ring-1 ring-sky-100">
+                <span className="mt-1 rounded-2xl bg-white p-2.5 text-cyan-700 ring-1 ring-cyan-100">
                   <Mail size={20} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-bold text-slate-900">
+                  <h2 className="text-base font-black text-slate-950">
                     Xác thực email
                   </h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
                     Nhập email rồi nhấn nhận mã OTP. Mã chỉ dùng một lần và sẽ
                     được gửi qua email từ hệ thống.
                   </p>
@@ -279,7 +296,7 @@ export default function RegisterPage() {
 
               <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">
+                  <span className="text-sm font-black text-slate-900">
                     Email
                   </span>
                   <input
@@ -300,7 +317,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={handleSendOtp}
                   disabled={sendingOtp || cooldown > 0 || registering}
-                  className="mt-7 inline-flex h-[46px] items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_34px_rgba(8,47,73,0.18)] transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {sendingOtp ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -315,7 +332,7 @@ export default function RegisterPage() {
 
               <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <label className="block">
-                  <span className="text-sm font-semibold text-slate-700">
+                  <span className="text-sm font-black text-slate-900">
                     Mã OTP
                   </span>
                   <input
@@ -338,7 +355,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={handleVerifyOtp}
                   disabled={!otpSent || verifyingOtp || otpVerified || registering}
-                  className="mt-7 inline-flex h-[46px] items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white px-4 text-sm font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                  className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-800 transition hover:-translate-y-0.5 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                 >
                   {verifyingOtp ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -352,7 +369,7 @@ export default function RegisterPage() {
               </div>
 
               {otpMessage && (
-                <div className="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-sky-800 ring-1 ring-sky-100">
+                <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cyan-800 ring-1 ring-cyan-100">
                   {otpMessage}
                 </div>
               )}
@@ -360,7 +377,7 @@ export default function RegisterPage() {
 
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">
+                <span className="text-sm font-black text-slate-900">
                   Mật khẩu
                 </span>
                 <input
@@ -379,7 +396,7 @@ export default function RegisterPage() {
               </label>
 
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">
+                <span className="text-sm font-black text-slate-900">
                   Xác nhận mật khẩu
                 </span>
                 <input
@@ -399,7 +416,7 @@ export default function RegisterPage() {
             </div>
 
             {submitError && (
-              <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100">
+              <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-black text-rose-700 shadow-sm">
                 {submitError}
               </div>
             )}
@@ -407,19 +424,20 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={registering}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
+              <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
               {registering && <Loader2 size={18} className="animate-spin" />}
-              {registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
+              <span className="relative">{registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}</span>
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-600">
+          <p className="relative mt-6 text-center text-sm font-bold text-slate-700">
             Đã có tài khoản?{" "}
             <button
               type="button"
-              onClick={() => navigate("/login")}
-              className="font-semibold text-sky-700 hover:underline"
+              onClick={() => navigate("/")}
+              className="font-black text-cyan-800 hover:underline"
             >
               Đăng nhập
             </button>
@@ -427,6 +445,28 @@ export default function RegisterPage() {
         </main>
 
         <aside className="space-y-4">
+          <div className="relative overflow-hidden rounded-[30px] border border-white/60 bg-slate-950/88 p-6 text-white shadow-[0_30px_90px_rgba(2,20,38,0.22)] backdrop-blur-2xl">
+            <img
+              src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=1200&auto=format&fit=crop"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-24"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-slate-950/68 to-slate-950/92" />
+            <div className="wash-scan pointer-events-none absolute left-8 right-8 top-10 h-14 rounded-full bg-gradient-to-b from-white/55 via-cyan-200/45 to-transparent blur-xl" />
+            <div className="relative">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
+                Wash account
+              </p>
+              <h2 className="mt-4 text-3xl font-black leading-tight">
+                Một email cho toàn bộ hành trình rửa xe.
+              </h2>
+              <p className="mt-4 text-sm font-semibold leading-7 text-cyan-50/78">
+                Sau khi xác thực, khách hàng có thể đặt lịch, xem lịch sử và nhận
+                ưu đãi theo tài khoản.
+              </p>
+            </div>
+          </div>
+
           {[
             ["1", "Nhập email", "Dùng đúng email bạn muốn nhận thông báo."],
             ["2", "Nhận OTP", "Kiểm tra hộp thư đến hoặc thư rác nếu chưa thấy mã."],
@@ -434,15 +474,15 @@ export default function RegisterPage() {
           ].map(([step, title, description]) => (
             <div
               key={step}
-              className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+              className="rounded-[24px] border border-white/90 bg-white/92 p-5 shadow-sm backdrop-blur-xl ring-1 ring-cyan-100/60 transition hover:-translate-y-1 hover:bg-white"
             >
               <div className="flex items-start gap-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-100 text-sm font-black text-cyan-800 ring-1 ring-cyan-200">
                   {step}
                 </span>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">{title}</h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                  <h2 className="text-base font-black text-slate-950">{title}</h2>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
                     {description}
                   </p>
                 </div>
@@ -450,12 +490,12 @@ export default function RegisterPage() {
             </div>
           ))}
 
-          <div className="rounded-2xl bg-sky-600 p-5 text-white shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-100">
+          <div className="rounded-[24px] border border-cyan-200 bg-cyan-300 p-5 text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.18)]">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-800">
               Bảo mật
             </p>
-            <h2 className="mt-3 text-xl font-bold">OTP giúp chặn đăng ký giả</h2>
-            <p className="mt-2 text-sm leading-6 text-sky-50">
+            <h2 className="mt-3 text-xl font-black">OTP giúp chặn đăng ký giả</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-cyan-950/70">
               Mỗi email cần được xác nhận trước khi tạo tài khoản khách hàng.
             </p>
           </div>

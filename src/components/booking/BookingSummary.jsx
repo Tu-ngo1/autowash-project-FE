@@ -26,7 +26,7 @@ export default function BookingSummary({
           <img
             alt="Car wash visual"
             className="h-full w-full object-cover"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuApBaoOniRyUxecZixfWiqlJEGutYjsF-aGNhWAjH-CBhMvE-s8NYboFKV74A6qV472gnBZ2YrzJH5X76FsrIv-JYMq-OvdKfWWNeRL5CySiAZfqnazqcBZTTozuxWsk2X3YGXUJF4FVYJLUMjma51gTiKdk2LQ4FfOHwwVZKj41OlCaAPzv3CZhLd0LSrE1Bzgd18r4KKj2B5OWTj9xnW1jVN9kNZ7hYbvgLnHW4HRzXkHis6k02hlVaa4eGzPyAA2p3YZHM1OYWo"
+            src="https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=1000&auto=format&fit=crop"
           />
         </div>
 
@@ -34,7 +34,7 @@ export default function BookingSummary({
           <div className="flex items-center justify-between border-b border-[#bfc7d5]/30 pb-2">
             <span className="text-[#3f4753]">Loại xe:</span>
             <span className="font-bold">
-              {selectedVehicle?.type || "Chưa chọn"}
+              {selectedVehicle?.type || selectedVehicle?.label || selectedVehicle?.name || "Chưa chọn"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4 border-b border-[#bfc7d5]/30 pb-2">

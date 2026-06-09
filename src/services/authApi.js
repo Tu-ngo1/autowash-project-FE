@@ -1,13 +1,12 @@
 import api, { apiPath } from "./apiClient";
 
-const LOCAL_USERS_KEY = "autowash_local_users";
+const unwrap = (payload) => payload?.data ?? payload;
 
-const TEST_ACCOUNTS = [
+export const TEST_ACCOUNTS = [
   {
     id: "test-admin",
     name: "Admin Test",
     email: "admin@autowash.com",
-    phone: "0900000001",
     password: "123456",
     role: "ADMIN",
     tier: "Admin",
@@ -16,7 +15,6 @@ const TEST_ACCOUNTS = [
     id: "test-staff",
     name: "Staff Test",
     email: "staff@autowash.com",
-    phone: "0900000002",
     password: "123456",
     role: "STAFF",
     tier: "Staff",
@@ -25,14 +23,12 @@ const TEST_ACCOUNTS = [
     id: "test-customer",
     name: "Customer Test",
     email: "customer@autowash.com",
-    phone: "0900000003",
     password: "123456",
     role: "CUSTOMER",
     tier: "Member",
+    points: 1200,
   },
 ];
-
-const unwrap = (payload) => payload?.data ?? payload;
 
 const normalizeRole = (role) => {
   const normalized = String(role || "CUSTOMER").toUpperCase();
@@ -78,182 +74,64 @@ const normalizeAuthResponse = (payload) => {
   };
 };
 
-const getLocalUsers = () => {
-  try {
-    return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const setLocalUsers = (users) => {
-  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
-};
-
-const toAuthSession = (user) => ({
-  token: `local-${user.role.toLowerCase()}-${Date.now()}`,
+const toTestSession = (user) => ({
+  token: `test-${user.role.toLowerCase()}-${Date.now()}`,
   user: {
     id: user.id,
     name: user.name,
     email: user.email,
-    phone: user.phone,
     role: user.role,
-    tier: user.tier || (user.role === "ADMIN" ? "Admin" : "Member"),
+    tier: user.tier,
     points: user.points || 0,
-    vehicles: user.vehicles || [],
-    walletBalance: user.walletBalance || 0,
+    vehicles: [],
   },
 });
 
-const findLocalAccount = (account, password) => {
-  const normalizedAccount = account.trim().toLowerCase();
-  return [...TEST_ACCOUNTS, ...getLocalUsers()].find(
-    (user) =>
-      user.password === password &&
-      [user.email, user.phone, user.account, user.username]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase() === normalizedAccount),
-  );
-};
-
-const shouldUseLocalAuth = (err) => {
-  const status = err?.response?.status;
-  return !status || status === 404 || status >= 500;
-};
-
 export async function login({ account, password }) {
-  const trimmedAccount = account.trim();
-  try {
-    const response = await api.post(apiPath("/auth/login"), {
-      account: trimmedAccount,
-      username: trimmedAccount,
-      email: trimmedAccount,
-      phone: trimmedAccount,
-      password,
-    });
-    return normalizeAuthResponse(response.data);
-  } catch (err) {
-    if (!shouldUseLocalAuth(err)) throw err;
-    const localUser = findLocalAccount(trimmedAccount, password);
-    if (!localUser) {
-      throw new Error("Tài khoản hoặc mật khẩu không đúng.");
-    }
-    return toAuthSession(localUser);
-  }
-}
+  const email = account.trim();
+  const testLoginEnabled =
+    import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
+  const testAccount = testLoginEnabled
+    ? TEST_ACCOUNTS.find(
+        (user) =>
+          user.email.toLowerCase() === email.toLowerCase() &&
+          user.password === password,
+      )
+    : null;
 
-export async function register({ name, email, phone, password, otp }) {
-  const normalized = {
-    id: `local-customer-${Date.now()}`,
-    name: name.trim(),
-    email: email.trim(),
-    phone: phone.trim(),
+  if (testAccount) {
+    return toTestSession(testAccount);
+  }
+
+  const response = await api.post(apiPath("/auth/login"), {
+    email,
     password,
-    role: "CUSTOMER",
-    tier: "Member",
-    points: 0,
-    vehicles: [],
-    walletBalance: 0,
-  };
+  });
 
-  try {
-    const response = await api.post(apiPath("/auth/register"), {
-      name: normalized.name,
-      fullName: normalized.name,
-      email: normalized.email,
-      phone: normalized.phone,
-      phoneNumber: normalized.phone,
-      password: normalized.password,
-      otp: otp?.trim(),
-      code: otp?.trim(),
-      role: normalized.role,
-    });
-    return response.data;
-  } catch (err) {
-    if (!shouldUseLocalAuth(err)) throw err;
-    const users = getLocalUsers();
-    const duplicated = [...TEST_ACCOUNTS, ...users].some(
-      (user) => user.email === normalized.email || user.phone === normalized.phone,
-    );
-    if (duplicated) {
-      throw new Error("Email hoặc số điện thoại đã tồn tại.");
-    }
-    setLocalUsers([...users, normalized]);
-    return { message: "Đăng ký thành công.", user: normalized };
-  }
+  return normalizeAuthResponse(response.data);
 }
 
-export async function sendRegistrationOtp(email) {
-  const normalizedEmail = email.trim();
-  const payload = {
-    email: normalizedEmail,
+export async function register({ name, email, password, otp }) {
+  const response = await api.post(apiPath("/auth/register"), {
+    name: name.trim(),
+    fullName: name.trim(),
+    email: email.trim(),
+    password,
+    otp: otp?.trim(),
+  });
+
+  return response.data;
+}
+
+export const sendRegistrationOtp = (email) =>
+  api.post(apiPath("/auth/register/send-otp"), {
+    email: email.trim(),
     purpose: "REGISTER",
-    type: "REGISTER",
-  };
+  }).then((response) => response.data);
 
-  const endpoints = [
-    "/auth/send-otp",
-    "/auth/register/send-otp",
-    "/auth/otp/send",
-  ];
-
-  let lastError;
-  for (const endpoint of endpoints) {
-    try {
-      const response = await api.post(apiPath(endpoint), payload);
-      return response.data;
-    } catch (err) {
-      lastError = err;
-      if (err?.response?.status && err.response.status !== 404) throw err;
-    }
-  }
-
-  if (!shouldUseLocalAuth(lastError)) throw lastError;
-  sessionStorage.setItem(`autowash_register_otp:${normalizedEmail}`, "123456");
-  return {
-    message: `Mã OTP đã được gửi tới ${normalizedEmail}. Vui lòng kiểm tra hộp thư.`,
-  };
-}
-
-export async function verifyRegistrationOtp(email, otp) {
-  const normalizedEmail = email.trim();
-  const normalizedOtp = otp.trim();
-  const payload = {
-    email: normalizedEmail,
-    otp: normalizedOtp,
-    code: normalizedOtp,
+export const verifyRegistrationOtp = (email, otp) =>
+  api.post(apiPath("/auth/register/verify-otp"), {
+    email: email.trim(),
+    otp: otp.trim(),
     purpose: "REGISTER",
-    type: "REGISTER",
-  };
-
-  const endpoints = [
-    "/auth/verify-otp",
-    "/auth/register/verify-otp",
-    "/auth/otp/verify",
-  ];
-
-  let lastError;
-  for (const endpoint of endpoints) {
-    try {
-      const response = await api.post(apiPath(endpoint), payload);
-      return response.data;
-    } catch (err) {
-      lastError = err;
-      if (err?.response?.status && err.response.status !== 404) throw err;
-    }
-  }
-
-  if (!shouldUseLocalAuth(lastError)) throw lastError;
-  const expected = sessionStorage.getItem(
-    `autowash_register_otp:${normalizedEmail}`,
-  );
-  if (expected !== normalizedOtp) {
-    throw new Error("Mã OTP không đúng hoặc đã hết hạn.");
-  }
-  return { message: "Xác thực OTP thành công." };
-}
-
-export const testAccounts = TEST_ACCOUNTS.map(({ password, ...user }) => ({
-  ...user,
-  password,
-}));
+  }).then((response) => response.data);

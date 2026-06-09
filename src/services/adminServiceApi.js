@@ -1,6 +1,5 @@
 import api, { apiPath } from "./apiClient";
 
-export const getServices = () => api.get(apiPath("/services"));
 export const getAdminServices = () => api.get(apiPath("/admin/services"));
 export const createService = (data) =>
   api.post(apiPath("/admin/services"), data);
@@ -12,7 +11,6 @@ export const updateServiceStatus = (id, status) =>
   api.patch(apiPath(`/admin/services/${id}/status`), { status });
 
 export default {
-  getServices,
   getAdminServices,
   createService,
   updateService,

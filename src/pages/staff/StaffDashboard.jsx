@@ -3,13 +3,14 @@ import StaffNavbar from "../../components/StaffNavbar";
 import {
   confirmPendingAppointment,
   getPendingAppointments,
-} from "../../services/staffApi";
+} from "../../services/staffDashboardApi";
+import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_STYLES = {
-  Platinum: "border-[#8aebff] text-[#8aebff] bg-[#8aebff]/10",
+  Platinum: "border-[#6ff6df] text-[#6ff6df] bg-[#6ff6df]/10",
   Gold: "border-[#4edea3] text-[#4edea3] bg-[#4edea3]/10",
-  Silver: "border-[#3c494c] text-[#bbc9cd] bg-[#2e3447]",
-  Member: "border-[#3c494c] text-[#bbc9cd] bg-[#2e3447]",
+  Silver: "border-[#4f7883] text-[#b8d8de] bg-[#123746]",
+  Member: "border-[#4f7883] text-[#b8d8de] bg-[#123746]",
 };
 
 function PendingCard({ item, onConfirm, disabled }) {
@@ -17,12 +18,12 @@ function PendingCard({ item, onConfirm, disabled }) {
 
   if (item.scanned) {
     return (
-      <div className="border border-[#8aebff] bg-[#0c1324] p-5 rounded relative flex flex-col justify-between h-[160px]">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#8aebff] shadow-[0_0_15px_#8aebff] animate-[scan_2s_infinite_linear]" />
+      <div className="staff-panel staff-scanline rounded-3xl p-5 relative flex flex-col justify-between min-h-[168px]">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#6ff6df] shadow-[0_0_15px_#6ff6df] animate-[scan_2s_infinite_linear]" />
         <div className="flex justify-between items-start">
           <div>
             <div
-              className="text-[12px] text-[#8aebff] font-bold tracking-widest uppercase mb-1"
+              className="text-[12px] text-[#6ff6df] font-bold tracking-widest uppercase mb-1"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               [ Đang quét AI... ]
@@ -41,13 +42,13 @@ function PendingCard({ item, onConfirm, disabled }) {
             {item.tier}
           </span>
         </div>
-        <div className="flex justify-between items-center border-t border-[#1e293b] pt-3 text-[13px] text-[#bbc9cd]">
+        <div className="flex justify-between items-center border-t border-[#244653] pt-3 text-[13px] text-[#b8d8de]">
           <span>Lịch hẹn: {item.time}</span>
           <button
             type="button"
             disabled={disabled}
             onClick={() => onConfirm(item.id || item._id)}
-            className="text-[#8aebff] font-bold flex items-center gap-1 hover:underline disabled:opacity-50"
+            className="text-[#6ff6df] font-bold flex items-center gap-1 hover:underline disabled:opacity-50"
           >
             Tiếp nhận{" "}
             <span className="material-symbols-outlined text-[16px]">
@@ -60,17 +61,17 @@ function PendingCard({ item, onConfirm, disabled }) {
   }
 
   return (
-    <div className="border border-[#23293c] bg-[#0c1324] p-5 rounded flex flex-col justify-between h-[160px] opacity-70 hover:opacity-100 transition-opacity">
+    <div className="staff-panel rounded-3xl p-5 flex flex-col justify-between min-h-[168px] opacity-80 hover:opacity-100 transition">
       <div className="flex justify-between items-start">
         <div>
           <div
-            className="text-[12px] text-[#bbc9cd] font-bold tracking-widest uppercase mb-1"
+            className="text-[12px] text-[#b8d8de] font-bold tracking-widest uppercase mb-1"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             Chờ Check-in
           </div>
           <div
-            className="text-[24px] font-bold text-[#dce1fb] tracking-wider"
+            className="text-[24px] font-bold text-[#ecfeff] tracking-wider"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             {item.plate}
@@ -83,16 +84,120 @@ function PendingCard({ item, onConfirm, disabled }) {
           {item.tier}
         </span>
       </div>
-      <div className="flex justify-between items-center border-t border-[#1e293b] pt-3 text-[13px] text-[#bbc9cd]">
+      <div className="flex justify-between items-center border-t border-[#244653] pt-3 text-[13px] text-[#b8d8de]">
         <span>Lịch hẹn: {item.time}</span>
         <button
           type="button"
           disabled={disabled}
           onClick={() => onConfirm(item.id || item._id)}
-          className="text-[#bbc9cd] hover:text-white font-medium flex items-center gap-1 disabled:opacity-50"
+          className="text-[#b8d8de] hover:text-white font-medium flex items-center gap-1 disabled:opacity-50"
         >
           Quét tay
         </button>
+      </div>
+    </div>
+  );
+}
+
+function getAppointmentValue(item, keys, fallback = "Chưa có dữ liệu") {
+  const value = keys
+    .map((key) => item?.[key])
+    .find((entry) => entry !== undefined && entry !== null && entry !== "");
+
+  if (typeof value === "object") {
+    return value.name || value.fullName || value.title || fallback;
+  }
+
+  return value || fallback;
+}
+
+function AppointmentSnapshot({ appointment }) {
+  if (!appointment) {
+    return (
+      <div className="rounded-3xl border border-dashed border-teal-100/30 bg-[#123746]/88 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/8 text-[#6ff6df]">
+            <span className="material-symbols-outlined">qr_code_scanner</span>
+          </div>
+          <div>
+            <p
+              className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#6ff6df]"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              Thông tin đặt lịch
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const fields = [
+    {
+      label: "Khách hàng",
+      value: getAppointmentValue(appointment, [
+        "customerName",
+        "fullName",
+        "name",
+        "customer",
+        "user",
+      ]),
+    },
+    {
+      label: "Số điện thoại",
+      value: getAppointmentValue(appointment, ["phone", "customerPhone", "phoneNumber"]),
+    },
+    {
+      label: "Dịch vụ",
+      value: getAppointmentValue(appointment, [
+        "serviceName",
+        "service",
+        "packageName",
+        "washPackage",
+      ]),
+    },
+    {
+      label: "Giờ hẹn",
+      value: getAppointmentValue(appointment, ["time", "appointmentTime", "slot", "bookingTime"]),
+    },
+  ];
+
+  return (
+    <div className="rounded-3xl border border-teal-100/30 bg-[#123746]/90 p-5 shadow-[inset_0_1px_0_rgba(236,254,255,0.1)]">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p
+            className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#6ff6df]"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Thông tin đặt lịch
+          </p>
+          <p
+            className="mt-1 text-2xl font-black tracking-wider text-[#ecfeff]"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            {appointment.plate || "Chưa có biển số"}
+          </p>
+        </div>
+        <span className="rounded-2xl border border-[#6ff6df]/30 bg-[#6ff6df]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#e5fbff]">
+          {appointment.tier || appointment.status || "Đã quét"}
+        </span>
+      </div>
+
+      <div className="grid gap-3">
+        {fields.map((field) => (
+          <div
+            key={field.label}
+            className="flex items-center justify-between gap-4 rounded-2xl bg-white/[0.075] px-4 py-3"
+          >
+            <span className="text-[12px] font-bold text-[#b9f5ef]">
+              {field.label}
+            </span>
+            <span className="text-right text-sm font-bold text-[#ecfeff]">
+              {field.value}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -123,7 +228,10 @@ export default function StaffDashboard() {
       }
     } catch (err) {
       setError(
-        err?.response?.data?.message || "Không thể tải danh sách lịch hẹn chờ.",
+        getFriendlyErrorMessage(
+          err,
+          "Không thể tải danh sách lịch hẹn chờ. Vui lòng thử lại sau.",
+        ),
       );
     } finally {
       setLoading(false);
@@ -185,7 +293,10 @@ export default function StaffDashboard() {
       fetchPendingAppointments();
     } catch (err) {
       alert(
-        err?.response?.data?.message || "Gặp lỗi trong quá trình tiếp nhận xe.",
+        getFriendlyErrorMessage(
+          err,
+          "Gặp lỗi trong quá trình tiếp nhận xe. Vui lòng thử lại.",
+        ),
       );
     } finally {
       setSubmitLoading(false);
@@ -193,18 +304,18 @@ export default function StaffDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d1f] text-white lg:pl-64">
+    <div className="staff-motion-root min-h-screen text-white lg:pl-64">
       <StaffNavbar />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="staff-shell flex-1 flex flex-col min-w-0">
         <main className="mx-auto w-full max-w-[1600px] p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
-          <header className="mb-8 border-b border-[#23293c] pb-5">
+          <header className="staff-reveal mb-8 border-b border-cyan-100/15 pb-5">
             <h1
-              className="text-[28px] font-bold text-[#dce1fb] tracking-wide"
+              className="text-[28px] font-bold text-[#ecfeff] tracking-wide"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               MÀN HÌNH TIẾP NHẬN XE
             </h1>
-            <p className="text-[#bbc9cd] text-[14px] mt-1">
+            <p className="text-[#b8d8de] text-[14px] mt-2 max-w-2xl">
               Hệ thống nhận diện biển số tự động và xếp hàng điều phối dịch vụ.
             </p>
           </header>
@@ -215,30 +326,34 @@ export default function StaffDashboard() {
             </div>
           )}
 
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-start">
+            <div className="order-2 lg:order-1">
               <h2
-                className="text-[18px] font-semibold text-[#bbc9cd] mb-4 flex items-center gap-2"
+                className="text-[18px] font-semibold text-[#b8d8de] mb-4 flex items-center gap-2"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               >
-                <span className="w-2 h-2 rounded-full bg-[#8aebff] animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-[#6ff6df] animate-ping" />
                 Lịch Hẹn Chờ Đến Hôm Nay ({pendingList.length})
               </h2>
 
               {loading ? (
-                <div className="border border-dashed border-[#3c494c] p-12 text-center rounded text-[#8aebff] text-[14px] italic animate-pulse">
+                <div className="staff-panel rounded-3xl border-dashed p-12 text-center text-[#6ff6df] text-[14px] italic animate-pulse">
                   Đang tải danh sách phương tiện chờ...
                 </div>
               ) : pendingList.length === 0 ? (
-                <div className="border border-dashed border-[#3c494c] p-12 text-center rounded text-[#bbc9cd] text-[14px]">
+                <div className="staff-panel rounded-3xl border-dashed p-12 text-center text-[#b8d8de] text-[14px]">
                   Không có xe nào trong danh sách chờ phục vụ hoặc chưa quét
                   phương tiện.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pendingList.map((item) => (
-                    <PendingCard
+                  {pendingList.map((item, index) => (
+                    <div
                       key={item.id || item._id}
+                      className="staff-reveal"
+                      style={{ animationDelay: `${index * 70}ms` }}
+                    >
+                    <PendingCard
                       item={item}
                       disabled={submitLoading}
                       onConfirm={(id) => {
@@ -248,58 +363,60 @@ export default function StaffDashboard() {
                         setScannedResult(target);
                       }}
                     />
+                    </div>
                   ))}
                 </div>
               )}
             </div>
 
             {/* Khung quét Camera bên phải */}
-            <div className="bg-[#0c1324] border border-[#23293c] p-6 rounded sticky top-24">
+            <div className="staff-panel staff-reveal order-1 rounded-3xl p-5 lg:sticky lg:top-6 lg:order-2" style={{ animationDelay: "80ms" }}>
               <h3
-                className="text-[16px] font-bold text-[#8aebff] tracking-widest uppercase mb-4"
+                className="text-[16px] font-bold text-[#6ff6df] tracking-widest uppercase mb-4"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               >
                 [ CAMERA SCANNER ]
               </h3>
               {scannedResult ? (
-                <div className="space-y-6 animate-fadeIn">
-                  <div className="border border-[#3c494c] bg-[#070d1f] p-6 rounded-lg text-center relative overflow-hidden">
-                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#8aebff] shadow-[0_0_15px_#8aebff] animate-[scan_2s_infinite_linear]" />
-                    <div className="text-[12px] text-[#bbc9cd] mb-1">
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="staff-scanline border border-[#6ff6df]/30 bg-[#123746]/90 p-5 rounded-3xl text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#6ff6df] shadow-[0_0_15px_#6ff6df] animate-[scan_2s_infinite_linear]" />
+                    <div className="text-[12px] text-[#b8d8de] mb-1">
                       BIỂN SỐ NHẬN DIỆN TRỰC TIẾP
                     </div>
                     <div
-                      className="text-[32px] font-bold tracking-widest text-[#8aebff]"
+                      className="text-[32px] font-bold tracking-widest text-[#6ff6df]"
                       style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     >
                       {scannedResult.plate}
                     </div>
                   </div>
+                  <AppointmentSnapshot appointment={scannedResult} />
                   <button
                     type="button"
                     disabled={submitLoading}
                     onClick={() =>
                       handleConfirm(scannedResult.id || scannedResult._id)
                     }
-                    className="w-full bg-[#8aebff] text-[#00363e] font-bold text-[20px] py-4 rounded flex items-center justify-center gap-3 hover:bg-[#a2eeff] transition-all disabled:bg-slate-700 disabled:text-slate-400"
+                    className="w-full bg-[#6ff6df] text-[#06343a] font-bold text-[18px] py-3.5 rounded-2xl flex items-center justify-center gap-3 hover:bg-[#9fffee] transition-all disabled:bg-slate-700 disabled:text-slate-400"
                     style={{
                       boxShadow: submitLoading
                         ? "none"
-                        : "0 0 20px rgba(138,235,255,0.3)",
+                        : "0 0 20px rgba(94,234,212,0.3)",
                       fontFamily: "'JetBrains Mono', monospace",
                     }}
                   >
                     <span className="material-symbols-outlined">login</span>
                     {submitLoading ? "ĐANG TIẾP NHẬN..." : "Xác nhận Đã Đến"}
                   </button>
-                  <p className="text-[13px] text-[#bbc9cd] italic text-center max-w-lg mx-auto">
+                  <p className="text-[13px] font-medium text-[#e5fbff] text-center max-w-lg mx-auto">
                     Lưu ý: Bấm nút này sẽ chuyển xe sang hàng đợi ưu tiên và
                     cập nhật trạng thái theo API hiện có.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="relative h-64 overflow-hidden border border-dashed border-[#23293c] rounded bg-[#070d1f]">
+                <div className="space-y-3.5">
+                  <div className="staff-scanline relative h-[300px] overflow-hidden border border-dashed border-teal-100/35 rounded-3xl bg-[#123746]/90 shadow-[inset_0_0_0_1px_rgba(111,246,223,0.08),0_18px_44px_rgba(3,30,43,0.22)] lg:h-[320px]">
                     {cameraActive ? (
                       <video
                         ref={videoRef}
@@ -309,17 +426,17 @@ export default function StaffDashboard() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="h-full flex flex-col items-center justify-center text-[#bbc9cd] text-center p-4">
-                        <span className="material-symbols-outlined text-[40px] mb-2 text-[#3c494c] animate-pulse">
+                      <div className="h-full flex flex-col items-center justify-center text-[#e5fbff] text-center p-4">
+                        <span className="material-symbols-outlined text-[40px] mb-2 text-[#7ddbd1] animate-pulse">
                           center_focus_weak
                         </span>
-                        <p className="text-[13px]">
+                        <p className="text-[13px] font-semibold leading-relaxed">
                           Camera đang tắt. Bật camera để kiểm tra khung hình.
                         </p>
                       </div>
                     )}
-                    <div className="pointer-events-none absolute inset-x-6 top-1/2 h-px bg-[#8aebff]/70 shadow-[0_0_14px_rgba(138,235,255,0.8)]" />
-                    <div className="pointer-events-none absolute inset-6 border border-[#8aebff]/25 rounded" />
+                    <div className="pointer-events-none absolute inset-x-6 top-1/2 h-px bg-[#6ff6df]/70 shadow-[0_0_14px_rgba(94,234,212,0.8)]" />
+                    <div className="pointer-events-none absolute inset-6 border border-[#6ff6df]/25 rounded" />
                   </div>
 
                   {cameraError && (
@@ -331,10 +448,10 @@ export default function StaffDashboard() {
                   <button
                     type="button"
                     onClick={cameraActive ? stopCamera : startCamera}
-                    className={`w-full font-bold text-[14px] py-3 rounded flex items-center justify-center gap-2 transition-all ${
+                    className={`w-full font-bold text-[14px] py-3 rounded-2xl flex items-center justify-center gap-2 transition-all ${
                       cameraActive
-                        ? "bg-[#23293c] text-[#dce1fb] hover:bg-[#2f3852]"
-                        : "bg-[#8aebff] text-[#00363e] hover:bg-[#a2eeff]"
+                        ? "bg-[#244653] text-[#ecfeff] hover:bg-[#315d6c]"
+                        : "bg-[#6ff6df] text-[#06343a] hover:bg-[#9fffee]"
                     }`}
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   >
@@ -344,10 +461,7 @@ export default function StaffDashboard() {
                     {cameraActive ? "TẮT CAMERA" : "BẬT CAMERA LAPTOP"}
                   </button>
 
-                  <p className="text-[12px] text-[#bbc9cd] text-center leading-relaxed">
-                    Camera chỉ dùng để xem trực tiếp trên trình duyệt. Dữ liệu
-                    tiếp nhận vẫn lấy theo API hiện có.
-                  </p>
+                  <AppointmentSnapshot appointment={null} />
                 </div>
               )}
             </div>
