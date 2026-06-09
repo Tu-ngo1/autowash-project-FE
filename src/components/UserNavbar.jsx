@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { getUserRole, clearAuth } from "../utils/auth";
+import { clearAuth } from "../utils/auth";
 
 const CUSTOMER_LINKS = [
-  { label: "Home", to: "/" },
+  { label: "Home", to: "/dashboard" },
   { label: "Booking", to: "/booking" },
   { label: "History", to: "/history" },
   { label: "Profile", to: "/profile" },
@@ -11,35 +11,45 @@ const CUSTOMER_LINKS = [
 
 export default function UserNavbar({ active }) {
   const navigate = useNavigate();
-  const role = getUserRole();
-  const links = role === "ADMIN" ? [] : CUSTOMER_LINKS;
 
   const handleLogout = () => {
     clearAuth();
-    navigate("/login");
+    navigate("/");
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-[#bfc7d5]/30 bg-white/80 font-body-md shadow-sm backdrop-blur-md">
-      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:grid lg:h-16 lg:grid-cols-[1fr_auto_1fr] lg:px-10 lg:py-0 xl:px-14">
+    <nav className="fixed left-1/2 top-5 z-50 w-[calc(100%-24px)] max-w-[1520px] -translate-x-1/2 font-body-md md:w-[82vw]">
+      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-3 rounded-[24px] border border-white/75 bg-white/72 px-4 py-3 shadow-[0_22px_70px_rgba(2,40,70,0.18)] backdrop-blur-2xl lg:grid lg:h-[76px] lg:grid-cols-[1fr_auto_1fr] lg:px-6 lg:py-0">
         <button
           type="button"
-          onClick={() => navigate(role === "ADMIN" ? "/admin/dashboard" : "/")}
-          className="shrink-0 justify-self-start text-xl font-bold leading-none text-[#0061a5] md:text-2xl"
+          onClick={() => navigate("/dashboard")}
+          className="flex shrink-0 items-center gap-3 justify-self-start text-left"
         >
-          autoWash
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-cyan-200">
+            <span className="material-symbols-outlined text-[23px]">
+              local_car_wash
+            </span>
+          </span>
+          <span>
+            <span className="block text-xl font-black leading-none text-slate-950">
+              autoWash
+            </span>
+            <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-cyan-700">
+              wash system
+            </span>
+          </span>
         </button>
 
-        <div className="hidden min-w-0 items-center justify-center gap-8 lg:flex">
-          {links.map((item) => (
+        <div className="hidden min-w-0 items-center justify-center gap-2 rounded-2xl bg-slate-950/5 p-1 lg:flex">
+          {CUSTOMER_LINKS.map((item) => (
             <button
               key={item.to}
               type="button"
               onClick={() => navigate(item.to)}
-              className={`h-10 whitespace-nowrap border-b-2 px-1 text-center text-base leading-10 transition-colors ${
+              className={`h-10 whitespace-nowrap rounded-xl px-4 text-center text-sm leading-10 transition-all ${
                 active === item.label
-                  ? "border-[#0061a5] font-bold text-[#0061a5]"
-                  : "border-transparent font-normal text-[#3f4753] hover:text-[#0061a5]"
+                  ? "bg-white font-black text-[#0061a5] shadow-sm"
+                  : "font-black text-[#3f4753] hover:bg-white/70 hover:text-[#0061a5]"
               }`}
             >
               {item.label}
@@ -51,14 +61,14 @@ export default function UserNavbar({ active }) {
           <button
             type="button"
             onClick={() => navigate("/booking")}
-            className="whitespace-nowrap rounded-full bg-[#0d99ff] px-3 py-2 text-xs font-bold text-[#002f55] transition-all hover:shadow-lg active:scale-95 md:px-6"
+            className="whitespace-nowrap rounded-xl bg-[#0d99ff] px-3 py-2 text-xs font-black text-[#002f55] transition-all hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-lg active:scale-95 md:px-5 md:py-3"
           >
             Đặt lịch ngay
           </button>
           <button
             type="button"
             onClick={handleLogout}
-            className="whitespace-nowrap text-xs font-bold text-[#3f4753] transition-colors hover:text-red-600"
+            className="whitespace-nowrap rounded-xl bg-white px-3 py-2 text-xs font-black text-[#3f4753] shadow-sm transition-colors hover:text-red-600 md:px-4 md:py-3"
           >
             Đăng xuất
           </button>

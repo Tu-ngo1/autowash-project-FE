@@ -1,42 +1,44 @@
 const STATUS_STYLES = {
-  COMPLETED: "border-secondary text-secondary bg-secondary/5",
+  COMPLETED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
   PENDING:
-    "border-outline-variant text-on-surface-variant bg-surface-container-highest",
-  "IN PROGRESS": "border-primary text-primary bg-primary/5",
-  WASHING: "border-primary text-primary bg-primary/5",
-  CANCELLED: "border-error text-error bg-error/5",
+    "border-zinc-700 text-zinc-400 bg-zinc-900",
+  "IN PROGRESS": "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  WASHING: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  CANCELLED: "border-red-400/50 text-red-300 bg-red-400/10",
 };
 
 const PAYMENT_STYLES = {
-  PAYOS: "border-primary text-primary bg-primary/5",
-  CASH: "border-outline text-outline bg-surface-container-highest",
-  UNPAID: "border-outline text-outline bg-surface-container-highest",
+  PAYOS: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  CASH: "border-zinc-700 text-zinc-400 bg-zinc-900",
+  UNPAID: "border-zinc-700 text-zinc-400 bg-zinc-900",
 };
 
 function PaymentBadge({ method }) {
+  const normalizedMethod = String(method || "UNPAID").toUpperCase();
   return (
     <span
-      className={`inline-block border px-1 py-0.5 font-label-caps text-[10px] ${PAYMENT_STYLES[method] || PAYMENT_STYLES.CASH}`}
+      className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${PAYMENT_STYLES[normalizedMethod] || PAYMENT_STYLES.UNPAID}`}
     >
-      {method === "PAYOS"
+      {normalizedMethod === "PAYOS"
         ? "PAYOS (PAID)"
-        : method === "CASH"
+        : normalizedMethod === "CASH"
           ? "CASH (UNPAID)"
-          : method}
+          : normalizedMethod}
     </span>
   );
 }
 
 function StatusBadge({ status }) {
+  const normalizedStatus = String(status || "PENDING").toUpperCase();
   return (
     <span
-      className={`inline-block border px-1 py-0.5 font-label-caps text-[10px] ${STATUS_STYLES[status] || STATUS_STYLES.PENDING}`}
+      className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${STATUS_STYLES[normalizedStatus] || STATUS_STYLES.PENDING}`}
     >
-      {status === "COMPLETED"
+      {normalizedStatus === "COMPLETED"
         ? "COMPLETED"
-        : status === "IN PROGRESS"
+        : normalizedStatus === "IN PROGRESS"
           ? "IN PROGRESS"
-          : status || "PENDING"}
+          : normalizedStatus}
     </span>
   );
 }
@@ -45,10 +47,12 @@ export default function AdminBookingsTable({
   bookings,
   fetchBookingDetails,
   loading,
+  onDeleteBooking,
+  onEditBooking,
 }) {
   if (loading) {
     return (
-      <div className="border border-outline-variant bg-surface-container py-12 text-center text-on-surface-variant">
+      <div className="admin-reveal border border-zinc-800 bg-zinc-950 py-14 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
         Đang tải dữ liệu...
       </div>
     );
@@ -56,7 +60,7 @@ export default function AdminBookingsTable({
 
   if (bookings.length === 0) {
     return (
-      <div className="border border-outline-variant bg-surface-container py-12 text-center text-on-surface-variant">
+      <div className="admin-reveal border border-zinc-800 bg-zinc-950 py-14 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
         Không có dữ liệu
       </div>
     );
@@ -65,38 +69,40 @@ export default function AdminBookingsTable({
   return (
     <>
       <div className="grid gap-3 lg:hidden">
-        {bookings.map((booking) => (
+        {bookings.map((booking) => {
+          const bookingId = booking.id || booking._id;
+          return (
           <button
-            key={booking.id}
+            key={bookingId}
             type="button"
-            onClick={() => fetchBookingDetails(booking.id)}
-            className="border border-outline-variant bg-surface-container p-4 text-left transition-colors hover:bg-surface-container-high"
+            onClick={() => fetchBookingDetails(bookingId)}
+            className="admin-reveal border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:-translate-y-1 hover:border-cyan-400/60 hover:bg-[#071014]"
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-data-display text-primary">
-                  {booking.code || `#B-${booking.id}`}
+                <p className="font-mono font-black text-cyan-300">
+                  {booking.code || `#B-${bookingId}`}
                 </p>
-                <p className="mt-1 truncate text-sm font-semibold text-on-surface">
+                <p className="mt-1 truncate text-sm font-semibold text-zinc-100">
                   {booking.customerName || "-"}
                 </p>
-                <p className="font-data-display text-xs text-on-surface-variant">
+                <p className="font-mono text-xs text-zinc-500">
                   {booking.plate || "-"}
                 </p>
               </div>
               <StatusBadge status={booking.status} />
             </div>
 
-            <div className="space-y-2 text-xs text-on-surface-variant">
+            <div className="space-y-2 text-xs text-zinc-500">
               <div className="flex justify-between gap-3">
                 <span>Thời gian</span>
-                <span className="text-right font-data-display text-on-surface">
+                <span className="text-right font-mono text-zinc-100">
                   {booking.date} {booking.time}
                 </span>
               </div>
               <div className="flex justify-between gap-3">
                 <span>Dịch vụ</span>
-                <span className="text-right text-on-surface">
+                <span className="text-right text-zinc-100">
                   {booking.service || "-"}
                 </span>
               </div>
@@ -104,101 +110,153 @@ export default function AdminBookingsTable({
                 <span>Thanh toán</span>
                 <PaymentBadge method={booking.paymentMethod} />
               </div>
-              <div className="flex justify-between gap-3 border-t border-outline-variant pt-2">
+              <div className="flex justify-between gap-3 border-t border-zinc-800 pt-2">
                 <span>Tổng tiền</span>
-                <span className="font-data-display text-on-surface">
+                <span className="font-mono font-black text-zinc-100">
                   {booking.total?.toLocaleString()} ₫
                 </span>
               </div>
+              <div className="flex gap-2 border-t border-zinc-800 pt-3">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEditBooking?.(booking);
+                  }}
+                  className="flex flex-1 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300"
+                >
+                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteBooking?.(booking);
+                  }}
+                  className="flex flex-1 items-center justify-center gap-2 border border-red-400/50 bg-red-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-red-300"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  Delete
+                </button>
+              </div>
             </div>
           </button>
-        ))}
+        );
+        })}
       </div>
 
-      <div className="hidden w-full border border-outline-variant bg-surface-container lg:block">
+      <div className="admin-reveal hidden w-full overflow-hidden border border-zinc-800 bg-zinc-950 lg:block" style={{ animationDelay: "200ms" }}>
         <table className="w-full table-fixed border-collapse text-left text-xs">
-          <thead className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-high shadow-[0_1px_0_0_#3c494c]">
+          <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-black shadow-[0_1px_0_0_rgba(34,211,238,0.25)]">
             <tr>
-              <th className="w-20 truncate whitespace-nowrap px-2 py-2 font-label-caps text-on-surface-variant">
+              <th className="w-24 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 MÃ ĐƠN
               </th>
-              <th className="w-40 truncate whitespace-nowrap px-2 py-2 font-label-caps text-on-surface-variant">
+              <th className="w-44 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THỜI GIAN
               </th>
-              <th className="truncate whitespace-nowrap px-2 py-2 font-label-caps text-on-surface-variant">
+              <th className="truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 KHÁCH HÀNG & XE
               </th>
-              <th className="truncate whitespace-nowrap px-2 py-2 font-label-caps text-on-surface-variant">
+              <th className="truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 DỊCH VỤ
               </th>
-              <th className="w-28 truncate whitespace-nowrap px-2 py-2 font-label-caps text-on-surface-variant">
+              <th className="w-32 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THANH TOÁN
               </th>
-              <th className="w-28 truncate whitespace-nowrap px-2 py-2 font-label-caps text-on-surface-variant">
+              <th className="w-32 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TRẠNG THÁI
               </th>
-              <th className="w-24 truncate whitespace-nowrap px-2 py-2 text-right font-label-caps text-on-surface-variant">
+              <th className="w-28 truncate whitespace-nowrap px-3 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TỔNG TIỀN
               </th>
-              <th className="w-12 truncate whitespace-nowrap px-2 py-2 text-center font-label-caps text-on-surface-variant">
+              <th className="w-24 truncate whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 ACT
               </th>
             </tr>
           </thead>
-          <tbody className="font-body-md text-xs">
-            {bookings.map((booking) => (
+          <tbody className="font-mono text-xs">
+            {bookings.map((booking, index) => {
+              const bookingId = booking.id || booking._id;
+              return (
               <tr
-                key={booking.id}
-                className="cursor-pointer border-b border-outline-variant transition-colors hover:bg-surface-container-high"
-                onClick={() => fetchBookingDetails(booking.id)}
+                key={bookingId}
+                className="admin-reveal cursor-pointer border-b border-zinc-900 transition duration-200 hover:translate-x-1 hover:bg-cyan-400/[0.04]"
+                style={{ animationDelay: `${260 + index * 40}ms` }}
+                onClick={() => fetchBookingDetails(bookingId)}
               >
-                <td className="truncate whitespace-nowrap px-2 py-2 align-middle">
-                  <span className="font-data-display text-primary">
-                    {booking.code || `#B-${booking.id}`}
+                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                  <span className="font-black text-cyan-300">
+                    {booking.code || `#B-${bookingId}`}
                   </span>
                 </td>
-                <td className="truncate whitespace-nowrap px-2 py-2 align-middle">
-                  <span className="font-data-display text-on-surface">
+                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                  <span className="text-zinc-100">
                     {booking.date}
                   </span>
-                  <span className="ml-1 font-data-display text-on-surface-variant">
+                  <span className="ml-1 text-zinc-500">
                     {booking.time}
                   </span>
                 </td>
-                <td className="truncate whitespace-nowrap px-2 py-2 align-middle">
-                  <span className="font-body-md font-semibold text-on-surface">
+                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                  <span className="font-semibold text-zinc-100">
                     {booking.customerName}
                   </span>
-                  <span className="ml-1 font-data-display text-on-surface-variant">
+                  <span className="ml-1 text-zinc-500">
                     • {booking.plate}
                   </span>
                 </td>
                 <td
-                  className="truncate whitespace-nowrap px-2 py-2 align-middle text-on-surface"
+                  className="truncate whitespace-nowrap px-3 py-3 align-middle text-zinc-300"
                   title={booking.service}
                 >
                   {booking.service}
                 </td>
-                <td className="truncate whitespace-nowrap px-2 py-2 align-middle">
+                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
                   <PaymentBadge method={booking.paymentMethod} />
                 </td>
-                <td className="truncate whitespace-nowrap px-2 py-2 align-middle">
+                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
                   <StatusBadge status={booking.status} />
                 </td>
-                <td className="truncate whitespace-nowrap px-2 py-2 text-right align-middle">
-                  <span className="font-data-display text-on-surface">
+                <td className="truncate whitespace-nowrap px-3 py-3 text-right align-middle">
+                  <span className="font-black text-zinc-100">
                     {booking.total?.toLocaleString()} ₫
                   </span>
                 </td>
-                <td className="px-2 py-2 text-center align-middle">
-                  <button className="p-0.5 transition-colors hover:text-primary">
-                    <span className="material-symbols-outlined text-[16px]">
-                      more_vert
+                <td className="px-3 py-3 text-center align-middle">
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onEditBooking?.(booking);
+                      }}
+                      className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                      title="Chỉnh sửa booking"
+                    >
+                      <span className="material-symbols-outlined text-[17px]">
+                        edit
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteBooking?.(booking);
+                      }}
+                      className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
+                      title="Xóa booking"
+                    >
+                      <span className="material-symbols-outlined text-[17px]">
+                        delete
                     </span>
                   </button>
+                  </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>

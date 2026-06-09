@@ -1,33 +1,34 @@
 import { useEffect, useState } from "react";
 import StaffNavbar from "../../components/StaffNavbar";
-import { assignBay, completeBay, getBays, getQueue } from "../../services/staffApi";
+import { assignBay, completeBay, getBays, getQueue } from "../../services/staffQueueApi";
+import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_BADGE = {
-  Platinum: "border-[#8aebff] text-[#8aebff] bg-[#0c1324]",
-  Gold: "border-[#4edea3] text-[#4edea3] bg-[#0c1324]",
-  Silver: "border-[#3c494c] text-[#bbc9cd] bg-[#0c1324]",
+  Platinum: "border-[#6ff6df] text-[#6ff6df] bg-[#123746]",
+  Gold: "border-[#4edea3] text-[#4edea3] bg-[#123746]",
+  Silver: "border-[#4f7883] text-[#b8d8de] bg-[#123746]",
   Late: "border-[#ffb4ab]/50 text-[#ffb4ab] bg-[#93000a]/20",
 };
 
 function QueueCard({ item, onAssign, isSelected }) {
   const badgeClass =
-    TIER_BADGE[item.tier] || "border-[#3c494c] text-[#bbc9cd] bg-[#0c1324]";
+    TIER_BADGE[item.tier] || "border-[#4f7883] text-[#b8d8de] bg-[#123746]";
   return (
     <div
-      className={`border p-4 rounded flex items-center justify-between transition-all ${
+      className={`staff-panel rounded-3xl p-4 flex items-center justify-between transition-all ${
         isSelected
-          ? "border-[#8aebff] bg-[#8aebff]/5 shadow-[0_0_10px_rgba(138,235,255,0.1)]"
-          : "border-[#23293c] bg-[#0c1324]"
+          ? "border-[#6ff6df] bg-[#6ff6df]/10 shadow-[0_0_24px_rgba(94,234,212,0.14)]"
+          : ""
       }`}
     >
       <div>
         <div
-          className="text-[18px] font-bold tracking-wider text-[#dce1fb]"
+          className="text-[18px] font-bold tracking-wider text-[#ecfeff]"
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
           {item.plate}
         </div>
-        <div className="text-[12px] text-[#bbc9cd] mt-1">
+        <div className="text-[12px] text-[#b8d8de] mt-1">
           Check-in: {item.checkinTime || item.time}
         </div>
       </div>
@@ -43,8 +44,8 @@ function QueueCard({ item, onAssign, isSelected }) {
           onClick={onAssign}
           className={`border text-[11px] font-bold px-3 py-1.5 rounded uppercase transition-colors ${
             isSelected
-              ? "bg-[#8aebff] text-[#00363e] border-[#8aebff]"
-              : "border-[#8aebff] text-[#8aebff] hover:bg-[#8aebff]/10"
+              ? "bg-[#6ff6df] text-[#06343a] border-[#6ff6df]"
+              : "border-[#6ff6df] text-[#6ff6df] hover:bg-[#6ff6df]/10"
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
@@ -58,29 +59,29 @@ function QueueCard({ item, onAssign, isSelected }) {
 function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
   return (
     <div
-      className={`border rounded-lg p-5 flex flex-col justify-between min-h-[220px] transition-all duration-300 ${
+      className={`staff-panel rounded-3xl p-5 flex flex-col justify-between min-h-[220px] transition-all duration-300 ${
         bay.status === "active"
-          ? "border-[#4edea3] bg-[#0c1324] shadow-[0_0_15px_rgba(78,222,163,0.05)]"
+          ? "staff-scanline border-[#4edea3] bg-[#123746] shadow-[0_0_22px_rgba(78,222,163,0.08)]"
           : hasSelectedCar
-            ? "border-[#8aebff] bg-[#8aebff]/5 border-dashed animate-pulse"
-            : "border-[#23293c] bg-[#0c1324]/40"
+            ? "border-[#6ff6df] bg-[#6ff6df]/8 border-dashed animate-pulse"
+            : ""
       }`}
     >
       <div className="flex justify-between items-start">
         <div>
           <h3
-            className="text-[18px] font-bold text-[#dce1fb]"
+            className="text-[18px] font-bold text-[#ecfeff]"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             {bay.name}
           </h3>
-          <p className="text-[12px] text-[#bbc9cd] mt-0.5">{bay.type}</p>
+          <p className="text-[12px] text-[#b8d8de] mt-0.5">{bay.type}</p>
         </div>
         <span
           className={`text-[11px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
             bay.status === "active"
               ? "border-[#4edea3] text-[#4edea3] bg-[#4edea3]/5"
-              : "border-[#3c494c] text-[#bbc9cd]"
+              : "border-[#4f7883] text-[#b8d8de]"
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
@@ -98,7 +99,7 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
               {bay.currentCar?.plate}
             </span>
             <span
-              className="text-[#bbc9cd]"
+              className="text-[#b8d8de]"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               {bay.currentCar?.progress || 0}%
@@ -112,14 +113,14 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
           </div>
         </div>
       ) : (
-        <div className="my-6 text-center text-[#bbc9cd] text-[13px] border border-dashed border-[#23293c] py-3 rounded bg-[#070d1f]/50">
+        <div className="my-6 text-center text-[#b8d8de] text-[13px] border border-dashed border-[#244653] py-3 rounded-2xl bg-[#0b2532]/55">
           {hasSelectedCar
             ? "Khoang trống sẵn sàng tiếp nhận"
             : "Sẵn sàng tiếp nhận xe mới từ hàng đợi"}
         </div>
       )}
 
-      <div className="border-t border-[#23293c] pt-3 flex justify-end min-h-[40px]">
+      <div className="border-t border-[#244653] pt-3 flex justify-end min-h-[40px]">
         {bay.status === "active" ? (
           <button
             type="button"
@@ -136,7 +137,7 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
               type="button"
               disabled={disabled}
               onClick={onAssignToBay}
-              className="bg-[#8aebff] text-[#00363e] text-[12px] font-bold px-4 py-2 rounded uppercase hover:bg-[#a2eeff] transition-all shadow-[0_0_10px_rgba(138,235,255,0.2)]"
+              className="bg-[#6ff6df] text-[#06343a] text-[12px] font-bold px-4 py-2 rounded-2xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)]"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               Vào khoang này
@@ -175,8 +176,10 @@ export default function StaffQueue() {
       );
     } catch (err) {
       setError(
-        err?.response?.data?.message ||
+        getFriendlyErrorMessage(
+          err,
           "Không thể đồng bộ dữ liệu khoang rửa và hàng đợi.",
+        ),
       );
     } finally {
       setLoading(false);
@@ -199,7 +202,10 @@ export default function StaffQueue() {
       fetchQueueAndBays();
     } catch (err) {
       alert(
-        err?.response?.data?.message || "Gặp lỗi khi điều phối xe vào khoang.",
+        getFriendlyErrorMessage(
+          err,
+          "Gặp lỗi khi điều phối xe vào khoang. Vui lòng thử lại.",
+        ),
       );
     } finally {
       setSubmitLoading(false);
@@ -214,8 +220,10 @@ export default function StaffQueue() {
       fetchQueueAndBays();
     } catch (err) {
       alert(
-        err?.response?.data?.message ||
-          "Không thể cập nhật trạng thái hoàn thành.",
+        getFriendlyErrorMessage(
+          err,
+          "Không thể cập nhật trạng thái hoàn thành. Vui lòng thử lại.",
+        ),
       );
     } finally {
       setSubmitLoading(false);
@@ -223,13 +231,13 @@ export default function StaffQueue() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d1f] text-white lg:pl-64">
+    <div className="staff-motion-root min-h-screen text-white lg:pl-64">
       <StaffNavbar />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="staff-shell flex-1 flex flex-col min-w-0">
         <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8">
-          <header className="border-b border-[#23293c] pb-5">
+          <header className="staff-reveal border-b border-cyan-100/15 pb-5">
             <h1
-              className="text-[28px] font-bold text-[#dce1fb] tracking-wide"
+              className="text-[28px] font-bold text-[#ecfeff] tracking-wide"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               ĐIỀU PHỐI KHOANG DỊCH VỤ
@@ -244,16 +252,16 @@ export default function StaffQueue() {
 
           <div className="flex flex-col lg:flex-row gap-8 items-start flex-1">
             {/* LEFT Column - Hàng đợi điều phối */}
-            <section className="w-full lg:w-[35%] flex flex-col gap-4">
+            <section className="staff-reveal w-full lg:w-[35%] flex flex-col gap-4" style={{ animationDelay: "80ms" }}>
               <div className="flex justify-between items-center mb-1">
                 <h2
-                  className="text-[20px] font-semibold text-[#dce1fb]"
+                  className="text-[20px] font-semibold text-[#ecfeff]"
                   style={{ fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   Hàng Đợi Điều Phối
                 </h2>
                 <span
-                  className="bg-[#23293c] border border-[#3c494c] px-2 py-1 rounded text-[#8aebff] text-[12px] font-bold tracking-widest"
+                  className="bg-[#244653] border border-[#4f7883] px-2 py-1 rounded-2xl text-[#6ff6df] text-[12px] font-bold tracking-widest"
                   style={{ fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   {queue.length} XE ĐANG CHỜ
@@ -261,40 +269,45 @@ export default function StaffQueue() {
               </div>
 
               {loading ? (
-                <p className="text-sm text-[#8aebff] italic border border-dashed border-[#23293c] p-6 text-center rounded animate-pulse">
+                <p className="staff-panel rounded-3xl text-sm text-[#6ff6df] italic border-dashed p-6 text-center animate-pulse">
                   Đang tải dữ liệu hàng đợi...
                 </p>
               ) : queue.length === 0 ? (
-                <p className="text-sm text-[#bbc9cd] border border-dashed border-[#23293c] p-6 text-center rounded">
+                <p className="staff-panel rounded-3xl text-sm text-[#b8d8de] border-dashed p-6 text-center">
                   Hàng đợi đang trống.
                 </p>
               ) : (
-                queue.map((item) => (
-                  <QueueCard
+                queue.map((item, index) => (
+                  <div
                     key={item.id || item._id}
-                    item={item}
-                    isSelected={
-                      selectedCar?.id === item.id ||
-                      selectedCar?._id === item._id
-                    }
-                    onAssign={() =>
-                      setSelectedCar(
+                    className="staff-reveal"
+                    style={{ animationDelay: `${140 + index * 55}ms` }}
+                  >
+                    <QueueCard
+                      item={item}
+                      isSelected={
                         selectedCar?.id === item.id ||
-                          selectedCar?._id === item._id
-                          ? null
-                          : item,
-                      )
-                    }
-                  />
+                        selectedCar?._id === item._id
+                      }
+                      onAssign={() =>
+                        setSelectedCar(
+                          selectedCar?.id === item.id ||
+                            selectedCar?._id === item._id
+                            ? null
+                            : item,
+                        )
+                      }
+                    />
+                  </div>
                 ))
               )}
             </section>
 
             {/* RIGHT Column - Danh sách khoang dịch vụ */}
-            <section className="w-full lg:w-[65%] flex flex-col gap-4">
+            <section className="staff-reveal w-full lg:w-[65%] flex flex-col gap-4" style={{ animationDelay: "140ms" }}>
               <div className="flex justify-between items-center mb-1">
                 <h2
-                  className="text-[20px] font-semibold text-[#dce1fb]"
+                  className="text-[20px] font-semibold text-[#ecfeff]"
                   style={{ fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   Trạng Thái Khoang Rửa
@@ -302,24 +315,29 @@ export default function StaffQueue() {
               </div>
 
               {loading ? (
-                <p className="text-sm text-[#8aebff] italic border border-dashed border-[#23293c] p-6 text-center rounded animate-pulse">
+                <p className="staff-panel rounded-3xl text-sm text-[#6ff6df] italic border-dashed p-6 text-center animate-pulse">
                   Đang kiểm tra trạng thái các khoang...
                 </p>
               ) : bays.length === 0 ? (
-                <p className="text-sm text-[#bbc9cd] border border-dashed border-[#23293c] p-6 text-center rounded">
+                <p className="staff-panel rounded-3xl text-sm text-[#b8d8de] border-dashed p-6 text-center">
                   Chưa có khoang rửa nào.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 flex-1">
-                  {bays.map((bay) => (
-                    <BayCard
+                  {bays.map((bay, index) => (
+                    <div
                       key={bay.id || bay._id}
-                      bay={bay}
-                      disabled={submitLoading}
-                      hasSelectedCar={!!selectedCar}
-                      onComplete={() => handleCompleteWash(bay.id || bay._id)}
-                      onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
-                    />
+                      className="staff-reveal"
+                      style={{ animationDelay: `${180 + index * 70}ms` }}
+                    >
+                      <BayCard
+                        bay={bay}
+                        disabled={submitLoading}
+                        hasSelectedCar={!!selectedCar}
+                        onComplete={() => handleCompleteWash(bay.id || bay._id)}
+                        onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
