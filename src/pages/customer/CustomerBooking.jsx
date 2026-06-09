@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import UserNavbar from "../../components/UserNavbar";
 import BookingSummary from "../../components/booking/BookingSummary";
 import { getUser, getUserTier, getUserWalletBalance } from "../../utils/auth";
-import { createBooking, getBookingData } from "../../services/bookingApi";
-import { validateVoucher } from "../../services/promotionApi";
+import { createBooking, getBookingData } from "../../services/customerBookingApi";
+import { validateVoucher } from "../../services/customerVoucherApi";
+import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const formatPrice = (price) => price.toLocaleString("vi-VN") + "đ";
 const SLOT_DURATION_MINUTES = 60;
@@ -16,15 +17,27 @@ const padHour = (hour) => String(hour).padStart(2, "0");
 const normalizeHourlySlots = (slots = []) => {
   const normalized = slots
     .map((slot) => {
-      const [hourText] = String(slot).split(":");
+      const value = typeof slot === "object" ? slot.time || slot.slot || slot.startTime : slot;
+      const [hourText] = String(value).split(":");
       const hour = Number(hourText);
       if (!Number.isInteger(hour)) return null;
       if (hour < BUSINESS_START_HOUR || hour >= BUSINESS_END_HOUR) return null;
-      return `${padHour(hour)}:00`;
+      const start = `${padHour(hour)}:00`;
+      return {
+        slot: start,
+        endTime: getSlotEndTime(start),
+        label: slot?.label || `${start} - ${getSlotEndTime(start)}`,
+        available: typeof slot === "object" && slot.available !== undefined
+          ? Boolean(slot.available)
+          : true,
+      };
     })
     .filter(Boolean);
 
-  return [...new Set(normalized)];
+  return normalized.filter(
+    (slot, index, list) =>
+      list.findIndex((item) => item.slot === slot.slot) === index,
+  );
 };
 
 const getSlotEndTime = (slot) => {
@@ -43,6 +56,24 @@ const tierDiscount = (tier) => {
 
 const TIER_LIMITS = { Member: 7, Silver: 10, Gold: 12, Platinum: 14 };
 
+const VEHICLE_SIZE_OPTIONS = {
+  SMALL: { label: "SMALL", description: "4-5 chỗ", icon: "directions_car" },
+  MEDIUM: { label: "MEDIUM", description: "CUV/SUV 5 chỗ", icon: "commute" },
+  LARGE: { label: "LARGE", description: "7 chỗ", icon: "airport_shuttle" },
+  XLARGE: { label: "XLARGE", description: "Bán tải, Van", icon: "local_shipping" },
+};
+
+const normalizeVehicleSize = (vehicle) => {
+  const rawSize = String(vehicle?.size || vehicle?.vehicleSize || vehicle?.type || "").toUpperCase();
+  if (VEHICLE_SIZE_OPTIONS[rawSize]) return rawSize;
+  if (String(vehicle?.type || "").includes("7")) return "LARGE";
+  if (String(vehicle?.type || "").toLowerCase().includes("suv")) return "MEDIUM";
+  return "SMALL";
+};
+
+const getVehicleSizeInfo = (vehicle) =>
+  VEHICLE_SIZE_OPTIONS[normalizeVehicleSize(vehicle)] || VEHICLE_SIZE_OPTIONS.SMALL;
+
 const mergeVehicles = (...groups) => {
   const seen = new Set();
   return groups
@@ -51,7 +82,10 @@ const mergeVehicles = (...groups) => {
     .map((vehicle) => ({
       ...vehicle,
       id: vehicle.id || vehicle._id || vehicle.plate,
-      label: vehicle.label || vehicle.name || vehicle.type || "Xe",
+      label:
+        vehicle.label ||
+        vehicle.name ||
+        `${getVehicleSizeInfo(vehicle).label} - ${getVehicleSizeInfo(vehicle).description}`,
     }))
     .filter((vehicle) => {
       const key = String(vehicle.plate || vehicle.id || "").toUpperCase();
@@ -61,12 +95,13 @@ const mergeVehicles = (...groups) => {
     });
 };
 
-export default function BookingPage() {
+export default function CustomerBooking() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [services, setServices] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [bookingDataError, setBookingDataError] = useState("");
 
   const [userTier, setUserTier] = useState("Member");
   const [walletBalance, setWalletBalance] = useState(0);
@@ -121,6 +156,9 @@ export default function BookingPage() {
           setService((popular || fetchedServices[0]).id);
         }
       } catch {
+        setBookingDataError(
+          "Không thể tải dữ liệu đặt lịch. Vui lòng thử lại sau.",
+        );
         const profileVehicles = Array.isArray(getUser()?.vehicles)
           ? getUser().vehicles
           : [];
@@ -161,13 +199,7 @@ export default function BookingPage() {
 
   const availableSlots = useMemo(() => {
     if (!date || timeSlots.length === 0) return [];
-    const day = new Date(date).getDate();
-    return timeSlots.map((slot, index) => ({
-      slot,
-      endTime: getSlotEndTime(slot),
-      label: `${slot} - ${getSlotEndTime(slot)}`,
-      available: (day + index) % 3 !== 0,
-    }));
+    return timeSlots;
   }, [date, timeSlots]);
 
   const handleSubmit = async (event) => {
@@ -199,10 +231,12 @@ export default function BookingPage() {
       setSuccess("Đặt lịch thành công!");
       setError("");
     } catch (err) {
-      const message =
-        err?.response?.data?.message ||
-        "Đặt lịch thất bại, vui lòng thử lại sau.";
-      setError(message);
+      setError(
+        getFriendlyErrorMessage(
+          err,
+          "Đặt lịch chưa thực hiện được. Vui lòng thử lại sau.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -244,44 +278,94 @@ export default function BookingPage() {
 
   if (loadingData) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f9fb] text-[#3f4753]">
-        <div className="animate-pulse text-lg font-semibold">
-          Đang tải dữ liệu...
+      <div className="flex min-h-screen items-center justify-center bg-[#eefbff] text-slate-600">
+        <div className="rounded-[28px] border border-white/70 bg-white/70 px-8 py-6 text-lg font-black shadow-[0_24px_70px_rgba(2,74,138,0.12)] backdrop-blur-xl">
+          Đang chuẩn bị khoang rửa...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f9fb] font-body-md text-[#191c1e]">
-      <UserNavbar active="Booking" />
+    <div className="customer-motion-root relative min-h-screen overflow-x-hidden bg-[#eefbff] font-body-md text-slate-950">
+      <div className="pointer-events-none fixed inset-0 z-0 min-h-[100dvh]">
+        <img
+          src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
+          alt=""
+          className="absolute inset-0 h-full min-h-[100dvh] w-full object-cover opacity-[0.18]"
+        />
+        <div className="absolute inset-0 min-h-[100dvh] bg-[linear-gradient(115deg,rgba(255,255,255,0.98),rgba(235,252,255,0.9)_46%,rgba(178,232,255,0.66))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:74px_74px]" />
+        <div className="absolute right-[-140px] top-[-140px] h-[520px] w-[520px] rounded-full bg-cyan-200/40 blur-3xl" />
+        <div className="wash-foam-drift absolute bottom-[-120px] left-[-120px] h-72 w-[66vw] rounded-full bg-white/55 blur-3xl" />
+      </div>
 
-      <main className="w-full px-4 py-8 sm:px-6 lg:px-10 lg:py-12 xl:px-14">
-        <header className="mb-12 text-center">
-          <h1 className="mb-4 text-[40px] font-bold leading-[48px] text-[#0061a5]">
-            Đặt lịch dịch vụ
-          </h1>
-          <p className="text-lg leading-7 text-[#3f4753]">
-            Chọn các tùy chọn phù hợp để chiếc xe của bạn luôn sáng bóng.
-          </p>
+      <div className="relative z-10">
+        <UserNavbar active="Booking" />
+
+      <main className="mx-auto w-full max-w-[1520px] px-4 pb-14 pt-32 sm:px-6 lg:px-10">
+        <header className="relative mb-8 overflow-hidden rounded-[34px] border border-white/75 bg-white/58 shadow-[0_32px_90px_rgba(2,74,138,0.12)] backdrop-blur-2xl">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(34,211,238,0.24),transparent_30%),radial-gradient(circle_at_82%_20%,rgba(14,165,233,0.18),transparent_28%)]" />
+          <div className="absolute inset-x-10 top-8 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
+          <div className="wash-scan absolute left-10 right-10 top-8 h-14 rounded-full bg-gradient-to-b from-white/60 via-cyan-200/38 to-transparent blur-xl" />
+          <div className="relative grid min-h-[340px] items-end gap-8 p-7 text-slate-950 sm:p-10 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700 backdrop-blur-md">
+                <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
+                Đặt lịch rửa xe
+              </p>
+              <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal sm:text-6xl">
+                Chọn xe, chọn gói, vào khoang rửa.
+              </h1>
+              <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
+                Lên lịch phủ bọt tuyết, xịt áp lực, lau chi tiết và sấy khô.
+                Hệ thống tự ghi nhận thời gian, dịch vụ và ưu đãi theo hạng.
+              </p>
+            </div>
+
+            <div className="rounded-[26px] border border-white/75 bg-white/58 p-5 text-left shadow-sm backdrop-blur-xl">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                Wash window
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-cyan-50/80 p-4">
+                  <p className="text-xs font-bold text-slate-500">Mở cửa</p>
+                  <p className="mt-2 text-xl font-black text-slate-950">08:00</p>
+                </div>
+                <div className="rounded-2xl bg-cyan-50/80 p-4">
+                  <p className="text-xs font-bold text-slate-500">Đóng ca</p>
+                  <p className="mt-2 text-xl font-black text-slate-950">18:00</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">
+                Mỗi lượt rửa tiêu chuẩn giữ khoang trong 60 phút để xe được xử lý
+                sạch và không bị gấp quy trình.
+              </p>
+            </div>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           <form onSubmit={handleSubmit} className="space-y-8 lg:col-span-8">
-            <section className="rounded-xl bg-white p-6 shadow-[0_4px_20px_rgba(13,153,255,0.05)] md:p-8">
-              <h2 className="mb-6 flex items-center gap-3 text-2xl font-semibold text-[#0061a5]">
+            {bookingDataError && (
+              <div className="rounded-[24px] border border-amber-200 bg-amber-50/90 px-5 py-4 text-sm font-bold text-amber-800 shadow-sm backdrop-blur">
+                {bookingDataError}
+              </div>
+            )}
+            <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                 <span className="material-symbols-outlined">
                   directions_car
                 </span>
                 Chọn xe của bạn
               </h2>
-              <p className="mb-6 text-base text-[#3f4753]">
-                Chọn xe bạn muốn chăm sóc hôm nay.
+              <p className="mb-6 text-base font-medium text-slate-500">
+                Chọn xe sẽ vào khoang rửa hôm nay.
               </p>
 
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {vehicles.length === 0 ? (
-                  <div className="col-span-full rounded-xl border border-dashed border-[#bfc7d5] bg-[#f7f9fb] p-6 text-center text-sm text-[#3f4753]">
+                  <div className="col-span-full rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-6 text-center text-sm font-semibold text-slate-500">
                     Chưa có xe nào.
                   </div>
                 ) : (
@@ -292,26 +376,27 @@ export default function BookingPage() {
                         key={vehicle.id || vehicle.plate}
                         type="button"
                         onClick={() => selectVehicle(vehicle)}
-                        className={`flex min-h-36 flex-col items-center justify-center rounded-xl border-2 p-4 text-center transition-all hover:bg-[#e0f2fe] ${
+                        className={`flex min-h-36 flex-col items-center justify-center rounded-[24px] border p-4 text-center transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
                           active
-                            ? "border-[#0061a5] bg-[#d2e4ff]/30"
-                            : "border-[#bfc7d5] bg-white"
+                            ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                            : "border-white/80 bg-white/72"
                         }`}
                       >
                         <span
                           className={`material-symbols-outlined mb-2 text-4xl ${
-                            active ? "text-[#0061a5]" : "text-[#3f4753]"
+                            active ? "text-cyan-700" : "text-slate-500"
                           }`}
                         >
-                          {vehicle.type === "SUV"
-                            ? "electric_car"
-                            : "directions_car"}
+                          {getVehicleSizeInfo(vehicle).icon}
                         </span>
-                        <p className="text-base font-bold">
-                          {vehicle.label || vehicle.name || vehicle.type || "Xe"}
+                        <p className="text-base font-black">
+                          {vehicle.label || vehicle.name || getVehicleSizeInfo(vehicle).label}
                         </p>
-                        <p className="text-xs font-semibold text-[#3f4753]">
+                        <p className="text-xs font-bold text-slate-500">
                           {vehicle.plate}
+                        </p>
+                        <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-700">
+                          {getVehicleSizeInfo(vehicle).description}
                         </p>
                       </button>
                     );
@@ -327,19 +412,19 @@ export default function BookingPage() {
                       )}`,
                     )
                   }
-                  className="flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#bfc7d5] bg-white p-4 text-center transition-all hover:border-[#0061a5] hover:bg-[#e0f2fe]"
+                  className="flex min-h-36 flex-col items-center justify-center rounded-[24px] border border-dashed border-cyan-200 bg-white/60 p-4 text-center transition-all hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
                 >
-                  <span className="material-symbols-outlined mb-2 text-4xl text-[#707884]">
+                  <span className="material-symbols-outlined mb-2 text-4xl text-cyan-700">
                     add_circle
                   </span>
-                  <p className="text-xs font-bold text-[#3f4753]">
+                  <p className="text-xs font-black text-slate-500">
                     Thêm xe mới
                   </p>
                 </button>
               </div>
 
               <div className="mt-6">
-                <label className="mb-2 block text-xs font-semibold text-[#3f4753]">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                   Biển số xe
                 </label>
                 <input
@@ -347,20 +432,20 @@ export default function BookingPage() {
                   value={plate}
                   onChange={(event) => setPlate(event.target.value)}
                   placeholder="VD: 51A-123.45"
-                  className="w-full rounded-lg border border-[#bfc7d5] p-3 outline-none transition focus:border-[#0061a5] focus:ring-2 focus:ring-[#0061a5]/20"
+                  className="w-full rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                 />
               </div>
             </section>
 
-            <section className="rounded-xl bg-white p-6 shadow-[0_4px_20px_rgba(13,153,255,0.05)] md:p-8">
-              <h2 className="mb-6 flex items-center gap-3 text-2xl font-semibold text-[#0061a5]">
+            <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                 <span className="material-symbols-outlined">layers</span>
                 Gói dịch vụ
               </h2>
 
               <div className="space-y-4">
                 {services.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#bfc7d5] bg-[#f7f9fb] p-6 text-center text-sm text-[#3f4753]">
+                  <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-6 text-center text-sm font-semibold text-slate-500">
                     Chưa có gói dịch vụ nào.
                   </div>
                 ) : (
@@ -369,10 +454,10 @@ export default function BookingPage() {
                   return (
                     <label
                       key={item.id}
-                      className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 p-4 transition-all hover:bg-[#e0f2fe] ${
+                      className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
                         active
-                          ? "border-[#0061a5] bg-[#d2e4ff]/20"
-                          : "border-[#bfc7d5] bg-white"
+                          ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                          : "border-white/80 bg-white/72"
                       }`}
                     >
                       <input
@@ -380,22 +465,22 @@ export default function BookingPage() {
                         name="service"
                         checked={active}
                         onChange={() => setService(item.id)}
-                        className="h-5 w-5 text-[#0061a5] focus:ring-[#0061a5]"
+                        className="h-5 w-5 text-cyan-600 focus:ring-cyan-500"
                       />
                       <div className="flex-grow">
                         <div className="mb-1 flex justify-between gap-4">
-                          <h3 className="font-bold text-[#191c1e]">
+                          <h3 className="font-black text-slate-950">
                             {item.label || item.name || "Dịch vụ"}
                           </h3>
-                          <span className="whitespace-nowrap font-bold text-[#0061a5]">
+                          <span className="whitespace-nowrap font-black text-cyan-700">
                             {formatPrice(item.price)}
                           </span>
                         </div>
-                        <p className="text-xs font-semibold text-[#3f4753]">
+                        <p className="text-xs font-semibold text-slate-500">
                           {item.description}
                         </p>
                         {(item.popular || index === 1) && (
-                          <span className="mt-2 inline-block rounded bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-500">
+                          <span className="mt-2 inline-block rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">
                             PHỔ BIẾN NHẤT
                           </span>
                         )}
@@ -407,15 +492,15 @@ export default function BookingPage() {
               </div>
             </section>
 
-            <section className="rounded-xl bg-white p-6 shadow-[0_4px_20px_rgba(13,153,255,0.05)] md:p-8">
-              <h2 className="mb-6 flex items-center gap-3 text-2xl font-semibold text-[#0061a5]">
+            <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                 <span className="material-symbols-outlined">schedule</span>
                 Ngày & Giờ
               </h2>
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-xs font-semibold text-[#3f4753]">
+                  <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                     Chọn ngày
                   </label>
                   <input
@@ -424,25 +509,25 @@ export default function BookingPage() {
                     min={minDate}
                     max={maxDate}
                     onChange={(event) => setDate(event.target.value)}
-                    className="w-full rounded-lg border border-[#bfc7d5] p-3 outline-none transition focus:border-[#0061a5] focus:ring-2 focus:ring-[#0061a5]/20"
+                    className="w-full rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-semibold text-[#3f4753]">
+                  <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                     Chọn khung giờ
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {timeSlots.length === 0 ? (
-                      <div className="col-span-3 rounded-lg border border-dashed border-[#bfc7d5] bg-[#f7f9fb] p-4 text-center text-xs font-semibold text-[#3f4753]">
+                      <div className="col-span-3 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-4 text-center text-xs font-semibold text-slate-500">
                         Chưa có khung giờ nào.
                       </div>
                     ) : (
                       (availableSlots.length
                         ? availableSlots
-                        : timeSlots.map((slot) => ({
-                            slot,
-                            endTime: getSlotEndTime(slot),
-                            label: `${slot} - ${getSlotEndTime(slot)}`,
+                        : timeSlots.map((item) => ({
+                            slot: item.slot,
+                            endTime: item.endTime,
+                            label: item.label,
                             available: true,
                           }))
                       ).map((item) => (
@@ -454,12 +539,12 @@ export default function BookingPage() {
                           if (!date) setDate(minDate);
                           setTimeSlot(item.slot);
                         }}
-                        className={`rounded border p-2 text-xs font-semibold transition-colors ${
+                        className={`rounded-2xl border p-3 text-xs font-black transition-all ${
                           !item.available
-                            ? "cursor-not-allowed border-[#e0e3e5] bg-[#f2f4f6] text-[#707884]"
+                            ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400"
                             : timeSlot === item.slot
-                              ? "border-[#0061a5] bg-[#0d99ff] text-white"
-                              : "border-[#bfc7d5] bg-white hover:bg-[#e0f2fe]"
+                              ? "border-cyan-400 bg-cyan-400 text-slate-950 shadow-[0_14px_30px_rgba(6,182,212,0.2)]"
+                              : "border-white/80 bg-white/80 hover:-translate-y-0.5 hover:bg-cyan-50"
                         }`}
                       >
                         {item.label}
@@ -471,18 +556,18 @@ export default function BookingPage() {
               </div>
             </section>
 
-            <section className="rounded-xl bg-white p-6 shadow-[0_4px_20px_rgba(13,153,255,0.05)] md:p-8">
-              <h2 className="mb-6 flex items-center gap-3 text-2xl font-semibold text-[#0061a5]">
+            <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                 <span className="material-symbols-outlined">payments</span>
                 Thanh toán
               </h2>
 
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label
-                  className={`relative flex cursor-pointer flex-col rounded-xl border-2 p-4 ${
+                  className={`relative flex cursor-pointer flex-col rounded-[24px] border p-5 transition-all ${
                     paymentMethod === "PAYOS"
-                      ? "border-[#0061a5] bg-[#d2e4ff]/20"
-                      : "border-[#bfc7d5] hover:bg-[#e0f2fe]"
+                      ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                      : "border-white/80 bg-white/72 hover:-translate-y-0.5 hover:bg-cyan-50"
                   }`}
                 >
                   <div className="mb-2 flex items-start gap-3">
@@ -491,18 +576,18 @@ export default function BookingPage() {
                       name="payment"
                       checked={paymentMethod === "PAYOS"}
                       onChange={() => setPaymentMethod("PAYOS")}
-                      className="mt-1 text-[#0d99ff] focus:ring-[#0d99ff]"
+                      className="mt-1 text-cyan-600 focus:ring-cyan-500"
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#0d99ff]">
+                        <span className="material-symbols-outlined text-cyan-700">
                           qr_code_2
                         </span>
-                        <span className="font-bold text-[#191c1e]">
+                        <span className="font-black text-slate-950">
                           Trả trước qua PayOS (VietQR)
                         </span>
                       </div>
-                      <span className="mt-1 block text-xs font-semibold text-[#3f4753]">
+                      <span className="mt-1 block text-xs font-semibold text-slate-500">
                         Hoàn bằng Điểm thưởng nếu hủy lịch
                       </span>
                     </div>
@@ -510,10 +595,10 @@ export default function BookingPage() {
                 </label>
 
                 <label
-                  className={`relative flex cursor-pointer flex-col rounded-xl border-2 p-4 transition-all ${
+                  className={`relative flex cursor-pointer flex-col rounded-[24px] border p-5 transition-all ${
                     paymentMethod === "CASH"
-                      ? "border-[#0061a5] bg-[#d2e4ff]/20"
-                      : "border-[#bfc7d5] hover:bg-[#e0f2fe]"
+                      ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                      : "border-white/80 bg-white/72 hover:-translate-y-0.5 hover:bg-cyan-50"
                   }`}
                 >
                   <div className="mb-2 flex items-start gap-3">
@@ -522,13 +607,13 @@ export default function BookingPage() {
                       name="payment"
                       checked={paymentMethod === "CASH"}
                       onChange={() => setPaymentMethod("CASH")}
-                      className="mt-1 border-[#bfc7d5] text-[#0d99ff] focus:ring-[#0d99ff]"
+                      className="mt-1 border-cyan-100 text-cyan-600 focus:ring-cyan-500"
                     />
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#3f4753]">
+                      <span className="material-symbols-outlined text-cyan-700">
                         payments
                       </span>
-                      <span className="font-bold text-[#191c1e]">
+                      <span className="font-black text-slate-950">
                         Tiền mặt tại quầy
                       </span>
                     </div>
@@ -536,13 +621,13 @@ export default function BookingPage() {
                 </label>
               </div>
 
-              <div className="rounded-lg border border-[#bfc7d5]/50 bg-[#f7f9fb] p-3 text-xs text-[#3f4753]">
+              <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm font-semibold text-slate-600">
                 Số dư điểm thưởng/ví hiện tại:{" "}
                 <strong>{formatPrice(walletBalance)}</strong>
               </div>
 
               <div className="mt-6">
-                <label className="mb-2 block text-xs font-semibold text-[#3f4753]">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                   Mã Voucher
                 </label>
                 <div className="flex gap-2">
@@ -551,12 +636,12 @@ export default function BookingPage() {
                     value={voucherCode}
                     onChange={(event) => setVoucherCode(event.target.value)}
                     placeholder="Nhập mã giảm giá..."
-                    className="min-w-0 flex-grow rounded-lg border border-[#bfc7d5] p-3 outline-none transition focus:border-[#0061a5] focus:ring-2 focus:ring-[#0061a5]/20"
+                    className="min-w-0 flex-grow rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                   />
                   <button
                     type="button"
                     onClick={handleApplyVoucher}
-                    className="whitespace-nowrap rounded-lg bg-[#0061a5] px-6 py-3 font-bold text-white transition-colors hover:bg-[#005bbf]"
+                    className="whitespace-nowrap rounded-2xl bg-slate-950 px-6 py-4 font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
                   >
                     Áp dụng
                   </button>
@@ -574,12 +659,12 @@ export default function BookingPage() {
             </section>
 
             {error && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
                 {error}
               </div>
             )}
             {success && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
                 {success}
               </div>
             )}
@@ -605,13 +690,13 @@ export default function BookingPage() {
         </div>
       </main>
 
-      <footer className="mt-20 border-t border-[#bfc7d5]/50 bg-[#e0e3e5]">
-        <div className="flex w-full flex-col items-center justify-between gap-6 px-4 py-12 sm:px-6 md:flex-row lg:px-10 xl:px-14">
+      <footer className="mt-14 border-t border-white/70 bg-white/44 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-[1520px] flex-col items-center justify-between gap-6 px-4 py-10 sm:px-6 md:flex-row lg:px-10">
           <div>
-            <div className="mb-2 text-2xl font-bold text-[#191c1e]">
+            <div className="mb-2 text-2xl font-black text-slate-950">
               autoWash
             </div>
-            <p className="text-base text-[#3f4753]">
+            <p className="text-base font-semibold text-slate-500">
               © 2024 autoWash - Giải pháp chăm sóc xe chuyên nghiệp
             </p>
           </div>
@@ -625,7 +710,7 @@ export default function BookingPage() {
               <button
                 key={link}
                 type="button"
-                className="text-base text-[#3f4753] transition-colors hover:text-[#0061a5]"
+                className="text-base font-bold text-slate-500 transition-colors hover:text-cyan-700"
               >
                 {link}
               </button>
@@ -633,6 +718,7 @@ export default function BookingPage() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

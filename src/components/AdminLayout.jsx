@@ -10,7 +10,7 @@ const NAV_ITEMS = [
     path: "/admin/promotions",
   },
   { label: "Services", icon: "build", path: "/admin/services" },
-  { label: "Customers", icon: "group", path: "/admin/customers" },
+  { label: "Users", icon: "group", path: "/admin/users" },
 ];
 
 export default function AdminLayout() {
@@ -24,28 +24,29 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-on-surface">
+    <div className="flex h-screen overflow-hidden bg-[#05070a] text-zinc-100">
       {/* Sidebar */}
-      <aside className="hidden w-72 flex-col border-r border-surface-container-highest bg-surface-container-low lg:flex">
-        <div className="h-16 flex items-center px-6 border-b border-surface-container-highest">
+      <aside className="hidden w-72 flex-col border-r border-zinc-800 bg-black lg:flex">
+        <div className="relative flex h-20 items-center border-b border-zinc-800 px-5">
+          <div className="admin-scanline pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-transparent via-cyan-300/10 to-transparent" />
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary flex items-center justify-center rounded">
-              <span className="material-symbols-outlined text-background text-2xl">
+            <div className="flex h-11 w-11 items-center justify-center border border-cyan-400/50 bg-cyan-400/10">
+              <span className="material-symbols-outlined text-2xl text-cyan-300">
                 water_drop
               </span>
             </div>
             <div>
-              <h1 className="text-on-surface font-bold tracking-tight text-xl">
+              <h1 className="font-mono text-xl font-black tracking-tight text-zinc-50">
                 AutoWash Pro
               </h1>
-              <p className="text-[10px] text-on-surface-variant -mt-1">
-                ADMIN PORTAL
+              <p className="-mt-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                ADMIN CONSOLE
               </p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 space-y-2 overflow-y-auto px-3 py-5">
           {NAV_ITEMS.map((item) => {
             const isActive =
               location.pathname === item.path ||
@@ -54,13 +55,16 @@ export default function AdminLayout() {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium transition-all ${
+                className={`group relative flex w-full items-center gap-3 overflow-hidden border px-4 py-3 text-left font-mono text-xs font-black uppercase tracking-[0.12em] transition duration-300 ${
                   isActive
-                    ? "bg-primary/10 text-primary border-l-4 border-primary"
-                    : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                    ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-200 shadow-[0_14px_40px_rgba(34,211,238,0.08)]"
+                    : "border-transparent text-zinc-500 hover:border-zinc-800 hover:bg-zinc-950 hover:text-zinc-200"
                 }`}
               >
-                <span className="material-symbols-outlined text-[22px]">
+                {isActive && (
+                  <span className="absolute inset-y-0 left-0 w-1 bg-cyan-300" />
+                )}
+                <span className="material-symbols-outlined text-[21px] transition group-hover:scale-110">
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -69,20 +73,20 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-surface-container-highest">
-          <div className="flex items-center gap-3 p-3 bg-surface-container-high rounded-xl">
-            <div className="w-10 h-10 bg-surface-container-highest border border-outline-variant rounded-full flex items-center justify-center">
+        <div className="border-t border-zinc-800 p-4">
+          <div className="flex items-center gap-3 border border-zinc-800 bg-zinc-950 p-3">
+            <div className="flex h-10 w-10 items-center justify-center border border-zinc-700 bg-black">
               <span className="material-symbols-outlined">person</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-on-surface truncate">
+              <p className="truncate font-mono text-sm font-black text-zinc-100">
                 {userName}
               </p>
-              <p className="text-xs text-on-surface-variant">Administrator</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">Administrator</p>
             </div>
             <button
               onClick={handleLogout}
-              className="text-on-surface-variant hover:text-error p-1"
+              className="p-1 text-zinc-500 hover:text-red-300"
             >
               <span className="material-symbols-outlined">logout</span>
             </button>
@@ -92,19 +96,19 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex min-h-16 items-center justify-between gap-4 border-b border-surface-container-highest bg-surface-container-low px-4 sm:px-6 lg:px-8">
+        <header className="flex min-h-16 items-center justify-between gap-4 border-b border-zinc-800 bg-black px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary lg:hidden">
-              <span className="material-symbols-outlined text-background">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-cyan-400/50 bg-cyan-400/10 lg:hidden">
+              <span className="material-symbols-outlined text-cyan-300">
                 water_drop
               </span>
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-headline-sm text-on-surface">
+              <h2 className="truncate font-mono text-sm font-black uppercase tracking-[0.16em] text-zinc-100">
                 {NAV_ITEMS.find((item) => location.pathname.startsWith(item.path))
                   ?.label || "Admin"}
               </h2>
-              <p className="truncate text-xs text-on-surface-variant lg:hidden">
+              <p className="truncate font-mono text-xs text-zinc-500 lg:hidden">
                 {userName}
               </p>
             </div>
@@ -112,22 +116,22 @@ export default function AdminLayout() {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant hover:text-error lg:hidden"
+            className="flex h-10 w-10 shrink-0 items-center justify-center border border-zinc-800 text-zinc-500 hover:text-red-300 lg:hidden"
             title="Đăng xuất"
           >
             <span className="material-symbols-outlined">logout</span>
           </button>
-          <h2 className="hidden text-headline-sm text-on-surface lg:block">
+          <h2 className="hidden font-mono text-sm font-black uppercase tracking-[0.16em] text-zinc-500 lg:block">
             {NAV_ITEMS.find((item) => location.pathname.startsWith(item.path))
               ?.label || "Admin"}
           </h2>
         </header>
 
-        <main className="flex-1 overflow-auto bg-background p-4 pb-24 sm:p-6 sm:pb-24 md:p-8 lg:pb-8">
+        <main className="admin-motion-root flex-1 overflow-auto bg-[#05070a] p-0 pb-24 lg:pb-0">
           <Outlet />
         </main>
 
-        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-surface-container-highest bg-surface-container-low/95 px-2 py-2 backdrop-blur lg:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-800 bg-black/95 px-2 py-2 backdrop-blur lg:hidden">
           <div className="grid grid-cols-5 gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive =
@@ -138,10 +142,10 @@ export default function AdminLayout() {
                   key={item.path}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold transition-colors ${
+                  className={`flex min-w-0 flex-col items-center gap-1 border px-1 py-2 font-mono text-[10px] font-black uppercase transition-colors ${
                     isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-on-surface-variant"
+                      ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+                      : "border-transparent text-zinc-500"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[20px]">

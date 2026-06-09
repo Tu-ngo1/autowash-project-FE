@@ -5,7 +5,7 @@ import {
   deleteService as deleteServiceApi,
   getAdminServices,
   updateService as updateServiceApi,
-} from "../../services/serviceApi";
+} from "../../services/adminServiceApi";
 
 export default function AdminServices() {
   const [services, setServices] = useState([]);
@@ -63,58 +63,75 @@ export default function AdminServices() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    <div className="flex h-full flex-1 flex-col overflow-hidden bg-[#05070a] text-zinc-100">
+      <div className="pointer-events-none fixed inset-0 opacity-70">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(34,211,238,0.11),transparent_28%),radial-gradient(circle_at_82%_0%,rgba(63,63,70,0.2),transparent_30%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.035)_1px,transparent_1px)] bg-[size:48px_48px]" />
+      </div>
+      <div className="relative flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="admin-reveal relative overflow-hidden border border-zinc-800 bg-zinc-950 p-5">
+          <div className="admin-scanline pointer-events-none absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-transparent via-cyan-300/12 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="font-headline-lg text-on-surface">
-              Quản lý Gói Dịch Vụ & Vận Hành
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                  SERVICE OPS
+                </span>
+                <span className="border border-zinc-800 bg-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
+                  <span className="admin-pulse mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                  PRICE MATRIX
+                </span>
+              </div>
+            <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
+              Service Control
             </h1>
-            <p className="text-body-md text-on-surface-variant">
-              Thiết lập và quản lý các gói dịch vụ rửa xe
+            <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
+              Thiết lập gói rửa, giá tiền, thời lượng và trạng thái vận hành.
             </p>
           </div>
           <button
             onClick={() => setIsAddDrawerOpen(true)}
-            className="bg-primary text-on-primary h-10 px-6 font-bold uppercase text-xs tracking-wider flex items-center gap-2 hover:bg-primary-fixed-dim transition-all active:scale-95"
+              className="flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>{" "}
-            Thêm Gói Dịch Vụ Mới
+            New Service
           </button>
+          </div>
         </div>
 
         {/* Data Table */}
-        <div className="bg-surface-container-low border border-outline-variant">
-          <table className="w-full text-left border-collapse">
+        <div className="admin-reveal overflow-x-auto border border-zinc-800 bg-zinc-950" style={{ animationDelay: "140ms" }}>
+          <table className="w-full min-w-[900px] border-collapse text-left">
             <thead>
-              <tr className="bg-surface-container-highest border-b border-outline-variant">
-                <th className="px-6 py-4 font-label-caps text-on-surface-variant text-[11px]">
+              <tr className="border-b border-zinc-800 bg-black">
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Tên Gói Dịch Vụ
                 </th>
-                <th className="px-6 py-4 font-label-caps text-on-surface-variant text-[11px]">
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Giá Tiền (đ)
                 </th>
-                <th className="px-6 py-4 font-label-caps text-on-surface-variant text-[11px]">
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Dự Kiến (Phút)
                 </th>
-                <th className="px-6 py-4 font-label-caps text-on-surface-variant text-[11px]">
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Mô Tả Ngắn
                 </th>
-                <th className="px-6 py-4 font-label-caps text-on-surface-variant text-[11px]">
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Trạng Thái
                 </th>
-                <th className="px-6 py-4 font-label-caps text-on-surface-variant text-[11px] text-right">
+                <th className="px-6 py-4 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Hành Động
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant">
+            <tbody className="divide-y divide-zinc-900 font-mono text-sm">
               {loading ? (
                 <tr>
                   <td
                     colSpan="6"
-                    className="px-6 py-12 text-center text-on-surface-variant"
+                    className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Đang tải...
                   </td>
@@ -123,25 +140,26 @@ export default function AdminServices() {
                 <tr>
                   <td
                     colSpan="6"
-                    className="px-6 py-12 text-center text-on-surface-variant"
+                    className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Không có dữ liệu
                   </td>
                 </tr>
               ) : (
-                services.map((service) => (
+                services.map((service, index) => (
                   <tr
                     key={service.id}
-                    className="hover:bg-surface-container-high transition-colors"
+                    className="admin-reveal transition duration-200 hover:translate-x-1 hover:bg-cyan-400/[0.04]"
+                    style={{ animationDelay: `${220 + index * 45}ms` }}
                   >
-                    <td className="px-6 py-5 text-white font-medium">
+                    <td className="px-6 py-5 font-black text-zinc-100">
                       {service.name}
                     </td>
-                    <td className="px-6 py-5 font-data-display text-white">
+                    <td className="px-6 py-5 font-black text-cyan-300">
                       {service.price?.toLocaleString()}đ
                     </td>
                     <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-on-surface-variant">
+                      <div className="flex items-center gap-2 text-zinc-400">
                         <span className="material-symbols-outlined text-[18px]">
                           schedule
                         </span>
@@ -150,15 +168,15 @@ export default function AdminServices() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-5 text-on-surface-variant">
+                    <td className="px-6 py-5 text-zinc-400">
                       {service.description}
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-2">
                         <div
-                          className={`w-2 h-2 rounded-full ${service.status === "ACTIVE" ? "bg-secondary" : "bg-error"}`}
+                          className={`h-2 w-2 rounded-full ${service.status === "ACTIVE" ? "bg-emerald-300" : "bg-red-300"}`}
                         ></div>
-                        <span className="font-label-caps text-[10px]">
+                        <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
                           {service.status === "ACTIVE" ? "ACTIVE" : "INACTIVE"}
                         </span>
                       </div>
@@ -170,7 +188,7 @@ export default function AdminServices() {
                             setSelectedService(service);
                             setIsDrawerOpen(true);
                           }}
-                          className="text-on-surface-variant hover:text-primary transition-colors"
+                          className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
                         >
                           <span className="material-symbols-outlined text-[20px]">
                             edit
@@ -178,7 +196,7 @@ export default function AdminServices() {
                         </button>
                         <button
                           onClick={() => deleteService(service.id)}
-                          className="text-on-surface-variant hover:text-error transition-colors"
+                          className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
                         >
                           <span className="material-symbols-outlined text-[20px]">
                             delete
@@ -198,7 +216,7 @@ export default function AdminServices() {
       {isAddDrawerOpen && (
         <>
           <div
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm"
             onClick={() => setIsAddDrawerOpen(false)}
           ></div>
           <ServiceDrawer
@@ -213,7 +231,7 @@ export default function AdminServices() {
       {isDrawerOpen && selectedService && (
         <>
           <div
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm"
             onClick={() => setIsDrawerOpen(false)}
           ></div>
           <ServiceDrawer
@@ -243,21 +261,24 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-surface-container-low border-l border-outline-variant shadow-2xl flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-container">
+    <div className="admin-reveal fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="flex items-center justify-between border-b border-zinc-800 bg-black px-6 py-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-headline-md text-on-surface">
+          <p className="font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
+            {mode === "add" ? "NEW SERVICE" : "EDIT SERVICE"}
+          </p>
+          <h2 className="text-headline-md text-zinc-100">
             {mode === "add" ? "Thêm Gói Dịch Vụ" : "Chỉnh sửa Gói Dịch Vụ"}
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-label-caps text-on-surface-variant text-[10px] tracking-widest uppercase">
+            <span className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
               Cấu hình tham số vận hành
             </span>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="text-on-surface-variant hover:text-white transition-colors"
+          className="text-zinc-500 transition-colors hover:text-cyan-300"
         >
           <span className="material-symbols-outlined">close</span>
         </button>
@@ -265,11 +286,11 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
 
       <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <label className="text-label-caps text-on-surface-variant text-[12px]">
+          <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
             Tên gói dịch vụ
           </label>
           <input
-            className="bg-surface-container-high border border-outline-variant text-on-surface h-10 px-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full"
+            className="h-10 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
             placeholder="Ví dụ: Standard Wash"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -277,45 +298,45 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-label-caps text-on-surface-variant text-[12px]">
+          <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
             Giá tiền (VND)
           </label>
           <div className="relative">
             <input
               type="number"
-              className="bg-surface-container-high border border-outline-variant text-on-surface h-10 px-3 pr-12 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full font-data-display"
+              className="h-10 w-full border border-zinc-800 bg-black px-3 pr-12 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
               placeholder="0"
               value={formData.price}
               onChange={(e) =>
                 setFormData({ ...formData, price: parseInt(e.target.value) })
               }
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-data-display text-[12px]">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
               VND
             </span>
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-label-caps text-on-surface-variant text-[12px]">
+          <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
             Thời gian thực hiện (Phút)
           </label>
           <div className="relative">
             <input
               type="number"
-              className="bg-surface-container-high border border-outline-variant text-on-surface h-10 px-3 pr-12 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full font-data-display"
+              className="h-10 w-full border border-zinc-800 bg-black px-3 pr-12 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
               placeholder="30"
               value={formData.duration}
               onChange={(e) =>
                 setFormData({ ...formData, duration: parseInt(e.target.value) })
               }
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-data-display text-[12px]">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
               MIN
             </span>
           </div>
-          <div className="mt-1 p-3 bg-primary/5 border-l-2 border-primary-container">
-            <p className="text-[11px] text-on-surface-variant italic leading-relaxed">
+          <div className="mt-1 border-l-2 border-cyan-400/50 bg-cyan-400/10 p-3">
+            <p className="text-[11px] font-semibold leading-relaxed text-zinc-400">
               Lưu ý: Thông số này dùng để tính toán bộ đếm ngược và thời gian
               chờ trong hàng đợi cho nhân viên Staff.
             </p>
@@ -323,11 +344,11 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-label-caps text-on-surface-variant text-[12px]">
+          <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
             Mô tả chi tiết
           </label>
           <textarea
-            className="bg-surface-container-high border border-outline-variant text-on-surface p-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full resize-none"
+            className="w-full resize-none border border-zinc-800 bg-black p-3 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
             placeholder="Mô tả các hạng mục trong gói dịch vụ này..."
             rows={4}
             value={formData.description}
@@ -337,12 +358,12 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
           />
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-outline-variant">
+        <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
           <div>
-            <span className="text-body-md font-semibold text-white">
+            <span className="font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-100">
               Kích hoạt ngay
             </span>
-            <p className="text-[10px] text-on-surface-variant">
+            <p className="text-[10px] text-zinc-500">
               Hiển thị gói này trên ứng dụng khách hàng
             </p>
           </div>
@@ -356,23 +377,23 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
                 })
               }
               type="checkbox"
-              className="toggle-checkbox absolute block w-5 h-5 bg-white border-2 border-outline-variant appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-secondary"
+              className="toggle-checkbox absolute z-10 block h-5 w-5 cursor-pointer appearance-none border-2 border-zinc-700 bg-black transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-emerald-300"
             />
-            <label className="toggle-label block overflow-hidden h-5 bg-surface-container-highest border-2 border-outline-variant cursor-pointer transition-colors duration-200 ease-in-out"></label>
+            <label className="toggle-label block h-5 cursor-pointer overflow-hidden border-2 border-zinc-700 bg-zinc-900 transition-colors duration-200 ease-in-out"></label>
           </div>
         </div>
       </div>
 
-      <div className="p-6 border-t border-outline-variant bg-surface-container flex gap-3">
+      <div className="flex gap-3 border-t border-zinc-800 bg-black p-6">
         <button
           onClick={onClose}
-          className="flex-1 border border-outline-variant text-on-surface hover:bg-surface-container-high transition-colors font-label-caps py-3 text-[12px] uppercase tracking-widest"
+          className="flex-1 border border-zinc-800 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-600"
         >
           Hủy
         </button>
         <button
           onClick={handleSubmit}
-          className="flex-1 bg-primary hover:bg-primary-fixed-dim text-on-primary transition-colors font-label-caps py-3 text-[12px] uppercase tracking-widest active:scale-[0.98]"
+          className="flex-1 border border-cyan-400/60 bg-cyan-400/10 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300 transition hover:bg-cyan-400/20 active:scale-[0.98]"
         >
           {mode === "add" ? "Lưu Gói Dịch Vụ" : "Cập nhật"}
         </button>
