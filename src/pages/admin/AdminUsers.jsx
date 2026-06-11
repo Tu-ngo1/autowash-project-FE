@@ -11,20 +11,35 @@ import {
   updateAdminUserStatus,
 } from "../../services/adminUserApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { normalizeAdminCustomer } from "../../utils/adminDto";
 
 const TIER_STYLES = {
   Platinum: "border border-cyan-300/60 bg-cyan-300/10 text-cyan-200 platinum-glow",
+  PLATINUM: "border border-cyan-300/60 bg-cyan-300/10 text-cyan-200 platinum-glow",
   Gold: "border border-yellow-300/60 bg-yellow-300/10 text-yellow-200",
+  GOLD: "border border-yellow-300/60 bg-yellow-300/10 text-yellow-200",
   Silver:
     "border border-zinc-700 bg-zinc-900 text-zinc-300",
+  SILVER:
+    "border border-zinc-700 bg-zinc-900 text-zinc-300",
   Member:
+    "border border-zinc-700 bg-zinc-900 text-zinc-300",
+  MEMBER:
     "border border-zinc-700 bg-zinc-900 text-zinc-300",
 };
 
 const STATUS_STYLES = {
   ACTIVE: "border border-emerald-400/50 bg-emerald-400/10 text-emerald-300",
-  BANNED: "border border-red-400/50 bg-red-400/10 text-red-300",
   INACTIVE: "border border-red-400/50 bg-red-400/10 text-red-300",
+  LOCKED: "border border-red-400/50 bg-red-400/10 text-red-300",
+  DISABLED: "border border-red-400/50 bg-red-400/10 text-red-300",
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("vi-VN");
 };
 
 export default function AdminUsers() {
@@ -56,19 +71,23 @@ export default function AdminUsers() {
       const customersData = Array.isArray(payload)
         ? payload
         : payload.users || payload.customers || payload.items || [];
-      setCustomers(customersData);
+      const normalizedCustomers = customersData.map(normalizeAdminCustomer);
+      setCustomers(normalizedCustomers);
 
-      const customerCount = customersData.filter(
+      const customerCount = normalizedCustomers.filter(
         (c) => (c.role || "CUSTOMER").toUpperCase() === "CUSTOMER",
       ).length;
-      const staffCount = customersData.filter(
+      const staffCount = normalizedCustomers.filter(
         (c) => (c.role || "").toUpperCase() === "STAFF",
       ).length;
-      const banned = customersData.filter(
-        (c) => c.status === "BANNED" || c.status === "INACTIVE",
+      const banned = normalizedCustomers.filter(
+        (c) =>
+          c.status === "INACTIVE" ||
+          c.status === "LOCKED" ||
+          c.status === "DISABLED",
       ).length;
       setStats({
-        total: customersData.length,
+        total: normalizedCustomers.length,
         customers: customerCount,
         staff: staffCount,
         banned,
@@ -84,7 +103,7 @@ export default function AdminUsers() {
   const fetchCustomerDetails = async (id) => {
     try {
       const res = await getAdminUser(id);
-      setSelectedCustomer(res.data?.data ?? res.data);
+      setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       setIsDrawerOpen(true);
     } catch (err) {
       console.error("Failed to load customer details:", err);
@@ -114,7 +133,7 @@ export default function AdminUsers() {
 
   const toggleCustomerStatus = async (id, currentStatus) => {
     try {
-      const newStatus = currentStatus === "ACTIVE" ? "BANNED" : "ACTIVE";
+      const newStatus = currentStatus === "ACTIVE" ? "LOCKED" : "ACTIVE";
       await updateAdminUserStatus(id, newStatus);
       await fetchCustomers();
     } catch (err) {
@@ -144,7 +163,7 @@ export default function AdminUsers() {
       await fetchCustomers();
       if (selectedCustomer?.id === customerId) {
         const res = await getAdminUser(customerId);
-        setSelectedCustomer(res.data?.data ?? res.data);
+        setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       }
     } catch (err) {
       console.error("Failed to add vehicle:", err);
@@ -157,7 +176,7 @@ export default function AdminUsers() {
       await fetchCustomers();
       if (selectedCustomer?.id === customerId) {
         const res = await getAdminUser(customerId);
-        setSelectedCustomer(res.data?.data ?? res.data);
+        setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       }
     } catch (err) {
       console.error("Failed to delete vehicle:", err);
@@ -167,9 +186,12 @@ export default function AdminUsers() {
   const filteredCustomers = customers.filter((c) => {
     const matchSearch =
       c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.fullName?.toLowerCase().includes(search.toLowerCase()) ||
       c.email?.toLowerCase().includes(search.toLowerCase()) ||
       c.phone?.includes(search);
-    const matchTier = tierFilter === "all" || c.tier === tierFilter;
+    const matchTier =
+      tierFilter === "all" ||
+      String(c.tier || "").toUpperCase() === tierFilter.toUpperCase();
     const role = (c.role || "CUSTOMER").toUpperCase();
     const matchRole = roleFilter === "all" || role === roleFilter;
     return matchSearch && matchTier && matchRole;
@@ -290,9 +312,10 @@ export default function AdminUsers() {
                 className="border border-zinc-800 bg-black px-3 py-2 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
               >
                 <option className="bg-black text-zinc-100" value="all">Tất cả</option>
-                <option className="bg-black text-zinc-100" value="Platinum">Platinum</option>
-                <option className="bg-black text-zinc-100" value="Gold">Gold</option>
-                <option className="bg-black text-zinc-100" value="Silver">Silver</option>
+                <option className="bg-black text-zinc-100" value="PLATINUM">Platinum</option>
+                <option className="bg-black text-zinc-100" value="GOLD">Gold</option>
+                <option className="bg-black text-zinc-100" value="SILVER">Silver</option>
+                <option className="bg-black text-zinc-100" value="MEMBER">Member</option>
               </select>
             </div>
           </div>
@@ -319,6 +342,15 @@ export default function AdminUsers() {
                   Điểm Quy Đổi
                 </th>
                 <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Số Xe
+                </th>
+                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Booking
+                </th>
+                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Ngày Tạo
+                </th>
+                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Trạng thái
                 </th>
                 <th className="border-b border-zinc-800 px-6 py-4 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
@@ -330,7 +362,7 @@ export default function AdminUsers() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="10"
                     className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Đang tải...
@@ -339,7 +371,7 @@ export default function AdminUsers() {
               ) : filteredCustomers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="10"
                     className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Không có dữ liệu
@@ -395,9 +427,9 @@ export default function AdminUsers() {
                     <td className="px-6 py-4">
                       {role === "CUSTOMER" ? (
                         <span
-                          className={`inline-block px-3 py-1 text-[10px] font-bold uppercase ${TIER_STYLES[customer.tier] || TIER_STYLES.Member}`}
+                          className={`inline-block px-3 py-1 text-[10px] font-bold uppercase ${TIER_STYLES[customer.tier] || TIER_STYLES.MEMBER}`}
                         >
-                          {customer.tier || "Member"}
+                          {customer.tier || "MEMBER"}
                         </span>
                       ) : (
                         <span className="text-zinc-600">-</span>
@@ -405,13 +437,22 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-6 py-4 font-mono text-zinc-100">
                       {role === "CUSTOMER"
-                        ? `${customer.rankPoints?.toLocaleString() || 0} pts`
+                        ? `${customer.tierPoints?.toLocaleString() || 0} pts`
                         : "-"}
                     </td>
                     <td className="px-6 py-4 font-mono font-bold text-cyan-300">
                       {role === "CUSTOMER"
-                        ? `${customer.redeemPoints?.toLocaleString() || 0} pts`
+                        ? `${customer.rewardPoints?.toLocaleString() || 0} pts`
                         : "-"}
+                    </td>
+                    <td className="px-6 py-4 font-mono text-zinc-100">
+                      {role === "CUSTOMER" ? customer.carCount ?? 0 : "-"}
+                    </td>
+                    <td className="px-6 py-4 font-mono text-zinc-100">
+                      {role === "CUSTOMER" ? customer.bookingCount ?? 0 : "-"}
+                    </td>
+                    <td className="px-6 py-4 font-mono text-zinc-400">
+                      {formatDate(customer.createdAt)}
                     </td>
                     <td className="px-6 py-4">
                       <span
@@ -489,9 +530,9 @@ export default function AdminUsers() {
                     </span>
                   </div>
                   <div
-                    className={`absolute -bottom-2 -right-2 font-label-caps text-[10px] px-1.5 py-0.5 tracking-tighter ${TIER_STYLES[selectedCustomer.tier] || TIER_STYLES.Member}`}
+                    className={`absolute -bottom-2 -right-2 font-label-caps text-[10px] px-1.5 py-0.5 tracking-tighter ${TIER_STYLES[selectedCustomer.tier] || TIER_STYLES.MEMBER}`}
                   >
-                    {selectedCustomer.tier || "Member"}
+                    {selectedCustomer.tier || "MEMBER"}
                   </div>
                 </div>
                 <div>
@@ -739,7 +780,7 @@ function AddUserDrawer({ onClose, onCreate }) {
     name: "",
     email: "",
     role: "CUSTOMER",
-    tier: "Member",
+    tier: "MEMBER",
     status: "ACTIVE",
   });
   const [error, setError] = useState("");
@@ -822,7 +863,7 @@ function AddUserDrawer({ onClose, onCreate }) {
                 setFormData((current) => ({
                   ...current,
                   role: event.target.value,
-                  tier: event.target.value === "STAFF" ? "Staff" : "Member",
+                  tier: event.target.value === "STAFF" ? "STAFF" : "MEMBER",
                 }))
               }
               className="h-12 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
@@ -848,7 +889,7 @@ function AddUserDrawer({ onClose, onCreate }) {
               }
               className="h-12 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
             >
-              {["Member", "Silver", "Gold", "Platinum"].map((tier) => (
+              {["MEMBER", "SILVER", "GOLD", "PLATINUM"].map((tier) => (
                 <option key={tier} className="bg-black text-zinc-100" value={tier}>
                   {tier}
                 </option>
@@ -874,8 +915,8 @@ function AddUserDrawer({ onClose, onCreate }) {
               <option className="bg-black text-zinc-100" value="ACTIVE">
                 ACTIVE
               </option>
-              <option className="bg-black text-zinc-100" value="BANNED">
-                BANNED
+              <option className="bg-black text-zinc-100" value="LOCKED">
+                LOCKED
               </option>
             </select>
           </label>

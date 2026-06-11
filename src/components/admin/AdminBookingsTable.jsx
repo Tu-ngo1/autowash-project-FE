@@ -3,6 +3,10 @@ const STATUS_STYLES = {
   PENDING:
     "border-zinc-700 text-zinc-400 bg-zinc-900",
   "IN PROGRESS": "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  IN_PROGRESS: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  CONFIRM: "border-yellow-300/50 text-yellow-200 bg-yellow-300/10",
+  ARRIVED: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  WASHED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
   WASHING: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
   CANCELLED: "border-red-400/50 text-red-300 bg-red-400/10",
 };
@@ -30,15 +34,12 @@ function PaymentBadge({ method }) {
 
 function StatusBadge({ status }) {
   const normalizedStatus = String(status || "PENDING").toUpperCase();
+  const label = normalizedStatus.replaceAll("_", " ");
   return (
     <span
       className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${STATUS_STYLES[normalizedStatus] || STATUS_STYLES.PENDING}`}
     >
-      {normalizedStatus === "COMPLETED"
-        ? "COMPLETED"
-        : normalizedStatus === "IN PROGRESS"
-          ? "IN PROGRESS"
-          : normalizedStatus}
+      {label}
     </span>
   );
 }
@@ -70,7 +71,7 @@ export default function AdminBookingsTable({
     <>
       <div className="grid gap-3 lg:hidden">
         {bookings.map((booking) => {
-          const bookingId = booking.id || booking._id;
+          const bookingId = booking.id || booking.bookingId || booking._id;
           return (
           <button
             key={bookingId}
@@ -81,13 +82,13 @@ export default function AdminBookingsTable({
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-mono font-black text-cyan-300">
-                  {booking.code || `#B-${bookingId}`}
+                  {booking.bookingCode || booking.code || `#B-${bookingId}`}
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold text-zinc-100">
                   {booking.customerName || "-"}
                 </p>
                 <p className="font-mono text-xs text-zinc-500">
-                  {booking.plate || "-"}
+                  {booking.vehicleLicensePlate || booking.plate || "-"}
                 </p>
               </div>
               <StatusBadge status={booking.status} />
@@ -97,13 +98,13 @@ export default function AdminBookingsTable({
               <div className="flex justify-between gap-3">
                 <span>Thời gian</span>
                 <span className="text-right font-mono text-zinc-100">
-                  {booking.date} {booking.time}
+                  {booking.date || "-"} {booking.time || ""}
                 </span>
               </div>
               <div className="flex justify-between gap-3">
                 <span>Dịch vụ</span>
                 <span className="text-right text-zinc-100">
-                  {booking.service || "-"}
+                  {booking.service || booking.services?.join(", ") || "-"}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -113,7 +114,7 @@ export default function AdminBookingsTable({
               <div className="flex justify-between gap-3 border-t border-zinc-800 pt-2">
                 <span>Tổng tiền</span>
                 <span className="font-mono font-black text-zinc-100">
-                  {booking.total?.toLocaleString()} ₫
+                  {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                 </span>
               </div>
               <div className="flex gap-2 border-t border-zinc-800 pt-3">
@@ -178,7 +179,7 @@ export default function AdminBookingsTable({
           </thead>
           <tbody className="font-mono text-xs">
             {bookings.map((booking, index) => {
-              const bookingId = booking.id || booking._id;
+              const bookingId = booking.id || booking.bookingId || booking._id;
               return (
               <tr
                 key={bookingId}
@@ -188,15 +189,15 @@ export default function AdminBookingsTable({
               >
                 <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
                   <span className="font-black text-cyan-300">
-                    {booking.code || `#B-${bookingId}`}
+                    {booking.bookingCode || booking.code || `#B-${bookingId}`}
                   </span>
                 </td>
                 <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
                   <span className="text-zinc-100">
-                    {booking.date}
+                    {booking.date || "-"}
                   </span>
                   <span className="ml-1 text-zinc-500">
-                    {booking.time}
+                    {booking.time || ""}
                   </span>
                 </td>
                 <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
@@ -204,14 +205,14 @@ export default function AdminBookingsTable({
                     {booking.customerName}
                   </span>
                   <span className="ml-1 text-zinc-500">
-                    • {booking.plate}
+                    • {booking.vehicleLicensePlate || booking.plate || "-"}
                   </span>
                 </td>
                 <td
                   className="truncate whitespace-nowrap px-3 py-3 align-middle text-zinc-300"
-                  title={booking.service}
+                  title={booking.service || booking.services?.join(", ")}
                 >
-                  {booking.service}
+                  {booking.service || booking.services?.join(", ") || "-"}
                 </td>
                 <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
                   <PaymentBadge method={booking.paymentMethod} />
@@ -221,7 +222,7 @@ export default function AdminBookingsTable({
                 </td>
                 <td className="truncate whitespace-nowrap px-3 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
-                    {booking.total?.toLocaleString()} ₫
+                    {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                   </span>
                 </td>
                 <td className="px-3 py-3 text-center align-middle">
