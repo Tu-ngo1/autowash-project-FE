@@ -2,8 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getAdminDashboardAnalytics,
   getAdminDashboardBookings,
+  getAdminDashboardBookingsByStatus,
   getAdminDashboardRevenue,
+  getAdminDashboardTopVouchers,
 } from "../../services/adminDashboardApi";
+import {
+  asArrayPayload,
+  normalizeAdminBooking,
+  normalizeTopVoucher,
+} from "../../utils/adminDto";
 
 const formatCurrency = (value) => {
   const number = Number(value) || 0;
@@ -202,6 +209,8 @@ export default function AdminDashboard() {
   const [dashboard, setDashboard] = useState({});
   const [revenue, setRevenue] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [bookingsByStatus, setBookingsByStatus] = useState([]);
+  const [topVouchers, setTopVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -209,24 +218,46 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [dashboardRes, revenueRes, bookingsRes] = await Promise.all([
+      const [
+        dashboardRes,
+        revenueRes,
+        bookingsRes,
+        statusRes,
+        voucherRes,
+      ] = await Promise.all([
         getAdminDashboardAnalytics().catch(() => null),
         getAdminDashboardRevenue({ range: "7d" }).catch(() => null),
         getAdminDashboardBookings().catch(() => null),
+        getAdminDashboardBookingsByStatus().catch(() => null),
+        getAdminDashboardTopVouchers().catch(() => null),
       ]);
 
       const dashboardPayload = unwrap(dashboardRes);
       const revenuePayload = unwrap(revenueRes);
-      const bookingsPayload = unwrap(bookingsRes);
 
       setDashboard(dashboardPayload || {});
       setRevenue(getList(revenuePayload, ["items", "revenue", "data", "chart"]));
-      setBookings(getList(bookingsPayload, ["bookings", "items", "data"]).slice(0, 8));
+      const bookingItems = asArrayPayload(bookingsRes, [
+        "bookings",
+        "items",
+        "data",
+      ]).map(normalizeAdminBooking);
+      setBookings(bookingItems.slice(0, 8));
+      setBookingsByStatus(
+        asArrayPayload(statusRes, ["items", "statuses", "data"]),
+      );
+      setTopVouchers(
+        asArrayPayload(voucherRes, ["items", "vouchers", "data"]).map(
+          normalizeTopVoucher,
+        ),
+      );
     } catch {
       setError("Không thể tải dữ liệu dashboard.");
       setDashboard({});
       setRevenue([]);
       setBookings([]);
+      setBookingsByStatus([]);
+      setTopVouchers([]);
     } finally {
       setLoading(false);
     }
@@ -238,13 +269,18 @@ export default function AdminDashboard() {
 
   const serviceRatios = useMemo(
     () =>
-      getList(dashboard, [
+      bookingsByStatus.length > 0
+        ? bookingsByStatus.map((item) => ({
+            name: item.status || item.name || item.label,
+            value: item.count ?? item.value ?? item.total,
+          }))
+        : getList(dashboard, [
         "serviceRatios",
         "serviceRatio",
         "serviceStats",
         "services",
       ]),
-    [dashboard],
+    [bookingsByStatus, dashboard],
   );
 
   return (
@@ -336,11 +372,57 @@ export default function AdminDashboard() {
 
         <section className="admin-reveal flex h-[340px] flex-col overflow-hidden border border-zinc-800 bg-zinc-950 transition duration-300 hover:border-cyan-400/50" style={{ animationDelay: "460ms" }}>
           <div className="border-b border-zinc-800 bg-black p-4">
-            <span className="font-mono text-xs font-black uppercase tracking-[0.2em] text-zinc-300">TỶ LỆ GÓI DỊCH VỤ</span>
+            <span className="font-mono text-xs font-black uppercase tracking-[0.2em] text-zinc-300">TỶ LỆ TRẠNG THÁI BOOKING</span>
           </div>
           <ServiceRatio items={serviceRatios} />
         </section>
       </div>
+
+      <section className="admin-reveal relative flex flex-col overflow-hidden border border-zinc-800 bg-zinc-950" style={{ animationDelay: "500ms" }}>
+        <div className="flex items-center justify-between border-b border-zinc-800 bg-black p-4">
+          <span className="font-mono text-xs font-black uppercase tracking-[0.2em] text-zinc-300">TOP VOUCHER ĐƯỢC DÙNG</span>
+          <span className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">
+            {topVouchers.length} rows
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-[#080b10]">
+                {["MÃ VOUCHER", "CHIẾN DỊCH", "GIẢM GIÁ", "LƯỢT DÙNG"].map((heading) => (
+                  <th key={heading} className="p-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="font-mono text-[13px]">
+              {topVouchers.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600">
+                    NO DATA
+                  </td>
+                </tr>
+              ) : (
+                topVouchers.map((voucher) => (
+                  <tr key={voucher.id || voucher.code} className="border-b border-zinc-900 transition duration-200 hover:bg-cyan-400/[0.04]">
+                    <td className="p-4 font-black text-cyan-300">{voucher.code || "-"}</td>
+                    <td className="p-4 text-zinc-100">{voucher.name || "-"}</td>
+                    <td className="p-4 text-zinc-400">
+                      {voucher.discountPercent
+                        ? `${voucher.discountPercent}%`
+                        : formatCurrency(voucher.discountAmount || voucher.maxDiscountAmount)}
+                    </td>
+                    <td className="p-4 text-right font-black text-zinc-100">
+                      {(voucher.usedCount || 0).toLocaleString("vi-VN")}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="admin-reveal relative flex flex-col overflow-hidden border border-zinc-800 bg-zinc-950" style={{ animationDelay: "540ms" }}>
         <div className="admin-scanline pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-transparent via-cyan-300/5 to-transparent" />
@@ -378,12 +460,12 @@ export default function AdminDashboard() {
                     style={{ animationDelay: `${620 + index * 45}ms` }}
                   >
                     <td className="p-4 font-black text-cyan-300">
-                      #{booking.id || booking.bookingId || "-"}
+                      {booking.bookingCode || `#${booking.id || booking.bookingId || "-"}`}
                     </td>
                     <td className="p-4 text-zinc-100">
                       {booking.customerName || booking.customer || booking.name || "-"}
                     </td>
-                    <td className="p-4 text-zinc-400">{booking.plate || "-"}</td>
+                    <td className="p-4 text-zinc-400">{booking.vehicleLicensePlate || booking.plate || "-"}</td>
                     <td className="p-4">
                       <span className="border border-cyan-400/50 bg-cyan-400/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-cyan-300">
                         {booking.paymentMethod || booking.method || "-"}
@@ -391,7 +473,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="p-4 text-emerald-300">{booking.status || "-"}</td>
                     <td className="p-4 text-right font-black text-zinc-100">
-                      {formatCurrency(booking.price || booking.totalPrice || booking.amount)}
+                      {formatCurrency(booking.totalPrice ?? booking.price ?? booking.amount)}
                     </td>
                   </tr>
                 ))
