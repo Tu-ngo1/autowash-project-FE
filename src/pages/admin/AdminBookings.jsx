@@ -8,6 +8,7 @@ import {
   getAdminBookings,
   updateAdminBookingStatus,
 } from "../../services/adminBookingApi";
+import { asArrayPayload, normalizeAdminBooking } from "../../utils/adminDto";
 
 const toIsoDate = (value) => {
   const trimmed = value.trim();
@@ -64,14 +65,14 @@ export default function AdminBookings() {
         search: search || undefined,
         ...parseDateRange(dateRange),
       });
-      const payload = res.data?.data ?? res.data;
-      const items = Array.isArray(payload)
-        ? payload
-        : payload.bookings || payload.items || [];
+      const payload = res.data?.data ?? res.data ?? {};
+      const items = asArrayPayload(res, ["bookings", "items", "data"]).map(
+        normalizeAdminBooking,
+      );
       setBookings(items);
       setPagination((prev) => ({
         ...prev,
-        total: payload.total || items.length || 0,
+        total: payload.total || items.length,
       }));
     } catch {
       setBookings([]);
@@ -87,7 +88,7 @@ export default function AdminBookings() {
   const fetchBookingDetails = async (id) => {
     try {
       const res = await getAdminBooking(id);
-      setSelectedBooking(res.data?.data ?? res.data);
+      setSelectedBooking(normalizeAdminBooking(res.data?.data ?? res.data));
       setDrawerMode("view");
       setIsDrawerOpen(true);
     } catch {
@@ -98,9 +99,9 @@ export default function AdminBookings() {
   const openEditBooking = async (booking) => {
     try {
       const res = await getAdminBooking(booking.id || booking.bookingId);
-      setSelectedBooking(res.data?.data ?? res.data);
+      setSelectedBooking(normalizeAdminBooking(res.data?.data ?? res.data));
     } catch {
-      setSelectedBooking(booking);
+      setSelectedBooking(normalizeAdminBooking(booking));
     }
     setDrawerMode("edit");
     setIsDrawerOpen(true);
@@ -109,7 +110,9 @@ export default function AdminBookings() {
   const handleDeleteBooking = async (booking) => {
     const id = booking.id || booking.bookingId;
     if (!id) return;
-    const ok = window.confirm(`Xóa booking ${booking.code || `#${id}`}?`);
+    const ok = window.confirm(
+      `Xóa booking ${booking.bookingCode || booking.code || `#${id}`}?`,
+    );
     if (!ok) return;
     setActionMessage("");
     try {
@@ -230,7 +233,10 @@ export default function AdminBookings() {
               >
                 <option className="bg-black text-zinc-100" value="all">ALL STATUS</option>
                 <option className="bg-black text-zinc-100" value="PENDING">PENDING</option>
-                <option className="bg-black text-zinc-100" value="IN PROGRESS">IN PROGRESS</option>
+                <option className="bg-black text-zinc-100" value="CONFIRM">CONFIRM</option>
+                <option className="bg-black text-zinc-100" value="ARRIVED">ARRIVED</option>
+                <option className="bg-black text-zinc-100" value="IN_PROGRESS">IN_PROGRESS</option>
+                <option className="bg-black text-zinc-100" value="WASHED">WASHED</option>
                 <option className="bg-black text-zinc-100" value="COMPLETED">COMPLETED</option>
                 <option className="bg-black text-zinc-100" value="CANCELLED">CANCELLED</option>
               </select>
@@ -308,7 +314,7 @@ export default function AdminBookings() {
                     </p>
                 <h2 className="font-headline-md text-headline-md text-zinc-100">
                   Chi tiết Đơn{" "}
-                  {selectedBooking.code || `#${selectedBooking.id}`}
+                  {selectedBooking.bookingCode || `#${selectedBooking.id}`}
                 </h2>
                   </div>
                 <div className="flex items-center px-2 py-1 border border-secondary bg-secondary/10">
@@ -338,8 +344,10 @@ export default function AdminBookings() {
                     className="h-11 w-full border border-zinc-700 bg-black px-3 font-mono text-sm font-bold text-zinc-100 outline-none focus:border-cyan-400"
                   >
                     <option className="bg-black text-zinc-100" value="PENDING">PENDING</option>
-                    <option className="bg-black text-zinc-100" value="IN PROGRESS">IN PROGRESS</option>
-                    <option className="bg-black text-zinc-100" value="WASHING">WASHING</option>
+                    <option className="bg-black text-zinc-100" value="CONFIRM">CONFIRM</option>
+                    <option className="bg-black text-zinc-100" value="ARRIVED">ARRIVED</option>
+                    <option className="bg-black text-zinc-100" value="IN_PROGRESS">IN_PROGRESS</option>
+                    <option className="bg-black text-zinc-100" value="WASHED">WASHED</option>
                     <option className="bg-black text-zinc-100" value="COMPLETED">COMPLETED</option>
                     <option className="bg-black text-zinc-100" value="CANCELLED">CANCELLED</option>
                   </select>
@@ -366,7 +374,7 @@ export default function AdminBookings() {
                           stars
                         </span>
                         <span className="text-[10px] font-bold uppercase tracking-wider">
-                          {selectedBooking.tier || "Gold"}
+                        {selectedBooking.tier || selectedBooking.tierLevel || "-"}
                         </span>
                       </div>
                     </div>
@@ -380,7 +388,7 @@ export default function AdminBookings() {
                     </div>
                     <div className="border border-outline-variant px-1.5 py-0.5">
                       <span className="font-data-display text-[12px] text-on-surface tracking-tight font-bold">
-                        {selectedBooking.plate}
+                        {selectedBooking.vehicleLicensePlate || "-"}
                       </span>
                     </div>
                   </div>
@@ -396,10 +404,13 @@ export default function AdminBookings() {
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex justify-between items-center text-on-surface">
-                    <span>{selectedBooking.service}</span>
+                    <span>{selectedBooking.service || "-"}</span>
                     <span className="font-data-display">
-                      {selectedBooking.subtotal?.toLocaleString() ||
-                        selectedBooking.total?.toLocaleString()}
+                      {(
+                        selectedBooking.subtotal ??
+                        selectedBooking.totalPrice ??
+                        selectedBooking.total
+                      )?.toLocaleString()}
                       đ
                     </span>
                   </div>
@@ -416,7 +427,7 @@ export default function AdminBookings() {
                       Tổng thanh toán
                     </span>
                     <span className="font-headline-sm text-secondary">
-                      {selectedBooking.total?.toLocaleString()}đ
+                      {selectedBooking.totalPrice?.toLocaleString()}đ
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
@@ -429,8 +440,8 @@ export default function AdminBookings() {
                       </span>
                       <span className="text-[10px] font-bold text-secondary tracking-widest uppercase">
                         {selectedBooking.paymentMethod === "PAYOS"
-                          ? "PAID VIA PAYOS"
-                          : "CASH PAYMENT"}
+                          ? `PAID VIA PAYOS`
+                          : selectedBooking.paymentStatus || "CASH PAYMENT"}
                       </span>
                     </div>
                   </div>
@@ -454,7 +465,8 @@ export default function AdminBookings() {
                             Đặt lịch trực tuyến
                           </div>
                           <div className="text-[10px] text-on-surface-variant">
-                            {selectedBooking.createdAt || selectedBooking.date}
+                            {selectedBooking.scheduledStartTime ||
+                              `${selectedBooking.date} ${selectedBooking.time}`}
                           </div>
                         </div>
                         <span className="material-symbols-outlined text-outline-variant text-[18px]">
