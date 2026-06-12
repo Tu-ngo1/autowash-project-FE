@@ -14,15 +14,9 @@ import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import { normalizeAdminCustomer } from "../../utils/adminDto";
 
 const TIER_STYLES = {
-  Platinum: "border border-cyan-300/60 bg-cyan-300/10 text-cyan-200 platinum-glow",
   PLATINUM: "border border-cyan-300/60 bg-cyan-300/10 text-cyan-200 platinum-glow",
-  Gold: "border border-yellow-300/60 bg-yellow-300/10 text-yellow-200",
   GOLD: "border border-yellow-300/60 bg-yellow-300/10 text-yellow-200",
-  Silver:
-    "border border-zinc-700 bg-zinc-900 text-zinc-300",
   SILVER:
-    "border border-zinc-700 bg-zinc-900 text-zinc-300",
-  Member:
     "border border-zinc-700 bg-zinc-900 text-zinc-300",
   MEMBER:
     "border border-zinc-700 bg-zinc-900 text-zinc-300",
@@ -41,6 +35,9 @@ const formatDate = (value) => {
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString("vi-VN");
 };
+
+const getTierStyle = (tier) =>
+  TIER_STYLES[String(tier || "MEMBER").toUpperCase()] || TIER_STYLES.MEMBER;
 
 export default function AdminUsers() {
   const [customers, setCustomers] = useState([]);
@@ -427,7 +424,7 @@ export default function AdminUsers() {
                     <td className="px-6 py-4">
                       {role === "CUSTOMER" ? (
                         <span
-                          className={`inline-block px-3 py-1 text-[10px] font-bold uppercase ${TIER_STYLES[customer.tier] || TIER_STYLES.MEMBER}`}
+                          className={`inline-block px-3 py-1 text-[10px] font-bold uppercase ${getTierStyle(customer.tier)}`}
                         >
                           {customer.tier || "MEMBER"}
                         </span>
@@ -530,7 +527,7 @@ export default function AdminUsers() {
                     </span>
                   </div>
                   <div
-                    className={`absolute -bottom-2 -right-2 font-label-caps text-[10px] px-1.5 py-0.5 tracking-tighter ${TIER_STYLES[selectedCustomer.tier] || TIER_STYLES.MEMBER}`}
+                    className={`absolute -bottom-2 -right-2 font-label-caps text-[10px] px-1.5 py-0.5 tracking-tighter ${getTierStyle(selectedCustomer.tier)}`}
                   >
                     {selectedCustomer.tier || "MEMBER"}
                   </div>

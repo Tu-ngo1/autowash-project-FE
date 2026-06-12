@@ -5,23 +5,27 @@ import {
   getMyLoyalty,
   redeemVoucher,
 } from "../../services/customerLoyaltyApi";
+import { getCustomerTierConfigs } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import UserNavbar from "../../components/UserNavbar";
-
-const TIERS = ["Member", "Silver", "Gold", "Platinum"];
-const TIER_THRESHOLDS = { Member: 0, Silver: 1200, Gold: 3000, Platinum: 7000 };
-const TIER_LABELS = {
-  Member: "Thành viên",
-  Silver: "Bạc",
-  Gold: "Vàng",
-  Platinum: "Platinum",
-};
 
 const getVoucherPoints = (voucher) =>
   Number(voucher.pointCost ?? voucher.pointsCost ?? voucher.points ?? 0);
 
 const getVoucherName = (voucher) => voucher.name || voucher.title || "Voucher";
 const getVoucherDescription = (voucher) => voucher.description || voucher.desc || "";
+
+const getTierName = (tier) => tier?.tierLevel || tier?.tier || tier?.name || "";
+const getTierLabel = (tier) => tier?.label || tier?.displayName || getTierName(tier);
+const getTierMinPoints = (tier) =>
+  Number(tier?.minPoints ?? tier?.thresholdPoints ?? tier?.requiredPoints ?? 0);
+const unwrapList = (payload, keys = []) => {
+  if (Array.isArray(payload)) return payload;
+  for (const key of keys) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+  return [];
+};
 
 function PageShell({ active = "Rewards", children }) {
   return (
@@ -102,6 +106,7 @@ export function VoucherPage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
+  const [tierConfigs, setTierConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -111,12 +116,18 @@ export function VoucherPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [profileRes, voucherRes] = await Promise.all([
+        const [profileRes, voucherRes, tierRes] = await Promise.all([
           getMyLoyalty().catch(() => null),
           getLoyaltyVouchers().catch(() => []),
+          getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        setTierConfigs(
+          unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]).sort(
+            (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
+          ),
+        );
       } finally {
         setLoading(false);
       }
@@ -179,7 +190,7 @@ export function VoucherPage() {
               <span className="h-2 w-2 rounded-full bg-cyan-300" />
               Kho voucher
             </p>
-            <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal sm:text-6xl">
+            <h1 className="mt-7 max-w-4xl text-4xl font-black leading-[1.08] tracking-normal sm:text-5xl xl:text-6xl">
               Đổi ưu đãi cho lần rửa tiếp theo.
             </h1>
             <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
@@ -272,17 +283,24 @@ export default function CustomerLoyalty() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
+  const [tierConfigs, setTierConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [profileRes, voucherRes] = await Promise.all([
+        const [profileRes, voucherRes, tierRes] = await Promise.all([
           getMyLoyalty().catch(() => null),
           getLoyaltyVouchers().catch(() => []),
+          getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        setTierConfigs(
+          unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]).sort(
+            (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
+          ),
+        );
       } finally {
         setLoading(false);
       }
@@ -290,19 +308,27 @@ export default function CustomerLoyalty() {
     load();
   }, []);
 
-  const tier = profile?.tier || "Member";
+  const tier = profile?.tier || profile?.tierLevel || "";
   const nextTier = useMemo(() => {
-    const idx = TIERS.indexOf(tier);
-    return TIERS[idx + 1] || null;
-  }, [tier]);
+    const idx = tierConfigs.findIndex(
+      (item) =>
+        getTierName(item).toUpperCase() === String(tier).toUpperCase(),
+    );
+    return idx >= 0 ? tierConfigs[idx + 1] || null : null;
+  }, [tierConfigs, tier]);
   const progress = useMemo(() => {
     if (!profile) return 0;
+    if (!tierConfigs.length) return Number(profile.progress ?? 0);
     if (!nextTier) return 100;
-    const cur = TIER_THRESHOLDS[tier] ?? 0;
-    const nxt = TIER_THRESHOLDS[nextTier] ?? cur;
+    const currentTier = tierConfigs.find(
+      (item) =>
+        getTierName(item).toUpperCase() === String(tier).toUpperCase(),
+    );
+    const cur = getTierMinPoints(currentTier);
+    const nxt = getTierMinPoints(nextTier);
     if (nxt === cur) return 100;
     return Math.max(0, Math.min(100, ((profile.points - cur) / (nxt - cur)) * 100));
-  }, [profile, nextTier, tier]);
+  }, [profile, nextTier, tierConfigs, tier]);
 
   const myVouchers = profile?.vouchers || [];
   const previewVouchers = allVouchers.slice(0, 4);
@@ -317,7 +343,7 @@ export default function CustomerLoyalty() {
               <span className="h-2 w-2 rounded-full bg-cyan-300" />
               Rewards & loyalty
             </p>
-            <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal sm:text-6xl">
+            <h1 className="mt-7 max-w-4xl text-4xl font-black leading-[1.08] tracking-normal sm:text-5xl xl:text-6xl">
               Điểm thưởng cho mỗi lần xe sạch hơn.
             </h1>
             <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
@@ -338,7 +364,7 @@ export default function CustomerLoyalty() {
               </span>
             </div>
             <div>
-              <p className="text-3xl font-black">{TIER_LABELS[tier] || tier}</p>
+              <p className="text-3xl font-black">{tier || "-"}</p>
               <p className="mt-1 text-sm font-semibold text-amber-100/70">
                 {Math.round(progress)}% tới hạng kế tiếp
               </p>
@@ -353,9 +379,9 @@ export default function CustomerLoyalty() {
           <p className="mt-4 text-sm font-semibold leading-6 text-amber-50/78">
             {nextTier
               ? `Còn ${Math.max(
-                  TIER_THRESHOLDS[nextTier] - (profile?.points ?? 0),
+                  getTierMinPoints(nextTier) - (profile?.points ?? 0),
                   0,
-                ).toLocaleString("vi-VN")} điểm để lên hạng ${nextTier}.`
+                ).toLocaleString("vi-VN")} điểm để lên hạng ${getTierLabel(nextTier)}.`
               : "Bạn đã đạt hạng cao nhất."}
           </p>
         </aside>
