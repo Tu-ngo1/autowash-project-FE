@@ -4,7 +4,8 @@ const unwrapPayload = (response, fallback = {}) =>
 export const asArrayPayload = (response, keys = []) => {
   const payload = unwrapPayload(response, []);
   if (Array.isArray(payload)) return payload;
-  for (const key of keys) {
+  const allKeys = [...keys, "content"];
+  for (const key of allKeys) {
     if (Array.isArray(payload?.[key])) return payload[key];
   }
   return [];

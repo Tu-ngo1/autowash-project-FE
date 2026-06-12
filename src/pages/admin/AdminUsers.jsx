@@ -70,7 +70,11 @@ export default function AdminUsers() {
       const payload = res.data?.data ?? res.data;
       const customersData = Array.isArray(payload)
         ? payload
-        : payload.users || payload.customers || payload.items || [];
+        : payload.users ||
+          payload.customers ||
+          payload.items ||
+          payload.content ||
+          [];
       const normalizedCustomers = customersData.map(normalizeAdminCustomer);
       setCustomers(normalizedCustomers);
 

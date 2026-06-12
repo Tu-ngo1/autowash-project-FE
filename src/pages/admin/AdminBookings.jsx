@@ -1,6 +1,5 @@
 // src/pages/admin/AdminBookings.jsx
-import { useState, useEffect } from "react";
-import { useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import AdminBookingsTable from "../../components/admin/AdminBookingsTable";
 import {
   deleteAdminBooking,
@@ -23,20 +22,20 @@ const toIsoDate = (value) => {
 const parseDateRange = (value) => {
   const [start, end] = value.split(/\s+-\s+/).map((part) => toIsoDate(part));
   return {
-    dateRange: value.trim() || undefined,
     startDate: start || undefined,
     endDate: end || undefined,
   };
 };
 
 export default function AdminBookings() {
-  const [bookings, setBookings] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
+  const [isClientSide, setIsClientSide] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateRange, setDateRange] = useState("");
   const [systemTime, setSystemTime] = useState(() =>
-    new Date().toLocaleTimeString("en-US", { hour12: false }),
+    new Date().toLocaleTimeString("en-US", { hour12: false })
   );
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -47,6 +46,14 @@ export default function AdminBookings() {
     total: 0,
     limit: 10,
   });
+
+  const bookings = useMemo(() => {
+    if (isClientSide) {
+      const startIndex = (pagination.page - 1) * pagination.limit;
+      return allBookings.slice(startIndex, startIndex + pagination.limit);
+    }
+    return allBookings;
+  }, [allBookings, isClientSide, pagination.page, pagination.limit]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -67,15 +74,30 @@ export default function AdminBookings() {
       });
       const payload = res.data?.data ?? res.data ?? {};
       const items = asArrayPayload(res, ["bookings", "items", "data"]).map(
-        normalizeAdminBooking,
+        normalizeAdminBooking
       );
-      setBookings(items);
+
+      const detectClientSide =
+        Array.isArray(payload) && items.length > pagination.limit;
+      setIsClientSide(detectClientSide);
+      setAllBookings(items);
+
+      const backendTotal =
+        payload.total ?? payload.totalElements ?? payload.totalItems;
+      const hasBackendTotal =
+        backendTotal !== undefined && backendTotal !== null;
+
       setPagination((prev) => ({
         ...prev,
-        total: payload.total || items.length,
+        total: hasBackendTotal
+          ? backendTotal
+          : detectClientSide
+          ? items.length
+          : -1,
       }));
     } catch {
-      setBookings([]);
+      setAllBookings([]);
+      setIsClientSide(false);
     } finally {
       setLoading(false);
     }
@@ -98,7 +120,7 @@ export default function AdminBookings() {
 
   const openEditBooking = async (booking) => {
     try {
-      const res = await getAdminBooking(booking.id || booking.bookingId);
+      const res = await getAdminBooking(booking.id);
       setSelectedBooking(normalizeAdminBooking(res.data?.data ?? res.data));
     } catch {
       setSelectedBooking(normalizeAdminBooking(booking));
@@ -108,10 +130,10 @@ export default function AdminBookings() {
   };
 
   const handleDeleteBooking = async (booking) => {
-    const id = booking.id || booking.bookingId;
+    const id = booking.id;
     if (!id) return;
     const ok = window.confirm(
-      `Xóa booking ${booking.bookingCode || booking.code || `#${id}`}?`,
+      `Xóa booking ${booking.bookingCode || `#${id}`}?`
     );
     if (!ok) return;
     setActionMessage("");
@@ -121,8 +143,8 @@ export default function AdminBookings() {
     } catch {
       setActionMessage("DELETE REQUEST FAILED, REMOVED FROM LOCAL VIEW");
     }
-    setBookings((current) =>
-      current.filter((item) => (item.id || item.bookingId) !== id),
+    setAllBookings((current) =>
+      current.filter((item) => (item.id || item.bookingId) !== id)
     );
   };
 
@@ -130,10 +152,10 @@ export default function AdminBookings() {
     if (!selectedBooking) return;
     const id = selectedBooking.id || selectedBooking.bookingId;
     setSelectedBooking((current) => ({ ...current, status }));
-    setBookings((current) =>
+    setAllBookings((current) =>
       current.map((item) =>
-        (item.id || item.bookingId) === id ? { ...item, status } : item,
-      ),
+        item.bookingId === id ? { ...item, status } : item
+      )
     );
     try {
       await updateAdminBookingStatus(id, status);
@@ -155,7 +177,7 @@ export default function AdminBookings() {
           <div className="admin-scanline pointer-events-none absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-transparent via-cyan-300/12 to-transparent" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
+            <div>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
                   BOOKING OPS
@@ -165,26 +187,28 @@ export default function AdminBookings() {
                   SECURE MODE
                 </span>
               </div>
-            <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
-              Booking Control
-            </h1>
+              <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
+                Booking Control
+              </h1>
               <p className="mt-3 font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
-              SYS_TIME:{" "}
-                <span className="text-cyan-300">{systemTime}</span>{" "}
-                | Orders, schedules, status override and deletion console
-            </p>
-          </div>
-          <button className="group flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20">
-            <span className="material-symbols-outlined text-[18px]">
-              download
-            </span>{" "}
-            EXPORT CSV
-          </button>
+                SYS_TIME: <span className="text-cyan-300">{systemTime}</span> |
+                Orders, schedules, status override and deletion console
+              </p>
+            </div>
+            <button className="group flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20">
+              <span className="material-symbols-outlined text-[18px]">
+                download
+              </span>{" "}
+              EXPORT CSV
+            </button>
           </div>
         </div>
 
         {/* Tool & Filter Bar */}
-        <div className="admin-reveal flex flex-col gap-4 border border-zinc-800 bg-zinc-950 p-4 lg:flex-row lg:items-end" style={{ animationDelay: "120ms" }}>
+        <div
+          className="admin-reveal flex flex-col gap-4 border border-zinc-800 bg-zinc-950 p-4 lg:flex-row lg:items-end"
+          style={{ animationDelay: "120ms" }}
+        >
           <div className="w-full lg:max-w-sm lg:flex-1">
             <label className="mb-2 block font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
               QUICK FIND
@@ -196,7 +220,10 @@ export default function AdminBookings() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
                 placeholder="Tìm biển số, mã đơn..."
                 className="h-full w-full border-none bg-transparent pl-10 pr-3 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:ring-0"
               />
@@ -215,7 +242,10 @@ export default function AdminBookings() {
                 type="text"
                 placeholder="DD/MM/YYYY - DD/MM/YYYY"
                 value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
+                onChange={(e) => {
+                  setDateRange(e.target.value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
                 className="h-full w-full border-none bg-transparent pl-10 pr-3 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:ring-0"
               />
             </div>
@@ -228,17 +258,36 @@ export default function AdminBookings() {
             <div className="relative flex h-11 w-full items-center border border-zinc-800 bg-black transition-colors focus-within:border-cyan-400 lg:w-52">
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
                 className="h-full w-full cursor-pointer appearance-none border-none bg-black pl-3 pr-10 font-mono text-sm text-zinc-100 focus:ring-0"
               >
-                <option className="bg-black text-zinc-100" value="all">ALL STATUS</option>
-                <option className="bg-black text-zinc-100" value="PENDING">PENDING</option>
-                <option className="bg-black text-zinc-100" value="CONFIRM">CONFIRM</option>
-                <option className="bg-black text-zinc-100" value="ARRIVED">ARRIVED</option>
-                <option className="bg-black text-zinc-100" value="IN_PROGRESS">IN_PROGRESS</option>
-                <option className="bg-black text-zinc-100" value="WASHED">WASHED</option>
-                <option className="bg-black text-zinc-100" value="COMPLETED">COMPLETED</option>
-                <option className="bg-black text-zinc-100" value="CANCELLED">CANCELLED</option>
+                <option className="bg-black text-zinc-100" value="all">
+                  ALL STATUS
+                </option>
+                <option className="bg-black text-zinc-100" value="PENDING">
+                  PENDING
+                </option>
+                <option className="bg-black text-zinc-100" value="CONFIRM">
+                  CONFIRM
+                </option>
+                <option className="bg-black text-zinc-100" value="ARRIVED">
+                  ARRIVED
+                </option>
+                <option className="bg-black text-zinc-100" value="IN_PROGRESS">
+                  IN_PROGRESS
+                </option>
+                <option className="bg-black text-zinc-100" value="WASHED">
+                  WASHED
+                </option>
+                <option className="bg-black text-zinc-100" value="COMPLETED">
+                  COMPLETED
+                </option>
+                <option className="bg-black text-zinc-100" value="CANCELLED">
+                  CANCELLED
+                </option>
               </select>
               <span className="material-symbols-outlined pointer-events-none absolute right-3 text-zinc-500">
                 arrow_drop_down
@@ -262,11 +311,29 @@ export default function AdminBookings() {
         />
 
         {/* Pagination */}
-        <div className="admin-reveal flex items-center justify-between py-2" style={{ animationDelay: "260ms" }}>
+        <div
+          className="admin-reveal flex items-center justify-between py-2"
+          style={{ animationDelay: "260ms" }}
+        >
           <p className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-            SHOWING <span className="text-zinc-100">{bookings.length}</span>{" "}
-            OF <span className="text-zinc-100">{pagination.total}</span>{" "}
-            RESULTS
+            SHOWING{" "}
+            <span className="text-zinc-100">
+              {bookings.length > 0
+                ? (pagination.page - 1) * pagination.limit + 1
+                : 0}
+            </span>{" "}
+            -{" "}
+            <span className="text-zinc-100">
+              {(pagination.page - 1) * pagination.limit + bookings.length}
+            </span>{" "}
+            {pagination.total !== -1 ? (
+              <>
+                OF <span className="text-zinc-100">{pagination.total}</span>{" "}
+                RESULTS
+              </>
+            ) : (
+              "RESULTS"
+            )}
           </p>
           <div className="flex gap-1">
             <button
@@ -283,8 +350,10 @@ export default function AdminBookings() {
             </span>
             <button
               disabled={
-                pagination.total > 0 &&
-                pagination.page * pagination.limit >= pagination.total
+                pagination.total !== -1
+                  ? pagination.total > 0 &&
+                    pagination.page * pagination.limit >= pagination.total
+                  : bookings.length < pagination.limit
               }
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
@@ -307,28 +376,30 @@ export default function AdminBookings() {
           <div className="admin-reveal fixed inset-y-0 right-0 z-50 flex w-full translate-x-0 transform flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl transition-transform duration-300 ease-in-out md:w-[420px] lg:w-[480px]">
             <header className="shrink-0 border-b border-zinc-800 bg-black p-6">
               <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
                   <div>
                     <p className="mb-2 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
-                      {drawerMode === "edit" ? "EDIT BOOKING" : "BOOKING DETAIL"}
+                      {drawerMode === "edit"
+                        ? "EDIT BOOKING"
+                        : "BOOKING DETAIL"}
                     </p>
-                <h2 className="font-headline-md text-headline-md text-zinc-100">
-                  Chi tiết Đơn{" "}
-                  {selectedBooking.bookingCode || `#${selectedBooking.id}`}
-                </h2>
+                    <h2 className="font-headline-md text-headline-md text-zinc-100">
+                      Chi tiết Đơn{" "}
+                      {selectedBooking.bookingCode || `#${selectedBooking.id}`}
+                    </h2>
                   </div>
-                <div className="flex items-center px-2 py-1 border border-secondary bg-secondary/10">
+                  <div className="flex items-center px-2 py-1 border border-secondary bg-secondary/10">
                     <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
-                    {selectedBooking.status}
-                  </span>
+                      {selectedBooking.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => setIsDrawerOpen(false)}
+                <button
+                  onClick={() => setIsDrawerOpen(false)}
                   className="p-2 text-zinc-500 transition-colors hover:text-cyan-300"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
               </div>
             </header>
 
@@ -343,13 +414,36 @@ export default function AdminBookings() {
                     onChange={(event) => handleStatusChange(event.target.value)}
                     className="h-11 w-full border border-zinc-700 bg-black px-3 font-mono text-sm font-bold text-zinc-100 outline-none focus:border-cyan-400"
                   >
-                    <option className="bg-black text-zinc-100" value="PENDING">PENDING</option>
-                    <option className="bg-black text-zinc-100" value="CONFIRM">CONFIRM</option>
-                    <option className="bg-black text-zinc-100" value="ARRIVED">ARRIVED</option>
-                    <option className="bg-black text-zinc-100" value="IN_PROGRESS">IN_PROGRESS</option>
-                    <option className="bg-black text-zinc-100" value="WASHED">WASHED</option>
-                    <option className="bg-black text-zinc-100" value="COMPLETED">COMPLETED</option>
-                    <option className="bg-black text-zinc-100" value="CANCELLED">CANCELLED</option>
+                    <option className="bg-black text-zinc-100" value="PENDING">
+                      PENDING
+                    </option>
+                    <option className="bg-black text-zinc-100" value="CONFIRM">
+                      CONFIRM
+                    </option>
+                    <option className="bg-black text-zinc-100" value="ARRIVED">
+                      ARRIVED
+                    </option>
+                    <option
+                      className="bg-black text-zinc-100"
+                      value="IN_PROGRESS"
+                    >
+                      IN_PROGRESS
+                    </option>
+                    <option className="bg-black text-zinc-100" value="WASHED">
+                      WASHED
+                    </option>
+                    <option
+                      className="bg-black text-zinc-100"
+                      value="COMPLETED"
+                    >
+                      COMPLETED
+                    </option>
+                    <option
+                      className="bg-black text-zinc-100"
+                      value="CANCELLED"
+                    >
+                      CANCELLED
+                    </option>
                   </select>
                 </section>
               )}
@@ -374,7 +468,7 @@ export default function AdminBookings() {
                           stars
                         </span>
                         <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {selectedBooking.tier || selectedBooking.tierLevel || "-"}
+                          {selectedBooking.tierLevel || "-"}
                         </span>
                       </div>
                     </div>
@@ -406,12 +500,7 @@ export default function AdminBookings() {
                   <div className="flex justify-between items-center text-on-surface">
                     <span>{selectedBooking.service || "-"}</span>
                     <span className="font-data-display">
-                      {(
-                        selectedBooking.subtotal ??
-                        selectedBooking.totalPrice ??
-                        selectedBooking.total
-                      )?.toLocaleString()}
-                      đ
+                      {selectedBooking.totalPrice?.toLocaleString()}đ
                     </span>
                   </div>
                   {selectedBooking.discount > 0 && (
@@ -520,4 +609,3 @@ export default function AdminBookings() {
     </div>
   );
 }
-
