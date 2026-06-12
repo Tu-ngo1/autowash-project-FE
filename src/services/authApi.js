@@ -90,7 +90,7 @@ const toTestSession = (user) => ({
 export async function login({ account, password }) {
   const email = account.trim();
   const testLoginEnabled =
-    import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
+    import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
   const testAccount = testLoginEnabled
     ? TEST_ACCOUNTS.find(
         (user) =>
