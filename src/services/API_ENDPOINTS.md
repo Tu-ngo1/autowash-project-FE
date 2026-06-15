@@ -215,6 +215,36 @@ Validate voucher response:
 }
 ```
 
+### Customer Reviews
+
+File: `customerReviewApi.js`
+
+- `GET /api/customer/reviews/my`
+- `POST /api/customer/reviews`
+- `PUT /api/customer/reviews/:id`
+
+Create review request:
+
+```json
+{
+  "bookingId": 12,
+  "rating": 5,
+  "comment": "Nhận xét của khách hàng"
+}
+```
+
+Review response:
+
+```json
+{
+  "id": 1,
+  "bookingId": 12,
+  "rating": 5,
+  "comment": "Nhận xét của khách hàng",
+  "createdAt": "2026-06-14T10:30:00"
+}
+```
+
 ## Admin API Needed By Existing FE
 
 Current BE only exposes admin analytics and booking list. These endpoints are still used by admin pages and need BE support later:
@@ -237,6 +267,61 @@ Current BE only exposes admin analytics and booking list. These endpoints are st
 - `PUT /api/admin/services/:id`
 - `DELETE /api/admin/services/:id`
 - `PATCH /api/admin/services/:id/status`
+
+Admin service response should support both the old flat shape and the new price matrix shape. Preferred response:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Standard Wash",
+    "description": "Rửa xe tiêu chuẩn",
+    "status": "ACTIVE",
+    "rating": 4.8,
+    "totalRevenue": 850000,
+    "servicePrices": [
+      {
+        "id": 11,
+        "vehicleSize": "SMALL",
+        "vehicleLabel": "Small (Sedan)",
+        "price": 150000,
+        "duration": 20,
+        "active": true
+      }
+    ]
+  }
+]
+```
+
+Create/update service request:
+
+```json
+{
+  "name": "Standard Wash",
+  "description": "Rửa xe tiêu chuẩn",
+  "status": "ACTIVE",
+  "servicePrices": [
+    {
+      "vehicleSize": "SMALL",
+      "price": 150000,
+      "duration": 20,
+      "active": true
+    },
+    {
+      "vehicleSize": "MEDIUM",
+      "price": 200000,
+      "duration": 30,
+      "active": true
+    },
+    {
+      "vehicleSize": "LARGE",
+      "price": 250000,
+      "duration": 40,
+      "active": true
+    }
+  ]
+}
+```
 - `GET /api/admin/tiers`
 - `PUT /api/admin/tiers/:id`
 - `GET /api/admin/vouchers`
