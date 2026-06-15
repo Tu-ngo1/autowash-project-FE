@@ -7,6 +7,7 @@ import {
   getCustomerProfileBookings,
   getCustomerProfileLoyalty,
 } from "../../services/customerProfileApi";
+import { getVehicleModels } from "../../services/vehicleModelApi";
 
 const statusStyles = {
   PENDING: "bg-[#0061a5]/10 text-[#0061a5]",
@@ -69,6 +70,21 @@ const getVehicleSizeOption = (value) =>
   VEHICLE_SIZE_OPTIONS.find((option) => option.value === value) ||
   VEHICLE_SIZE_OPTIONS[0];
 
+const getVehicleBrands = (vehicleModels) =>
+  Array.from(new Set(vehicleModels.map((model) => model.brand))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+const getVehicleModelById = (vehicleModels, id) =>
+  vehicleModels.find((model) => String(model.id) === String(id));
+
+const getVehicleModelByName = (vehicleModels, brand, modelName) =>
+  vehicleModels.find(
+    (model) =>
+      model.brand === brand &&
+      model.modelName.toLowerCase() === String(modelName || "").toLowerCase(),
+  );
+
 const normalizeVehicleSize = (vehicle) => {
   const rawSize = String(vehicle?.size || vehicle?.vehicleSize || vehicle?.type || "").toUpperCase();
   if (["SMALL", "MEDIUM", "LARGE", "XLARGE"].includes(rawSize)) return rawSize;
@@ -87,9 +103,15 @@ export default function CustomerProfile() {
   const [vehicleReturnTo, setVehicleReturnTo] = useState("");
   const [selectedQrBooking, setSelectedQrBooking] = useState(null);
   const [vehicleError, setVehicleError] = useState("");
+  const [vehicleModels, setVehicleModels] = useState([]);
+  const [vehicleModelsLoading, setVehicleModelsLoading] = useState(false);
+  const [vehicleModelsError, setVehicleModelsError] = useState("");
   const [vehicleForm, setVehicleForm] = useState({
     plate: "",
-    size: "SMALL",
+    brand: "",
+    modelId: "",
+    modelName: "",
+    size: "",
   });
   const [profile, setProfile] = useState({
     name: user.name || "",
@@ -108,6 +130,11 @@ export default function CustomerProfile() {
 
   const [recentBookings, setRecentBookings] = useState([]);
   const [vouchers, setVouchers] = useState([]);
+
+  const vehicleBrands = getVehicleBrands(vehicleModels);
+  const currentBrandModels = vehicleModels.filter(
+    (model) => model.brand === vehicleForm.brand,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -172,6 +199,46 @@ export default function CustomerProfile() {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadVehicleModels = async () => {
+      setVehicleModelsLoading(true);
+      setVehicleModelsError("");
+      try {
+        const payload = await getVehicleModels();
+        const list = Array.isArray(payload)
+          ? payload
+          : payload?.vehicleModels || payload?.models || payload?.items || [];
+        const activeModels = list
+          .filter((model) => model?.isActive ?? model?.active ?? true)
+          .map((model) => ({
+            id: model.id,
+            brand: model.brand,
+            modelName: model.modelName || model.model_name || model.name,
+            vehicleSize: String(model.vehicleSize || model.vehicle_size || "").toUpperCase(),
+          }))
+          .filter((model) => model.id && model.brand && model.modelName && model.vehicleSize);
+
+        if (!isMounted) return;
+        setVehicleModels(activeModels);
+      } catch {
+        if (isMounted) {
+          setVehicleModels([]);
+          setVehicleModelsError("Chưa tải được danh sách hãng và mẫu xe.");
+        }
+      } finally {
+        if (isMounted) setVehicleModelsLoading(false);
+      }
+    };
+
+    loadVehicleModels();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const returnTo = searchParams.get("returnTo") || "";
     const safeReturnTo = returnTo.startsWith("/") ? returnTo : "";
     if (safeReturnTo) {
@@ -184,7 +251,13 @@ export default function CustomerProfile() {
     ) {
       setVehicleReturnTo(safeReturnTo);
       setEditingVehicleId(null);
-      setVehicleForm({ plate: "", size: "SMALL" });
+      setVehicleForm({
+        plate: "",
+        brand: "",
+        modelId: "",
+        modelName: "",
+        size: "",
+      });
       setVehicleError("");
       setShowVehicleForm(true);
     }
@@ -195,13 +268,40 @@ export default function CustomerProfile() {
   }, [searchParams, setSearchParams]);
 
   const handleVehicleFieldChange = (key, value) => {
-    setVehicleForm((prev) => ({ ...prev, [key]: value }));
+    setVehicleForm((prev) => {
+      if (key === "brand") {
+        return {
+          ...prev,
+          brand: value,
+          modelId: "",
+          modelName: "",
+          size: "",
+        };
+      }
+      if (key === "modelId") {
+        const selectedModel = getVehicleModelById(vehicleModels, value);
+        return {
+          ...prev,
+          modelId: value,
+          brand: selectedModel?.brand || prev.brand,
+          modelName: selectedModel?.modelName || "",
+          size: selectedModel?.vehicleSize || prev.size,
+        };
+      }
+      return { ...prev, [key]: value };
+    });
   };
 
   const openAddVehicleForm = () => {
     setEditingVehicleId(null);
     setVehicleReturnTo(profileReturnTo);
-    setVehicleForm({ plate: "", size: "SMALL" });
+    setVehicleForm({
+      plate: "",
+      brand: "",
+      modelId: "",
+      modelName: "",
+      size: "",
+    });
     setVehicleError("");
     setShowVehicleForm(true);
   };
@@ -209,9 +309,15 @@ export default function CustomerProfile() {
   const openEditVehicleForm = (vehicle) => {
     setEditingVehicleId(vehicle.id || vehicle.plate);
     setVehicleReturnTo("");
+    const vehicleModel =
+      getVehicleModelById(vehicleModels, vehicle.modelId || vehicle.vehicleModelId) ||
+      getVehicleModelByName(vehicleModels, vehicle.brand, vehicle.modelName || vehicle.model);
     setVehicleForm({
       plate: vehicle.plate || "",
-      size: normalizeVehicleSize(vehicle),
+      brand: vehicleModel?.brand || vehicle.brand || "",
+      modelId: vehicleModel?.id || vehicle.modelId || vehicle.vehicleModelId || "",
+      modelName: vehicleModel?.modelName || vehicle.modelName || vehicle.model || "",
+      size: vehicleModel?.vehicleSize || normalizeVehicleSize(vehicle),
     });
     setVehicleError("");
     setShowVehicleForm(true);
@@ -221,7 +327,13 @@ export default function CustomerProfile() {
     setShowVehicleForm(false);
     setEditingVehicleId(null);
     setVehicleReturnTo("");
-    setVehicleForm({ plate: "", size: "SMALL" });
+    setVehicleForm({
+      plate: "",
+      brand: "",
+      modelId: "",
+      modelName: "",
+      size: "",
+    });
     setVehicleError("");
   };
 
@@ -242,7 +354,13 @@ export default function CustomerProfile() {
       return;
     }
 
-    const sizeOption = getVehicleSizeOption(vehicleForm.size);
+    const selectedModel = getVehicleModelById(vehicleModels, vehicleForm.modelId);
+    if (!selectedModel) {
+      setVehicleError("Vui lòng chọn dòng xe.");
+      return;
+    }
+
+    const sizeOption = getVehicleSizeOption(selectedModel.vehicleSize);
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
     const normalizedPlate = vehicleForm.plate.trim().toUpperCase();
     const duplicate = profile.vehicles.some(
@@ -263,9 +381,13 @@ export default function CustomerProfile() {
                 ...vehicle,
                 name: typeLabel,
                 plate: normalizedPlate,
+                brand: selectedModel.brand,
+                modelId: selectedModel.id,
+                modelName: selectedModel.modelName,
+                vehicleModelId: selectedModel.id,
                 type: sizeOption.value,
                 size: sizeOption.value,
-                label: typeLabel,
+                label: `${selectedModel.brand} ${selectedModel.modelName}`,
               }
             : vehicle,
         )
@@ -275,9 +397,13 @@ export default function CustomerProfile() {
             id: `vehicle-${Date.now()}`,
             name: typeLabel,
             plate: normalizedPlate,
+            brand: selectedModel.brand,
+            modelId: selectedModel.id,
+            modelName: selectedModel.modelName,
+            vehicleModelId: selectedModel.id,
             type: sizeOption.value,
             size: sizeOption.value,
-            label: typeLabel,
+            label: `${selectedModel.brand} ${selectedModel.modelName}`,
             default: profile.vehicles.length === 0,
             lastWash: null,
           },
@@ -706,7 +832,6 @@ export default function CustomerProfile() {
                       onChange={(event) =>
                         handleVehicleFieldChange("plate", event.target.value)
                       }
-                      placeholder="Ví dụ: 30A-123.45"
                       type="text"
                       className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 pl-12 pr-4 text-base font-black uppercase text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     />
@@ -720,58 +845,58 @@ export default function CustomerProfile() {
 
                 <div className="flex flex-col gap-4">
                   <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                    Kích thước xe
+                    Dòng xe
                   </span>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {VEHICLE_SIZE_OPTIONS.map((option) => {
-                      const active = vehicleForm.size === option.value;
-                      return (
-                        <label key={option.value} className="relative cursor-pointer">
-                          <input
-                            className="sr-only"
-                            name="vehicle_size"
-                            type="radio"
-                            value={option.value}
-                            checked={active}
-                            onChange={() =>
-                              handleVehicleFieldChange("size", option.value)
-                            }
-                          />
-                          <div
-                            className={`flex min-h-40 flex-col items-center justify-center gap-3 rounded-[24px] border p-5 text-center transition-all duration-300 hover:-translate-y-0.5 hover:bg-cyan-50 ${
-                              active
-                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
-                                : "border-white/80 bg-white/72"
-                            }`}
-                          >
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-cyan-200">
-                              <span
-                                className="material-symbols-outlined text-3xl"
-                                style={{ fontVariationSettings: `'FILL' 1` }}
-                              >
-                                {option.icon}
-                              </span>
-                            </div>
-                            <span className="text-sm font-black text-slate-950">
-                              {option.label}
-                            </span>
-                            <span className="text-xs font-bold text-slate-500">
-                              {option.description}
-                            </span>
-                          </div>
-                          <div
-                            className={`absolute right-3 top-3 transition-opacity ${
-                              active ? "opacity-100" : "opacity-0"
-                            }`}
-                          >
-                            <span className="material-symbols-outlined text-xl text-cyan-700">
-                              check_circle
-                            </span>
-                          </div>
-                        </label>
-                      );
-                    })}
+                    <label className="flex flex-col gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                        Hãng xe
+                      </span>
+                      <select
+                        value={vehicleForm.brand}
+                        onChange={(event) =>
+                          handleVehicleFieldChange("brand", event.target.value)
+                        }
+                        disabled={vehicleModelsLoading || vehicleBrands.length === 0}
+                        className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                      >
+                        <option value="">
+                          {vehicleModelsLoading ? "Đang tải..." : "Chọn hãng xe"}
+                        </option>
+                        {vehicleBrands.map((brand) => (
+                          <option key={brand} value={brand}>
+                            {brand}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+                        Mẫu xe
+                      </span>
+                      <select
+                        value={vehicleForm.modelId}
+                        onChange={(event) =>
+                          handleVehicleFieldChange("modelId", event.target.value)
+                        }
+                        disabled={!vehicleForm.brand || currentBrandModels.length === 0}
+                        className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                      >
+                        <option value="">Chọn mẫu xe</option>
+                        {currentBrandModels.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.modelName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
+                  {vehicleModelsError && (
+                    <p className="text-sm font-semibold text-rose-600">
+                      {vehicleModelsError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="relative mt-1 h-40 w-full overflow-hidden rounded-[26px] border border-white/75 bg-[radial-gradient(circle_at_18%_16%,rgba(103,232,249,0.38),transparent_34%),linear-gradient(135deg,rgba(236,254,255,0.94),rgba(186,230,253,0.74)_48%,rgba(14,165,233,0.24))] shadow-md">

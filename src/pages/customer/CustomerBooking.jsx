@@ -4,24 +4,33 @@ import UserNavbar from "../../components/UserNavbar";
 import BookingSummary from "../../components/booking/BookingSummary";
 import { getUser, getUserTier, getUserWalletBalance } from "../../utils/auth";
 import { createBooking, getBookingData } from "../../services/customerBookingApi";
-import { validateVoucher } from "../../services/customerVoucherApi";
+import {
+  getCustomerVouchers,
+  validateVoucher,
+} from "../../services/customerVoucherApi";
+import { getCustomerBookingConfig } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const formatPrice = (price) => price.toLocaleString("vi-VN") + "đ";
-const SLOT_DURATION_MINUTES = 60;
-const BUSINESS_START_HOUR = 8;
-const BUSINESS_END_HOUR = 18;
 
 const padHour = (hour) => String(hour).padStart(2, "0");
 
-const normalizeHourlySlots = (slots = []) => {
+const getHourFromTime = (value) => {
+  const [hourText] = String(value || "").split(":");
+  const hour = Number(hourText);
+  return Number.isInteger(hour) ? hour : null;
+};
+
+const normalizeHourlySlots = (slots = [], businessHours = {}) => {
+  const startHour = getHourFromTime(businessHours.startTime);
+  const endHour = getHourFromTime(businessHours.endTime);
   const normalized = slots
     .map((slot) => {
       const value = typeof slot === "object" ? slot.time || slot.slot || slot.startTime : slot;
-      const [hourText] = String(value).split(":");
-      const hour = Number(hourText);
-      if (!Number.isInteger(hour)) return null;
-      if (hour < BUSINESS_START_HOUR || hour >= BUSINESS_END_HOUR) return null;
+      const hour = getHourFromTime(value);
+      if (hour === null) return null;
+      if (startHour !== null && hour < startHour) return null;
+      if (endHour !== null && hour >= endHour) return null;
       const start = `${padHour(hour)}:00`;
       return {
         slot: start,
@@ -40,21 +49,11 @@ const normalizeHourlySlots = (slots = []) => {
   );
 };
 
-const getSlotEndTime = (slot) => {
-  const [hourText] = String(slot).split(":");
-  const hour = Number(hourText);
-  if (!Number.isInteger(hour)) return "";
-  return `${padHour(hour + 1)}:00`;
+const getSlotEndTime = (slot, durationMinutes = 60) => {
+  const hour = getHourFromTime(slot);
+  if (hour === null) return "";
+  return `${padHour(hour + Math.ceil(durationMinutes / 60))}:00`;
 };
-
-const tierDiscount = (tier) => {
-  if (tier === "Gold") return 10;
-  if (tier === "Silver") return 5;
-  if (tier === "Platinum") return 12;
-  return 0;
-};
-
-const TIER_LIMITS = { Member: 7, Silver: 10, Gold: 12, Platinum: 14 };
 
 const VEHICLE_SIZE_OPTIONS = {
   SMALL: { label: "SMALL", description: "4-5 chỗ", icon: "directions_car" },
@@ -73,6 +72,59 @@ const normalizeVehicleSize = (vehicle) => {
 
 const getVehicleSizeInfo = (vehicle) =>
   VEHICLE_SIZE_OPTIONS[normalizeVehicleSize(vehicle)] || VEHICLE_SIZE_OPTIONS.SMALL;
+
+const unwrapList = (payload, keys = []) => {
+  if (Array.isArray(payload)) return payload;
+  for (const key of keys) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+  return [];
+};
+
+const getVoucherCode = (voucher) =>
+  voucher?.voucherCode ||
+  voucher?.code ||
+  voucher?.promotion?.voucherCode ||
+  "";
+
+const getVoucherName = (voucher) =>
+  voucher?.campaignName ||
+  voucher?.name ||
+  voucher?.promotion?.campaignName ||
+  getVoucherCode(voucher) ||
+  "Voucher";
+
+const getVoucherDiscountText = (voucher) => {
+  const discountPercent =
+    voucher?.discountPercent ?? voucher?.promotion?.discountPercent;
+  const discountAmount =
+    voucher?.discountAmount ??
+    voucher?.value ??
+    voucher?.promotion?.discountAmount;
+  const maxDiscountAmount =
+    voucher?.maxDiscountAmount ?? voucher?.promotion?.maxDiscountAmount;
+  if (discountPercent) {
+    return `Giảm ${discountPercent}%${
+      maxDiscountAmount ? ` tối đa ${formatPrice(maxDiscountAmount)}` : ""
+    }`;
+  }
+  if (discountAmount) return `Giảm ${formatPrice(discountAmount)}`;
+  return "Ưu đãi khả dụng";
+};
+
+const getVoucherStatus = (voucher) =>
+  String(voucher?.status || "AVAILABLE").toUpperCase();
+
+const isVoucherSelectable = (voucher) => getVoucherStatus(voucher) === "AVAILABLE";
+
+const unwrapObject = (payload) => payload?.data?.data ?? payload?.data ?? payload ?? {};
+
+const getTierRule = (tierRules, tier) =>
+  tierRules.find(
+    (rule) =>
+      String(rule.tierLevel || rule.tier || rule.name || "").toUpperCase() ===
+      String(tier || "").toUpperCase(),
+  ) || {};
 
 const mergeVehicles = (...groups) => {
   const seen = new Set();
@@ -100,6 +152,9 @@ export default function CustomerBooking() {
   const [vehicles, setVehicles] = useState([]);
   const [services, setServices] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
+  const [bookingConfig, setBookingConfig] = useState({});
+  const [customerVouchers, setCustomerVouchers] = useState([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [bookingDataError, setBookingDataError] = useState("");
 
@@ -125,11 +180,21 @@ export default function CustomerBooking() {
       try {
         const tier = getUserTier() || "Member";
         const balance = Number(getUserWalletBalance()) || 0;
+        const currentUser = getUser();
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const response = await getBookingData();
+        const [response, voucherPayload, configPayload] = await Promise.all([
+          getBookingData(),
+          getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
+            () => [],
+          ),
+          getCustomerBookingConfig().catch(() => ({})),
+        ]);
         const payload = response.data || {};
+        const config = unwrapObject(configPayload);
+        const businessHours =
+          payload.businessHours || payload.businessWindow || config.businessHours || {};
         const fetchedVehicles = Array.isArray(payload.vehicles)
           ? payload.vehicles
           : [];
@@ -139,12 +204,28 @@ export default function CustomerBooking() {
         const fetchedServices = Array.isArray(payload.services)
           ? payload.services
           : [];
-        const fetchedSlots = normalizeHourlySlots(payload.timeSlots);
+        const fetchedSlots = normalizeHourlySlots(payload.timeSlots, businessHours);
         const nextVehicles = mergeVehicles(fetchedVehicles, profileVehicles);
 
+        setBookingConfig({
+          businessHours,
+          slotDurationMinutes:
+            payload.slotDurationMinutes || config.slotDurationMinutes || 60,
+          tierRules:
+            payload.tierRules ||
+            payload.tierConfigs ||
+            config.tierRules ||
+            config.tierConfigs ||
+            [],
+        });
         setVehicles(nextVehicles);
         setServices(fetchedServices);
         setTimeSlots(fetchedSlots);
+        setCustomerVouchers(
+          unwrapList(voucherPayload, ["vouchers", "items", "data"]).filter(
+            (voucher) => getVoucherCode(voucher),
+          ),
+        );
 
         if (nextVehicles.length > 0) {
           setSelectedVehicle(nextVehicles[0]);
@@ -170,6 +251,8 @@ export default function CustomerBooking() {
         }
         setServices([]);
         setTimeSlots([]);
+        setBookingConfig({});
+        setCustomerVouchers([]);
       } finally {
         setLoadingData(false);
       }
@@ -183,7 +266,10 @@ export default function CustomerBooking() {
     label: "",
     description: "",
   };
-  const discountPercent = tierDiscount(userTier);
+  const tierRule = getTierRule(bookingConfig.tierRules || [], userTier);
+  const discountPercent = Number(
+    tierRule.discountPercent ?? tierRule.discountRate ?? 0,
+  );
   const discountAmount = Math.round(
     (serviceInfo.price * discountPercent) / 100,
   );
@@ -194,8 +280,21 @@ export default function CustomerBooking() {
   const today = new Date();
   const minDate = today.toISOString().slice(0, 10);
   const maxDateValue = new Date(today);
-  maxDateValue.setDate(maxDateValue.getDate() + (TIER_LIMITS[userTier] ?? 7));
-  const maxDate = maxDateValue.toISOString().slice(0, 10);
+  const advanceBookingDays = Number(
+    tierRule.advanceBookingDays ??
+      tierRule.maxBookingDays ??
+      tierRule.bookingWindowDays,
+  );
+  const maxDate =
+    Number.isFinite(advanceBookingDays) && advanceBookingDays > 0
+      ? (() => {
+          maxDateValue.setDate(maxDateValue.getDate() + advanceBookingDays);
+          return maxDateValue.toISOString().slice(0, 10);
+        })()
+      : undefined;
+  const slotDurationMinutes = Number(bookingConfig.slotDurationMinutes) || 60;
+  const businessStartTime = bookingConfig.businessHours?.startTime || "-";
+  const businessEndTime = bookingConfig.businessHours?.endTime || "-";
 
   const availableSlots = useMemo(() => {
     if (!date || timeSlots.length === 0) return [];
@@ -218,8 +317,8 @@ export default function CustomerBooking() {
       date,
       time: timeSlot,
       startTime: timeSlot,
-      endTime: getSlotEndTime(timeSlot),
-      durationMinutes: SLOT_DURATION_MINUTES,
+      endTime: getSlotEndTime(timeSlot, slotDurationMinutes),
+      durationMinutes: slotDurationMinutes,
       paymentMethod,
       voucherCode: voucherApplied ? voucherCode : null,
       price: totalPrice,
@@ -253,10 +352,19 @@ export default function CustomerBooking() {
     try {
       const response = await validateVoucher(voucherCode);
       if (response.data.valid) {
+        const discountPercent = Number(response.data.discountPercent) || 0;
+        const discountAmount = Number(response.data.discountAmount ?? response.data.value) || 0;
+        const maxDiscountAmount = Number(response.data.maxDiscountAmount) || 0;
+        const nextVoucherValue = discountPercent
+          ? Math.min(
+              Math.round((subtotal * discountPercent) / 100),
+              maxDiscountAmount || Number.MAX_SAFE_INTEGER,
+            )
+          : discountAmount;
         setVoucherApplied(true);
-        setVoucherValue(response.data.value || 0);
+        setVoucherValue(nextVoucherValue);
         setVoucherMessage(
-          `Áp dụng thành công - Giảm ${formatPrice(response.data.value || 0)}.`,
+          `Áp dụng thành công - Giảm ${formatPrice(nextVoucherValue)}.`,
         );
       } else {
         setVoucherApplied(false);
@@ -268,6 +376,32 @@ export default function CustomerBooking() {
       setVoucherValue(0);
       setVoucherMessage("Mã voucher không hợp lệ.");
     }
+  };
+
+  const handleRefreshVouchers = async () => {
+    setLoadingVouchers(true);
+    try {
+      const currentUser = getUser();
+      const payload = await getCustomerVouchers(currentUser?.id || currentUser?.userId);
+      setCustomerVouchers(
+        unwrapList(payload, ["vouchers", "items", "data"]).filter((voucher) =>
+          getVoucherCode(voucher),
+        ),
+      );
+    } catch {
+      setCustomerVouchers([]);
+      setVoucherMessage("Chưa tải được danh sách voucher.");
+    } finally {
+      setLoadingVouchers(false);
+    }
+  };
+
+  const handleSelectVoucher = (voucher) => {
+    if (!isVoucherSelectable(voucher)) return;
+    setVoucherCode(getVoucherCode(voucher));
+    setVoucherApplied(false);
+    setVoucherValue(0);
+    setVoucherMessage("");
   };
 
   const selectVehicle = (vehicle) => {
@@ -287,7 +421,7 @@ export default function CustomerBooking() {
   }
 
   return (
-    <div className="customer-motion-root relative min-h-screen overflow-x-hidden bg-[#eefbff] font-body-md text-slate-950">
+    <div className="customer-motion-root relative min-h-screen bg-[#eefbff] font-body-md text-slate-950">
       <div className="pointer-events-none fixed inset-0 z-0 min-h-[100dvh]">
         <img
           src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
@@ -330,15 +464,19 @@ export default function CustomerBooking() {
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-cyan-50/80 p-4">
                   <p className="text-xs font-bold text-slate-500">Mở cửa</p>
-                  <p className="mt-2 text-xl font-black text-slate-950">08:00</p>
+                  <p className="mt-2 text-xl font-black text-slate-950">
+                    {businessStartTime}
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-cyan-50/80 p-4">
                   <p className="text-xs font-bold text-slate-500">Đóng ca</p>
-                  <p className="mt-2 text-xl font-black text-slate-950">18:00</p>
+                  <p className="mt-2 text-xl font-black text-slate-950">
+                    {businessEndTime}
+                  </p>
                 </div>
               </div>
               <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">
-                Mỗi lượt rửa tiêu chuẩn giữ khoang trong 60 phút để xe được xử lý
+                Mỗi lượt rửa tiêu chuẩn giữ khoang trong {slotDurationMinutes} phút để xe được xử lý
                 sạch và không bị gấp quy trình.
               </p>
             </div>
@@ -431,7 +569,6 @@ export default function CustomerBooking() {
                   type="text"
                   value={plate}
                   onChange={(event) => setPlate(event.target.value)}
-                  placeholder="VD: 51A-123.45"
                   className="w-full rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                 />
               </div>
@@ -627,9 +764,79 @@ export default function CustomerBooking() {
               </div>
 
               <div className="mt-6">
-                <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                  Mã Voucher
-                </label>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                    Mã Voucher
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRefreshVouchers}
+                    className="text-xs font-black text-cyan-700 transition hover:text-cyan-900"
+                  >
+                    {loadingVouchers ? "Đang tải..." : "Tải lại"}
+                  </button>
+                </div>
+                <div className="mb-3">
+                  {customerVouchers.length > 0 && (
+                    <div className="max-h-64 overflow-y-auto rounded-2xl border border-cyan-100 bg-white/70 p-2">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="text-slate-500">
+                            <th className="px-3 py-2 font-black uppercase tracking-[0.12em]">
+                              Mã
+                            </th>
+                            <th className="px-3 py-2 font-black uppercase tracking-[0.12em]">
+                              Ưu đãi
+                            </th>
+                            <th className="px-3 py-2 font-black uppercase tracking-[0.12em]">
+                              Hạn
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customerVouchers.map((voucher) => {
+                            const code = getVoucherCode(voucher);
+                            const active = voucherCode === code;
+                            const selectable = isVoucherSelectable(voucher);
+                            return (
+                              <tr
+                                key={voucher.id || code}
+                                onClick={() => handleSelectVoucher(voucher)}
+                                className={`cursor-pointer border-t border-cyan-50 transition ${
+                                  active
+                                    ? "bg-cyan-100/80 text-cyan-900"
+                                    : selectable
+                                      ? "hover:bg-cyan-50"
+                                      : "cursor-not-allowed text-slate-400 opacity-70"
+                                }`}
+                              >
+                                <td className="px-3 py-3 font-black">
+                                  {code}
+                                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                                    {getVoucherStatus(voucher)}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 font-semibold">
+                                  <div className="font-black text-slate-800">
+                                    {getVoucherName(voucher)}
+                                  </div>
+                                  <div className="mt-1 text-slate-500">
+                                    {getVoucherDiscountText(voucher)}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-3 font-semibold text-slate-500">
+                                  {voucher.expiredAt
+                                    ? new Date(voucher.expiredAt).toLocaleDateString("vi-VN")
+                                    : "-"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"

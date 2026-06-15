@@ -2,34 +2,6 @@ import api, { apiPath } from "./apiClient";
 
 const unwrap = (payload) => payload?.data ?? payload;
 
-export const TEST_ACCOUNTS = [
-  {
-    id: "test-admin",
-    name: "Admin Test",
-    email: "admin@autowash.com",
-    password: "123456",
-    role: "ADMIN",
-    tier: "Admin",
-  },
-  {
-    id: "test-staff",
-    name: "Staff Test",
-    email: "staff@autowash.com",
-    password: "123456",
-    role: "STAFF",
-    tier: "Staff",
-  },
-  {
-    id: "test-customer",
-    name: "Customer Test",
-    email: "customer@autowash.com",
-    password: "123456",
-    role: "CUSTOMER",
-    tier: "Member",
-    points: 1200,
-  },
-];
-
 const normalizeRole = (role) => {
   const normalized = String(role || "CUSTOMER").toUpperCase();
   if (normalized.includes("ADMIN")) return "ADMIN";
@@ -73,19 +45,6 @@ const normalizeAuthResponse = (payload) => {
     },
   };
 };
-
-const toTestSession = (user) => ({
-  token: `test-${user.role.toLowerCase()}-${Date.now()}`,
-  user: {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    tier: user.tier,
-    points: user.points || 0,
-    vehicles: [],
-  },
-});
 
 export async function login({ account, password }) {
   const email = account.trim();

@@ -16,8 +16,8 @@ export default function BookingSummary({
   voucherAmount,
 }) {
   return (
-    <aside className="lg:sticky lg:top-24 lg:col-span-4 lg:self-start">
-      <div className="max-h-none overflow-hidden rounded-2xl border border-[#bfc7d5]/30 bg-white/90 p-5 shadow-lg shadow-[#0061a5]/5 backdrop-blur-xl transition-shadow duration-300 hover:shadow-xl lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto lg:p-6">
+    <aside className="lg:sticky lg:top-28 lg:col-span-4 lg:self-start">
+      <div className="overflow-hidden rounded-2xl border border-[#bfc7d5]/30 bg-white/90 p-5 shadow-lg shadow-[#0061a5]/5 backdrop-blur-xl transition-shadow duration-300 hover:shadow-xl lg:p-6">
         <h3 className="mb-5 text-2xl font-semibold text-[#0061a5]">
           Tóm tắt đơn hàng
         </h3>
@@ -34,7 +34,10 @@ export default function BookingSummary({
           <div className="flex items-center justify-between border-b border-[#bfc7d5]/30 pb-2">
             <span className="text-[#3f4753]">Loại xe:</span>
             <span className="font-bold">
-              {selectedVehicle?.type || selectedVehicle?.label || selectedVehicle?.name || "Chưa chọn"}
+              {selectedVehicle?.type ||
+                selectedVehicle?.label ||
+                selectedVehicle?.name ||
+                "Chưa chọn"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4 border-b border-[#bfc7d5]/30 pb-2">
