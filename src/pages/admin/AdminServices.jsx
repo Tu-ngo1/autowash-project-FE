@@ -1,14 +1,90 @@
 // src/pages/admin/AdminServices.jsx
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import {
   createService as createServiceApi,
   deleteService as deleteServiceApi,
   getAdminServices,
   updateService as updateServiceApi,
 } from "../../services/adminServiceApi";
+const VEHICLE_SIZE_LABELS = {
+  SMALL: "Small",
+  MEDIUM: "Medium",
+  LARGE: "Large",
+  XLARGE: "XLarge",
+};
+
+const DEFAULT_SERVICE_PRICES = [
+  { vehicleSize: "SMALL", price: "", duration: "" },
+  { vehicleSize: "MEDIUM", price: "", duration: "" },
+  { vehicleSize: "LARGE", price: "", duration: "" },
+];
+
+const getServicePrices = (service = {}) => {
+  if (Array.isArray(service.servicePrices)) return service.servicePrices;
+  if (Array.isArray(service.prices)) return service.prices;
+
+  if (service.price || service.duration) {
+    return [
+      {
+        id: `${service.id || "service"}-default`,
+        vehicleSize: "DEFAULT",
+        vehicleLabel: "Default",
+        price: service.price,
+        duration: service.duration,
+        active: service.status === "ACTIVE",
+      },
+    ];
+  }
+
+  return [];
+};
+
+const formatCurrency = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return number.toLocaleString("vi-VN") + "đ";
+};
+
+const getPriceRange = (service) => {
+  const prices = getServicePrices(service)
+    .map((item) => Number(item.price))
+    .filter(Number.isFinite);
+
+  if (!prices.length) return "-";
+
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+
+  if (min === max) return formatCurrency(min);
+  return `${formatCurrency(min)} - ${formatCurrency(max)}`;
+};
+
+const getDurationRange = (service) => {
+  const durations = getServicePrices(service)
+    .map((item) => Number(item.duration))
+    .filter(Number.isFinite);
+
+  if (!durations.length) return "-";
+
+  const min = Math.min(...durations);
+  const max = Math.max(...durations);
+
+  if (min === max) return `${min}m`;
+  return `${min}m - ${max}m`;
+};
+
+const getVehicleLabel = (price) => {
+  return (
+    price.vehicleLabel ||
+    VEHICLE_SIZE_LABELS[price.vehicleSize] ||
+    price.vehicleSize ||
+    "Default"
+  );
+};
 
 export default function AdminServices() {
   const [services, setServices] = useState([]);
+  const [expandedServiceId, setExpandedServiceId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -22,7 +98,8 @@ export default function AdminServices() {
     setLoading(true);
     try {
       const res = await getAdminServices();
-      setServices(res.data);
+      const data = Array.isArray(res.data) ? res.data : [];
+      setServices(data);
     } catch (err) {
       console.error("Failed to load services:", err);
       setServices([]);
@@ -74,7 +151,7 @@ export default function AdminServices() {
           <div className="admin-scanline pointer-events-none absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-transparent via-cyan-300/12 to-transparent" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
+            <div>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
                   SERVICE OPS
@@ -84,45 +161,51 @@ export default function AdminServices() {
                   PRICE MATRIX
                 </span>
               </div>
-            <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
-              Service Control
-            </h1>
-            <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
-              Thiết lập gói rửa, giá tiền, thời lượng và trạng thái vận hành.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsAddDrawerOpen(true)}
+              <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
+                Service Control
+              </h1>
+              <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
+                Thiết lập gói rửa, giá tiền, thời lượng và trạng thái vận hành.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsAddDrawerOpen(true)}
               className="flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20"
-          >
-            <span className="material-symbols-outlined text-[18px]">add</span>{" "}
-            New Service
-          </button>
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>{" "}
+              New Service
+            </button>
           </div>
         </div>
 
         {/* Data Table */}
-        <div className="admin-reveal overflow-x-auto border border-zinc-800 bg-zinc-950" style={{ animationDelay: "140ms" }}>
+        <div
+          className="admin-reveal overflow-x-auto border border-zinc-800 bg-zinc-950"
+          style={{ animationDelay: "140ms" }}
+        >
           <table className="w-full min-w-[900px] border-collapse text-left">
             <thead>
               <tr className="border-b border-zinc-800 bg-black">
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Tên Gói Dịch Vụ
+                  Service Name
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Giá Tiền (đ)
+                  Price Range
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Dự Kiến (Phút)
+                  Duration
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Mô Tả Ngắn
+                  Rating
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Trạng Thái
+                  Total Revenue
+                </th>
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Status
                 </th>
                 <th className="px-6 py-4 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Hành Động
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -130,7 +213,7 @@ export default function AdminServices() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="7"
                     className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Đang tải...
@@ -139,73 +222,132 @@ export default function AdminServices() {
               ) : services.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="7"
                     className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Không có dữ liệu
                   </td>
                 </tr>
               ) : (
-                services.map((service, index) => (
-                  <tr
-                    key={service.id}
-                    className="admin-reveal transition duration-200 hover:translate-x-1 hover:bg-cyan-400/[0.04]"
-                    style={{ animationDelay: `${220 + index * 45}ms` }}
-                  >
-                    <td className="px-6 py-5 font-black text-zinc-100">
-                      {service.name}
-                    </td>
-                    <td className="px-6 py-5 font-black text-cyan-300">
-                      {service.price?.toLocaleString()}đ
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-zinc-400">
-                        <span className="material-symbols-outlined text-[18px]">
-                          schedule
-                        </span>
-                        <span className="font-data-display">
-                          {service.duration} min
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-zinc-400">
-                      {service.description}
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`h-2 w-2 rounded-full ${service.status === "ACTIVE" ? "bg-emerald-300" : "bg-red-300"}`}
-                        ></div>
-                        <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
-                          {service.status === "ACTIVE" ? "ACTIVE" : "INACTIVE"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => {
-                            setSelectedService(service);
-                            setIsDrawerOpen(true);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">
-                            edit
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => deleteService(service.id)}
-                          className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">
-                            delete
-                          </span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                services.map((service, index) => {
+                  const expanded = expandedServiceId === service.id;
+                  const prices = getServicePrices(service);
+
+                  return (
+                    <Fragment key={service.id}>
+                      <tr
+                        className={`admin-reveal transition duration-200 hover:bg-cyan-400/[0.04] ${
+                          expanded ? "bg-cyan-400/[0.08]" : ""
+                        }`}
+                        style={{ animationDelay: `${220 + index * 45}ms` }}
+                      >
+                        <td className="px-6 py-5 font-black text-zinc-100">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedServiceId(expanded ? null : service.id)
+                            }
+                            className="flex items-center gap-2 text-left"
+                          >
+                            <span className="material-symbols-outlined text-[18px] text-cyan-300">
+                              {expanded ? "expand_more" : "chevron_right"}
+                            </span>
+                            {service.name}
+                          </button>
+                        </td>
+                        <td className="px-6 py-5 font-black text-cyan-300">
+                          {getPriceRange(service)}
+                        </td>
+                        <td className="px-6 py-5 text-zinc-300">
+                          {getDurationRange(service)}
+                        </td>
+                        <td className="px-6 py-5 text-zinc-300">
+                          {service.rating ? `★ ${service.rating}` : "-"}
+                        </td>
+                        <td className="px-6 py-5 text-zinc-300">
+                          {formatCurrency(service.totalRevenue)}
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`h-2 w-2 rounded-full ${
+                                service.status === "ACTIVE"
+                                  ? "bg-emerald-300"
+                                  : "bg-red-300"
+                              }`}
+                            />
+                            <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
+                              {service.status === "ACTIVE"
+                                ? "ACTIVE"
+                                : "INACTIVE"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => {
+                                setSelectedService(service);
+                                setIsDrawerOpen(true);
+                              }}
+                              className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">
+                                edit
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => deleteService(service.id)}
+                              className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
+                            >
+                              <span className="material-symbols-outlined text-[20px]">
+                                delete
+                              </span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {expanded && (
+                        <tr>
+                          <td
+                            colSpan="7"
+                            className="bg-cyan-400/[0.04] px-14 pb-5"
+                          >
+                            <div className="max-w-xl border border-cyan-300/30 bg-cyan-300/10 p-4">
+                              {prices.length === 0 ? (
+                                <p className="font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                                  Chưa có bảng giá theo loại xe
+                                </p>
+                              ) : (
+                                <div className="grid gap-3">
+                                  {prices.map((price) => (
+                                    <div
+                                      key={price.id || price.vehicleSize}
+                                      className="grid grid-cols-3 border-b border-cyan-300/15 pb-2 last:border-b-0 last:pb-0"
+                                    >
+                                      <span className="text-zinc-300">
+                                        {getVehicleLabel(price)}
+                                      </span>
+                                      <span className="font-black text-cyan-200">
+                                        {formatCurrency(price.price)}
+                                      </span>
+                                      <span className="text-zinc-400">
+                                        {price.duration
+                                          ? `${price.duration}m`
+                                          : "-"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -250,14 +392,37 @@ export default function AdminServices() {
 function ServiceDrawer({ mode, service, onClose, onSave }) {
   const [formData, setFormData] = useState({
     name: service?.name || "",
-    price: service?.price || "",
-    duration: service?.duration || "",
     description: service?.description || "",
     status: service?.status || "ACTIVE",
+    servicePrices: getServicePrices(service).length
+      ? getServicePrices(service)
+      : DEFAULT_SERVICE_PRICES,
   });
 
+  const updateServicePrice = (index, key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      servicePrices: prev.servicePrices.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [key]: value,
+            }
+          : item,
+      ),
+    }));
+  };
+
   const handleSubmit = () => {
-    onSave(formData);
+    onSave({
+      ...formData,
+      servicePrices: formData.servicePrices.map((item) => ({
+        ...item,
+        price: Number(item.price),
+        duration: Number(item.duration),
+        active: item.active ?? true,
+      })),
+    });
   };
 
   return (
@@ -297,48 +462,56 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
           />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-            Giá tiền (VND)
+            Bảng giá theo loại xe
           </label>
-          <div className="relative">
-            <input
-              type="number"
-              className="h-10 w-full border border-zinc-800 bg-black px-3 pr-12 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-              placeholder="0"
-              value={formData.price}
-              onChange={(e) =>
-                setFormData({ ...formData, price: parseInt(e.target.value) })
-              }
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
-              VND
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-            Thời gian thực hiện (Phút)
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              className="h-10 w-full border border-zinc-800 bg-black px-3 pr-12 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-              placeholder="30"
-              value={formData.duration}
-              onChange={(e) =>
-                setFormData({ ...formData, duration: parseInt(e.target.value) })
-              }
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
-              MIN
-            </span>
+          <div className="grid gap-3">
+            {formData.servicePrices.map((price, index) => (
+              <div
+                key={price.vehicleSize || index}
+                className="border border-zinc-800 bg-black p-3"
+              >
+                <div className="mb-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
+                  {getVehicleLabel(price)}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      className="h-10 w-full border border-zinc-800 bg-zinc-950 px-3 pr-12 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                      placeholder="Giá"
+                      value={price.price}
+                      onChange={(e) =>
+                        updateServicePrice(index, "price", e.target.value)
+                      }
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
+                      VND
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      className="h-10 w-full border border-zinc-800 bg-zinc-950 px-3 pr-12 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                      placeholder="Phút"
+                      value={price.duration}
+                      onChange={(e) =>
+                        updateServicePrice(index, "duration", e.target.value)
+                      }
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
+                      MIN
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
           <div className="mt-1 border-l-2 border-cyan-400/50 bg-cyan-400/10 p-3">
             <p className="text-[11px] font-semibold leading-relaxed text-zinc-400">
-              Lưu ý: Thông số này dùng để tính toán bộ đếm ngược và thời gian
-              chờ trong hàng đợi cho nhân viên Staff.
+              Mỗi loại xe có thể có giá và thời lượng riêng. Dữ liệu này sẽ gửi
+              lên backend trong trường servicePrices.
             </p>
           </div>
         </div>
