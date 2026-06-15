@@ -48,6 +48,20 @@ const normalizeAuthResponse = (payload) => {
 
 export async function login({ account, password }) {
   const email = account.trim();
+  const testLoginEnabled =
+    import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
+  const testAccount = testLoginEnabled
+    ? TEST_ACCOUNTS.find(
+        (user) =>
+          user.email.toLowerCase() === email.toLowerCase() &&
+          user.password === password,
+      )
+    : null;
+
+  if (testAccount) {
+    return toTestSession(testAccount);
+  }
+
   const response = await api.post(apiPath("/auth/login"), {
     email,
     password,
