@@ -4,10 +4,8 @@
 
 @layer base {
   html,
-  body,
-  #root {
+  body {
     max-width: 100%;
-    overflow-x: hidden;
   }
 
   /* Custom scrollbar */
@@ -343,7 +341,11 @@
   overflow-x: hidden;
   background:
     radial-gradient(circle at 82% 8%, rgba(94, 234, 212, 0.2), transparent 28%),
-    radial-gradient(circle at 8% 92%, rgba(186, 230, 253, 0.16), transparent 32%),
+    radial-gradient(
+      circle at 8% 92%,
+      rgba(186, 230, 253, 0.16),
+      transparent 32%
+    ),
     linear-gradient(135deg, #0b2532 0%, #123746 48%, #0d2c39 100%);
 }
 
@@ -369,7 +371,12 @@
   height: 150px;
   width: 140%;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(94, 234, 212, 0.18), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(94, 234, 212, 0.18),
+    transparent
+  );
   filter: blur(20px);
   transform: rotate(-7deg);
   animation: staffWaterSweep 9s ease-in-out infinite;
@@ -393,7 +400,9 @@
   background:
     linear-gradient(135deg, rgba(23, 62, 76, 0.9), rgba(12, 42, 55, 0.92)),
     rgba(18, 50, 66, 0.9);
-  box-shadow: 0 22px 70px rgba(3, 30, 43, 0.32), inset 0 1px 0 rgba(236, 254, 255, 0.1);
+  box-shadow:
+    0 22px 70px rgba(3, 30, 43, 0.32),
+    inset 0 1px 0 rgba(236, 254, 255, 0.1);
   backdrop-filter: blur(18px);
 }
 
@@ -403,18 +412,30 @@
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(105deg, transparent 0%, rgba(236, 254, 255, 0.1) 44%, transparent 58%),
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(236, 254, 255, 0.1) 44%,
+      transparent 58%
+    ),
     radial-gradient(circle at 18% 0%, rgba(94, 234, 212, 0.2), transparent 28%);
   opacity: 0;
   transform: translateX(-28%);
-  transition: opacity 0.35s ease, transform 0.7s ease;
+  transition:
+    opacity 0.35s ease,
+    transform 0.7s ease;
 }
 
 .staff-panel:hover {
   border-color: rgba(94, 234, 212, 0.46);
   transform: translateY(-2px);
-  transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
-  box-shadow: 0 28px 86px rgba(3, 30, 43, 0.36), 0 0 0 1px rgba(94, 234, 212, 0.12);
+  transition:
+    transform 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+  box-shadow:
+    0 28px 86px rgba(3, 30, 43, 0.36),
+    0 0 0 1px rgba(94, 234, 212, 0.12);
 }
 
 .staff-panel:hover::before {
@@ -435,12 +456,19 @@
   top: -35%;
   height: 38%;
   pointer-events: none;
-  background: linear-gradient(to bottom, transparent, rgba(94, 234, 212, 0.24), transparent);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(94, 234, 212, 0.24),
+    transparent
+  );
   animation: staffScan 3.6s linear infinite;
 }
 
 .staff-nav-glow {
-  box-shadow: 0 20px 60px rgba(3, 30, 43, 0.28), inset 0 1px 0 rgba(236, 254, 255, 0.1);
+  box-shadow:
+    0 20px 60px rgba(3, 30, 43, 0.28),
+    inset 0 1px 0 rgba(236, 254, 255, 0.1);
 }
 
 @keyframes staffRise {

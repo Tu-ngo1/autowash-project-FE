@@ -10,6 +10,8 @@ export * as adminServiceApi from "./adminServiceApi";
 export * as customerBookingApi from "./customerBookingApi";
 export * as adminBookingApi from "./adminBookingApi";
 export * as customerVoucherApi from "./customerVoucherApi";
+export * as customerConfigApi from "./customerConfigApi";
+export * as vehicleModelApi from "./vehicleModelApi";
 export * as adminPromotionApi from "./adminPromotionApi";
 export * as customerLoyaltyApi from "./customerLoyaltyApi";
 export * as adminAnalyticsApi from "./adminAnalyticsApi";
