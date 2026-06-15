@@ -11,23 +11,31 @@ const STATUS_STYLES = {
   CANCELLED: "border-red-400/50 text-red-300 bg-red-400/10",
 };
 
-const PAYMENT_STYLES = {
-  PAYOS: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
-  CASH: "border-zinc-700 text-zinc-400 bg-zinc-900",
-  UNPAID: "border-zinc-700 text-zinc-400 bg-zinc-900",
-};
-
-function PaymentBadge({ method }) {
+function PaymentBadge({ method, status }) {
   const normalizedMethod = String(method || "UNPAID").toUpperCase();
+  const normalizedStatus = String(status || "PENDING").toUpperCase();
+  const isPaid = normalizedStatus === "PAID";
+
+  let text = normalizedMethod;
+  if (normalizedMethod === "PAYOS") {
+    text = isPaid ? "PAYOS (PAID)" : "PAYOS (UNPAID)";
+  } else if (normalizedMethod === "CASH") {
+    text = isPaid ? "CASH (PAID)" : "CASH (UNPAID)";
+  } else if (normalizedMethod === "UNPAID") {
+    text = "UNPAID";
+  }
+
+  const styleClass = isPaid
+    ? "border-emerald-400/50 text-emerald-300 bg-emerald-400/10"
+    : normalizedMethod === "PAYOS"
+      ? "border-cyan-400/50 text-cyan-300 bg-cyan-400/10"
+      : "border-zinc-700 text-zinc-400 bg-zinc-900";
+
   return (
     <span
-      className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${PAYMENT_STYLES[normalizedMethod] || PAYMENT_STYLES.UNPAID}`}
+      className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${styleClass}`}
     >
-      {normalizedMethod === "PAYOS"
-        ? "PAYOS (PAID)"
-        : normalizedMethod === "CASH"
-          ? "CASH (UNPAID)"
-          : normalizedMethod}
+      {text}
     </span>
   );
 }
@@ -109,7 +117,7 @@ export default function AdminBookingsTable({
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span>Thanh toán</span>
-                <PaymentBadge method={booking.paymentMethod} />
+                <PaymentBadge method={booking.paymentMethod} status={booking.paymentStatus} />
               </div>
               <div className="flex justify-between gap-3 border-t border-zinc-800 pt-2">
                 <span>Tổng tiền</span>
@@ -151,28 +159,28 @@ export default function AdminBookingsTable({
         <table className="w-full table-fixed border-collapse text-left text-xs">
           <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-black shadow-[0_1px_0_0_rgba(34,211,238,0.25)]">
             <tr>
-              <th className="w-24 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-32 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 MÃ ĐƠN
               </th>
-              <th className="w-44 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-36 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THỜI GIAN
               </th>
-              <th className="truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 KHÁCH HÀNG & XE
               </th>
-              <th className="truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 DỊCH VỤ
               </th>
-              <th className="w-32 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-40 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THANH TOÁN
               </th>
-              <th className="w-32 truncate whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-32 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TRẠNG THÁI
               </th>
-              <th className="w-28 truncate whitespace-nowrap px-3 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-28 whitespace-nowrap px-3 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TỔNG TIỀN
               </th>
-              <th className="w-24 truncate whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-24 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 ACT
               </th>
             </tr>
@@ -187,12 +195,12 @@ export default function AdminBookingsTable({
                 style={{ animationDelay: `${260 + index * 40}ms` }}
                 onClick={() => fetchBookingDetails(bookingId)}
               >
-                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                <td className="whitespace-nowrap px-3 py-3 align-middle">
                   <span className="font-black text-cyan-300">
                     {booking.bookingCode || booking.code || `#B-${bookingId}`}
                   </span>
                 </td>
-                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                <td className="whitespace-nowrap px-3 py-3 align-middle">
                   <span className="text-zinc-100">
                     {booking.date || "-"}
                   </span>
@@ -200,7 +208,10 @@ export default function AdminBookingsTable({
                     {booking.time || ""}
                   </span>
                 </td>
-                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                <td
+                  className="truncate whitespace-nowrap px-3 py-3 align-middle"
+                  title={`${booking.customerName || "-"} • ${booking.vehicleLicensePlate || booking.plate || "-"}`}
+                >
                   <span className="font-semibold text-zinc-100">
                     {booking.customerName}
                   </span>
@@ -214,13 +225,13 @@ export default function AdminBookingsTable({
                 >
                   {booking.service || booking.services?.join(", ") || "-"}
                 </td>
-                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
-                  <PaymentBadge method={booking.paymentMethod} />
+                <td className="whitespace-nowrap px-3 py-3 align-middle">
+                  <PaymentBadge method={booking.paymentMethod} status={booking.paymentStatus} />
                 </td>
-                <td className="truncate whitespace-nowrap px-3 py-3 align-middle">
+                <td className="whitespace-nowrap px-3 py-3 align-middle">
                   <StatusBadge status={booking.status} />
                 </td>
-                <td className="truncate whitespace-nowrap px-3 py-3 text-right align-middle">
+                <td className="whitespace-nowrap px-3 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
                     {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                   </span>
