@@ -10,6 +10,8 @@ These endpoints exist in the current BE repo and FE should not rename them.
 
 - `POST /api/auth/login`
 - `POST /api/auth/register`
+- `POST /api/auth/register/send-otp`
+- `POST /api/auth/register/verify-otp`
 - `POST /api/auth/logout`
 
 ### Customer
@@ -27,13 +29,6 @@ These endpoints exist in the current BE repo and FE should not rename them.
 ## Customer API Needed By FE
 
 These endpoints are intentionally named and used by FE, but the current BE repo does not expose them yet.
-
-### Registration OTP
-
-File: `authApi.js`
-
-- `POST /api/auth/register/send-otp`
-- `POST /api/auth/register/verify-otp`
 
 ### Booking Config
 

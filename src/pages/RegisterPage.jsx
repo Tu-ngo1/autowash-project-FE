@@ -7,14 +7,18 @@ import {
   verifyRegistrationOtp,
 } from "../services/authApi";
 import { getFriendlyErrorMessage } from "../utils/errorMessage";
+import { getUserRole, setAuth } from "../utils/auth";
 
 const RESEND_SECONDS = 60;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const PHONE_PATTERN = /^0\d{9}$/;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",
+    username: "",
+    phone: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -31,7 +35,7 @@ export default function RegisterPage() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [registering, setRegistering] = useState(false);
 
-  const normalizedEmail = useMemo(() => form.email.trim(), [form.email]);
+  const normalizedEmail = useMemo(() => form.email.trim().toLowerCase(), [form.email]);
   const emailChangedAfterVerify =
     otpVerified && verifiedEmail && verifiedEmail !== normalizedEmail;
 
@@ -57,11 +61,19 @@ export default function RegisterPage() {
     return "";
   };
 
-  const validateForm = () => {
+  const validateProfileFields = () => {
     const next = {};
     if (!form.name.trim()) next.name = "Họ và tên không được để trống.";
-    const emailError = validateEmail();
-    if (emailError) next.email = emailError;
+    if (!form.username.trim()) {
+      next.username = "Tên đăng nhập không được để trống.";
+    } else if (form.username.trim().length < 3) {
+      next.username = "Tên đăng nhập phải có ít nhất 3 ký tự.";
+    }
+    if (!form.phone.trim()) {
+      next.phone = "Số điện thoại không được để trống.";
+    } else if (!PHONE_PATTERN.test(form.phone.trim())) {
+      next.phone = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0.";
+    }
     if (!form.password) {
       next.password = "Mật khẩu không được để trống.";
     } else if (form.password.length < 6) {
@@ -70,6 +82,13 @@ export default function RegisterPage() {
     if (form.password !== form.confirmPassword) {
       next.confirmPassword = "Mật khẩu xác nhận không khớp.";
     }
+    return next;
+  };
+
+  const validateForm = () => {
+    const next = {};
+    const emailError = validateEmail();
+    if (emailError) next.email = emailError;
     if (!form.otp.trim()) {
       next.otp = "Vui lòng nhập mã OTP đã gửi qua email.";
     } else if (!/^[0-9]{6}$/.test(form.otp.trim())) {
@@ -78,6 +97,7 @@ export default function RegisterPage() {
     if (!otpVerified) {
       next.otp = "Vui lòng xác thực OTP trước khi đăng ký.";
     }
+    Object.assign(next, validateProfileFields());
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -103,7 +123,12 @@ export default function RegisterPage() {
     const { name, value } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === "otp" ? value.replace(/\D/g, "").slice(0, 6) : value,
+      [name]:
+        name === "otp"
+          ? value.replace(/\D/g, "").slice(0, 6)
+          : name === "phone"
+            ? value.replace(/\D/g, "").slice(0, 10)
+            : value,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setSubmitError("");
@@ -164,7 +189,10 @@ export default function RegisterPage() {
       const response = await verifyRegistrationOtp(normalizedEmail, form.otp);
       setOtpVerified(true);
       setVerifiedEmail(normalizedEmail);
-      setOtpMessage(response?.message || "Email đã được xác thực.");
+      setOtpMessage(
+        response?.message ||
+          "Email đã được xác thực. Vui lòng điền thông tin còn lại.",
+      );
       setErrors((prev) => ({ ...prev, otp: "" }));
     } catch (err) {
       setOtpVerified(false);
@@ -176,19 +204,29 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (registering) return;
+    if (registering || !otpVerified) return;
     setSubmitError("");
     if (!validateForm()) return;
 
     setRegistering(true);
     try {
-      await register({
+      const authResponse = await register({
         name: form.name,
-        email: form.email,
+        username: form.username,
+        email: normalizedEmail,
+        phone: form.phone,
         password: form.password,
         otp: form.otp,
       });
-      navigate("/", { replace: true });
+      setAuth(authResponse);
+      const role = getUserRole();
+      if (role === "ADMIN") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (role === "STAFF") {
+        navigate("/staff/dashboard", { replace: true });
+      } else {
+        navigate("/customer/dashboard", { replace: true });
+      }
     } catch (err) {
       setSubmitError(applyBackendErrors(err));
     } finally {
@@ -253,31 +291,12 @@ export default function RegisterPage() {
               Tạo tài khoản để đưa xe vào khoang rửa.
             </h1>
             <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-700">
-              Xác thực email bằng OTP, sau đó dùng tài khoản này để đặt lịch,
-              xem trạng thái rửa xe và lưu lịch sử chăm sóc.
+              Bước 1: xác thực email bằng OTP. Bước 2: điền thông tin còn lại
+              và hoàn tất đăng ký.
             </p>
           </div>
 
           <form className="relative space-y-6" onSubmit={handleSubmit}>
-            <div className="grid gap-5">
-              <label className="block">
-                <span className="text-sm font-black text-slate-900">
-                  Họ và tên
-                </span>
-                <input
-                  name="name"
-                  type="text"
-                  value={form.name}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="name"
-                />
-                {errors.name && (
-                  <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
-                )}
-              </label>
-            </div>
-
             <section className="rounded-[26px] border border-cyan-100 bg-cyan-50/88 p-4 shadow-inner shadow-white/70 sm:p-5">
               <div className="flex items-start gap-3">
                 <span className="mt-1 rounded-2xl bg-white p-2.5 text-cyan-700 ring-1 ring-cyan-100">
@@ -285,20 +304,18 @@ export default function RegisterPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-black text-slate-950">
-                    Xác thực email
+                    Bước 1 — Xác thực email
                   </h2>
                   <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
-                    Nhập email rồi nhấn nhận mã OTP. Mã chỉ dùng một lần và sẽ
-                    được gửi qua email từ hệ thống.
+                    Nhập email, nhận mã OTP và xác thực trước khi điền thông
+                    tin tài khoản.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <label className="block">
-                  <span className="text-sm font-black text-slate-900">
-                    Email
-                  </span>
+                  <span className="text-sm font-black text-slate-900">Email</span>
                   <input
                     name="email"
                     type="email"
@@ -326,15 +343,13 @@ export default function RegisterPage() {
                   ) : (
                     <Mail size={18} />
                   )}
-                  {cooldown > 0 ? `${cooldown}s` : "Nhận mã"}
+                  {cooldown > 0 ? `${cooldown}s` : "Gửi mã OTP"}
                 </button>
               </div>
 
               <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <label className="block">
-                  <span className="text-sm font-black text-slate-900">
-                    Mã OTP
-                  </span>
+                  <span className="text-sm font-black text-slate-900">Mã OTP</span>
                   <input
                     name="otp"
                     type="text"
@@ -375,45 +390,116 @@ export default function RegisterPage() {
               )}
             </section>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-black text-slate-900">
-                  Mật khẩu
-                </span>
-                <input
-                  name="password"
-                  type="password"
-                  value={form.password}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="new-password"
-                />
-                {errors.password && (
-                  <p className="mt-2 text-sm text-rose-600">
-                    {errors.password}
+            {otpVerified && (
+              <section className="space-y-5 rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
+                <div>
+                  <h2 className="text-base font-black text-slate-950">
+                    Bước 2 — Thông tin tài khoản
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-700">
+                    Email đã xác thực. Điền các thông tin còn lại rồi nhấn đăng
+                    ký.
                   </p>
-                )}
-              </label>
+                </div>
 
-              <label className="block">
-                <span className="text-sm font-black text-slate-900">
-                  Xác nhận mật khẩu
-                </span>
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  value={form.confirmPassword}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="new-password"
-                />
-                {errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-rose-600">
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </label>
-            </div>
+                <label className="block">
+                  <span className="text-sm font-black text-slate-900">Họ và tên</span>
+                  <input
+                    name="name"
+                    type="text"
+                    value={form.name}
+                    onChange={handleChange}
+                    className={inputClass}
+                    autoComplete="name"
+                    disabled={registering}
+                  />
+                  {errors.name && (
+                    <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
+                  )}
+                </label>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Tên đăng nhập
+                    </span>
+                    <input
+                      name="username"
+                      type="text"
+                      value={form.username}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="username"
+                      disabled={registering}
+                    />
+                    {errors.username && (
+                      <p className="mt-2 text-sm text-rose-600">
+                        {errors.username}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Số điện thoại
+                    </span>
+                    <input
+                      name="phone"
+                      type="tel"
+                      value={form.phone}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="tel"
+                      placeholder="0987654321"
+                      disabled={registering}
+                    />
+                    {errors.phone && (
+                      <p className="mt-2 text-sm text-rose-600">{errors.phone}</p>
+                    )}
+                  </label>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">Mật khẩu</span>
+                    <input
+                      name="password"
+                      type="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="new-password"
+                      disabled={registering}
+                    />
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-rose-600">
+                        {errors.password}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Xác nhận mật khẩu
+                    </span>
+                    <input
+                      name="confirmPassword"
+                      type="password"
+                      value={form.confirmPassword}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="new-password"
+                      disabled={registering}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="mt-2 text-sm text-rose-600">
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </label>
+                </div>
+              </section>
+            )}
 
             {submitError && (
               <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-black text-rose-700 shadow-sm">
@@ -421,15 +507,19 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={registering}
-              className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
-              {registering && <Loader2 size={18} className="animate-spin" />}
-              <span className="relative">{registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}</span>
-            </button>
+            {otpVerified && (
+              <button
+                type="submit"
+                disabled={registering}
+                className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
+                {registering && <Loader2 size={18} className="animate-spin" />}
+                <span className="relative">
+                  {registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
+                </span>
+              </button>
+            )}
           </form>
 
           <p className="relative mt-6 text-center text-sm font-bold text-slate-700">
@@ -469,8 +559,9 @@ export default function RegisterPage() {
 
           {[
             ["1", "Nhập email", "Dùng đúng email bạn muốn nhận thông báo."],
-            ["2", "Nhận OTP", "Kiểm tra hộp thư đến hoặc thư rác nếu chưa thấy mã."],
-            ["3", "Xác thực", "Nhập mã 6 số rồi hoàn tất đăng ký."],
+            ["2", "Nhận OTP", "Nhấn gửi mã và kiểm tra hộp thư."],
+            ["3", "Xác thực", "Nhập mã 6 số để mở phần điền thông tin."],
+            ["4", "Đăng ký", "Điền username, mật khẩu và hoàn tất."],
           ].map(([step, title, description]) => (
             <div
               key={step}

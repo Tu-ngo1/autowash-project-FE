@@ -4,6 +4,7 @@ import UserNavbar from "../../components/UserNavbar";
 import BookingSummary from "../../components/booking/BookingSummary";
 import { getUser, getUserTier, getUserWalletBalance } from "../../utils/auth";
 import { createBooking, getBookingData } from "../../services/customerBookingApi";
+import { getMyCars } from "../../services/customerCarApi";
 import {
   getCustomerVouchers,
   validateVoucher,
@@ -184,12 +185,13 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [response, voucherPayload, configPayload] = await Promise.all([
-          getBookingData(),
+        const [response, voucherPayload, configPayload, carsRes] = await Promise.all([
+          getBookingData().catch(() => ({})),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
+          getMyCars().catch(() => null),
         ]);
         const payload = response.data || {};
         const config = unwrapObject(configPayload);
@@ -198,9 +200,26 @@ export default function CustomerBooking() {
         const fetchedVehicles = Array.isArray(payload.vehicles)
           ? payload.vehicles
           : [];
-        const profileVehicles = Array.isArray(getUser()?.vehicles)
-          ? getUser().vehicles
+        const apiCars = Array.isArray(carsRes?.data)
+          ? carsRes.data
+          : Array.isArray(carsRes?.data?.data)
+          ? carsRes.data.data
           : [];
+        const profileVehicles = apiCars.map(car => {
+          const size = car.vehicleSize || "SMALL";
+          const sizeOption = VEHICLE_SIZE_OPTIONS[size] || VEHICLE_SIZE_OPTIONS.SMALL;
+          return {
+            id: car.id,
+            plate: car.licensePlate,
+            size: size,
+            type: size,
+            name: `${sizeOption.label} - ${sizeOption.description}`,
+            brand: "Xe",
+            modelName: size,
+            label: `Xe ${sizeOption.label}`,
+            vehicleModelId: null,
+          };
+        });
         const fetchedServices = Array.isArray(payload.services)
           ? payload.services
           : [];
@@ -306,22 +325,21 @@ export default function CustomerBooking() {
     setError("");
     setSuccess("");
 
-    if (!plate.trim() || !service || !date || !timeSlot) {
-      setError("Vui lòng điền đủ thông tin Biển số, Dịch vụ, Ngày và Khung giờ.");
+    if (!selectedVehicle || String(selectedVehicle.id).startsWith("vehicle-")) {
+      setError("Vui lòng thêm xe vào tài khoản từ trang Cá nhân trước khi đặt lịch.");
+      return;
+    }
+
+    if (!service || !date || !timeSlot) {
+      setError("Vui lòng chọn đầy đủ Dịch vụ, Ngày và Khung giờ.");
       return;
     }
 
     const booking = {
-      plate: plate.trim(),
-      serviceId: service,
-      date,
-      time: timeSlot,
-      startTime: timeSlot,
-      endTime: getSlotEndTime(timeSlot, slotDurationMinutes),
-      durationMinutes: slotDurationMinutes,
-      paymentMethod,
-      voucherCode: voucherApplied ? voucherCode : null,
-      price: totalPrice,
+      vehicleId: Number(selectedVehicle.id),
+      scheduledStartTime: `${date}T${timeSlot}:00`,
+      serviceIds: [Number(service)],
+      customerNote: "",
     };
 
     setLoading(true);
