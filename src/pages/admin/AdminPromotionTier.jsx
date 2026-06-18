@@ -29,7 +29,8 @@ export default function AdminPromotions() {
     try {
       const res = await getTiers();
       const payload = res.data?.data ?? res.data;
-      setTiers(Array.isArray(payload) ? payload : payload?.tiers || []);
+      const nextTiers = Array.isArray(payload) ? payload : payload?.tiers || [];
+      setTiers(nextTiers);
     } catch {
       setTiers([]);
     }
@@ -40,7 +41,10 @@ export default function AdminPromotions() {
     try {
       const res = await getVouchers();
       const payload = res.data?.data ?? res.data;
-      setVouchers(Array.isArray(payload) ? payload : payload?.vouchers || []);
+      const nextVouchers = Array.isArray(payload)
+        ? payload
+        : payload?.vouchers || [];
+      setVouchers(nextVouchers);
     } catch {
       setVouchers([]);
     } finally {
@@ -99,8 +103,12 @@ export default function AdminPromotions() {
 
   const filteredVouchers = vouchers.filter((v) => {
     const matchSearch =
-      String(v.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      String(v.code || "").toLowerCase().includes(search.toLowerCase());
+      String(v.name || "")
+        .toLowerCase()
+        .includes(search.toLowerCase()) ||
+      String(v.code || "")
+        .toLowerCase()
+        .includes(search.toLowerCase());
     const matchStatus =
       statusFilter === "all" ||
       (statusFilter === "active" && v.isActive) ||
@@ -117,6 +125,15 @@ export default function AdminPromotions() {
       return "border-yellow-300/60 bg-yellow-300/10 text-yellow-200";
     return "border-zinc-700 bg-zinc-900 text-zinc-300";
   };
+
+  const getTierCustomerCount = (tier) =>
+    tier.customerCount ?? tier.totalCustomers ?? tier.customersCount ?? 0;
+
+  const tierCustomerStats = tiers.map((tier) => ({
+    id: tier.id || tier.name,
+    name: tier.name || tier.tier || tier.tierLevel || "Tier",
+    customerCount: getTierCustomerCount(tier),
+  }));
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-[#05070a] text-zinc-100">
@@ -157,8 +174,62 @@ export default function AdminPromotions() {
           </div>
         </div>
 
+        {/* Tier Customer Summary */}
+        <div
+          className="admin-reveal border border-zinc-800 bg-zinc-950"
+          style={{ animationDelay: "90ms" }}
+        >
+          <div className="border-b border-zinc-800 bg-black p-4">
+            <h2 className="flex items-center gap-2 font-mono text-sm font-black uppercase tracking-[0.18em] text-zinc-100">
+              <span className="material-symbols-outlined text-[20px] text-cyan-300">
+                groups
+              </span>
+              Customer theo hạng
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-zinc-900 md:grid-cols-4 md:divide-x md:divide-y-0">
+            {tierCustomerStats.map((tier, index) => (
+              <div
+                key={tier.id}
+                className="admin-reveal bg-zinc-950 p-4 transition hover:bg-cyan-400/[0.04]"
+                style={{ animationDelay: `${130 + index * 45}ms` }}
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Hạng {tier.name}
+                  </span>
+                  <span
+                    className={`material-symbols-outlined text-[20px] ${
+                      tier.name === "Gold"
+                        ? "text-yellow-200"
+                        : tier.name === "Platinum"
+                          ? "text-cyan-200"
+                          : "text-cyan-300"
+                    }`}
+                  >
+                    {tier.name === "Platinum"
+                      ? "diamond"
+                      : tier.name === "Gold"
+                        ? "workspace_premium"
+                        : "star"}
+                  </span>
+                </div>
+                <div className="font-mono text-3xl font-black text-cyan-300">
+                  {tier.customerCount.toLocaleString()}
+                </div>
+                <p className="mt-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                  Customers
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Tier Configuration Section */}
-        <div className="admin-reveal flex flex-col overflow-hidden border border-zinc-800 bg-zinc-950" style={{ animationDelay: "120ms" }}>
+        <div
+          className="admin-reveal flex flex-col overflow-hidden border border-zinc-800 bg-zinc-950"
+          style={{ animationDelay: "120ms" }}
+        >
           <div className="border-b border-zinc-800 bg-black p-4">
             <h2 className="flex items-center gap-2 font-mono text-sm font-black uppercase tracking-[0.18em] text-zinc-100">
               <span className="material-symbols-outlined text-[20px] text-cyan-300">
@@ -251,7 +322,10 @@ export default function AdminPromotions() {
         </div>
 
         {/* Voucher Campaigns Section */}
-        <div className="admin-reveal flex flex-col gap-4" style={{ animationDelay: "260ms" }}>
+        <div
+          className="admin-reveal flex flex-col gap-4"
+          style={{ animationDelay: "260ms" }}
+        >
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <h2 className="flex items-center gap-2 font-mono text-lg font-black uppercase tracking-[0.16em] text-zinc-100">
               <span className="material-symbols-outlined text-[24px] text-cyan-300">
@@ -277,9 +351,15 @@ export default function AdminPromotions() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
-                  <option className="bg-black text-zinc-100" value="all">Trạng thái: Tất cả</option>
-                  <option className="bg-black text-zinc-100" value="active">Đang chạy (Active)</option>
-                  <option className="bg-black text-zinc-100" value="expired">Hết hạn (Expired)</option>
+                  <option className="bg-black text-zinc-100" value="all">
+                    Trạng thái: Tất cả
+                  </option>
+                  <option className="bg-black text-zinc-100" value="active">
+                    Đang chạy (Active)
+                  </option>
+                  <option className="bg-black text-zinc-100" value="expired">
+                    Hết hạn (Expired)
+                  </option>
                 </select>
                 <span className="material-symbols-outlined pointer-events-none absolute right-2 top-2.5 text-[20px] text-zinc-500">
                   arrow_drop_down
@@ -292,24 +372,42 @@ export default function AdminPromotions() {
             <table className="w-full min-w-[900px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-zinc-800 bg-black">
-                  <th className="w-1/4 px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Tên Voucher</th>
-                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Giá Trị Quy Đổi</th>
-                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Hạng Áp Dụng</th>
-                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Thời Gian</th>
-                  <th className="w-[120px] px-4 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Trạng Thái</th>
-                  <th className="w-[130px] px-4 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Hành Động</th>
+                  <th className="w-1/4 px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Tên Voucher
+                  </th>
+                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Giá Trị Quy Đổi
+                  </th>
+                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Hạng Áp Dụng
+                  </th>
+                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Thời Gian
+                  </th>
+                  <th className="w-[120px] px-4 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Trạng Thái
+                  </th>
+                  <th className="w-[130px] px-4 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Hành Động
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600">
+                    <td
+                      colSpan="6"
+                      className="px-4 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
+                    >
                       Đang tải...
                     </td>
                   </tr>
                 ) : filteredVouchers.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600">
+                    <td
+                      colSpan="6"
+                      className="px-4 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
+                    >
                       Không có dữ liệu
                     </td>
                   </tr>
@@ -476,10 +574,23 @@ export default function AdminPromotions() {
                     </label>
                     <select
                       className="h-10 w-full cursor-pointer appearance-none border border-zinc-800 bg-black px-3 pr-8 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                      defaultValue="percentage"
+                      value={selectedVoucher.discountType || "percentage"}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          discountType: e.target.value,
+                        })
+                      }
                     >
-                      <option className="bg-black text-zinc-100" value="percentage">Giảm theo %</option>
-                      <option className="bg-black text-zinc-100" value="fixed">Giảm theo số tiền cố định</option>
+                      <option
+                        className="bg-black text-zinc-100"
+                        value="percentage"
+                      >
+                        Giảm theo %
+                      </option>
+                      <option className="bg-black text-zinc-100" value="fixed">
+                        Giảm theo số tiền cố định
+                      </option>
                     </select>
                   </div>
                   <div className="flex flex-col gap-2">
@@ -490,7 +601,13 @@ export default function AdminPromotions() {
                       <input
                         className="h-10 w-full border border-zinc-800 bg-black px-3 pr-8 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                         type="number"
-                        defaultValue={selectedVoucher.discountValue || 10}
+                        value={selectedVoucher.discountValue || 0}
+                        onChange={(e) =>
+                          setSelectedVoucher({
+                            ...selectedVoucher,
+                            discountValue: Number(e.target.value),
+                          })
+                        }
                       />
                       <span className="absolute right-3 top-2.5 font-mono text-zinc-500">
                         %
@@ -505,7 +622,13 @@ export default function AdminPromotions() {
                   <input
                     className="h-10 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                     type="number"
-                    defaultValue={selectedVoucher.pointsRequired}
+                    value={selectedVoucher.pointsRequired || 0}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        pointsRequired: Number(e.target.value),
+                      })
+                    }
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -516,6 +639,13 @@ export default function AdminPromotions() {
                     {["TẤT CẢ", "Silver", "Gold", "Platinum"].map((tier) => (
                       <button
                         key={tier}
+                        type="button"
+                        onClick={() =>
+                          setSelectedVoucher({
+                            ...selectedVoucher,
+                            tier: tier === "TẤT CẢ" ? "all" : tier,
+                          })
+                        }
                         className={`flex cursor-pointer items-center justify-center border px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.12em] ${selectedVoucher.tier === tier ? "border-cyan-400 bg-cyan-400/10 text-cyan-300" : "border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:text-cyan-300"}`}
                       >
                         {tier}
@@ -533,7 +663,13 @@ export default function AdminPromotions() {
                   <input
                     className="h-10 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                     type="date"
-                    defaultValue={selectedVoucher.startDate}
+                    value={selectedVoucher.startDate || ""}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        startDate: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -543,7 +679,13 @@ export default function AdminPromotions() {
                   <input
                     className="h-10 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                     type="date"
-                    defaultValue={selectedVoucher.endDate}
+                    value={selectedVoucher.endDate || ""}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        endDate: e.target.value,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -692,8 +834,12 @@ function AddVoucherDrawer({ onClose, onCreate }) {
                   setFormData({ ...formData, discountType: e.target.value })
                 }
               >
-                <option className="bg-black text-zinc-100" value="percentage">Phần trăm %</option>
-                <option className="bg-black text-zinc-100" value="fixed">Số tiền cố định</option>
+                <option className="bg-black text-zinc-100" value="percentage">
+                  Phần trăm %
+                </option>
+                <option className="bg-black text-zinc-100" value="fixed">
+                  Số tiền cố định
+                </option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -823,4 +969,3 @@ function AddVoucherDrawer({ onClose, onCreate }) {
     </div>
   );
 }
-

@@ -123,8 +123,9 @@ export function VoucherPage() {
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        const tiers = unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]);
         setTierConfigs(
-          unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]).sort(
+          tiers.sort(
             (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
           ),
         );
@@ -296,8 +297,9 @@ export default function CustomerLoyalty() {
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        const tiers = unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]);
         setTierConfigs(
-          unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]).sort(
+          tiers.sort(
             (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
           ),
         );
