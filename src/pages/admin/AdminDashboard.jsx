@@ -285,23 +285,28 @@ export default function AdminDashboard() {
       const revenuePayload = unwrap(revenueRes);
 
       setDashboard(dashboardPayload || {});
-      setRevenue(
-        getList(revenuePayload, ["items", "revenue", "data", "chart"])
-      );
-      const bookingItems = asArrayPayload(bookingsRes, [
+      const revenueItems = getList(revenuePayload, [
+        "items",
+        "revenue",
+        "data",
+        "chart",
+      ]);
+      setRevenue(revenueItems);
+      const apiBookingItems = asArrayPayload(bookingsRes, [
         "bookings",
         "items",
         "data",
-      ]).map(normalizeAdminBooking);
+      ]);
+      const bookingItems = apiBookingItems.map(normalizeAdminBooking);
       setBookings(bookingItems);
-      setBookingsByStatus(
-        asArrayPayload(statusRes, ["items", "statuses", "data"])
-      );
-      setTopVouchers(
-        asArrayPayload(voucherRes, ["items", "vouchers", "data"]).map(
-          normalizeTopVoucher
-        )
-      );
+      const statusItems = asArrayPayload(statusRes, ["items", "statuses", "data"]);
+      setBookingsByStatus(statusItems);
+      const voucherItems = asArrayPayload(voucherRes, [
+        "items",
+        "vouchers",
+        "data",
+      ]);
+      setTopVouchers(voucherItems.map(normalizeTopVoucher));
     } catch {
       setError("Không thể tải dữ liệu dashboard.");
       setDashboard({});

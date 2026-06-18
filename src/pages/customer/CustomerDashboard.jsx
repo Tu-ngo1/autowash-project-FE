@@ -63,14 +63,23 @@ export default function CustomerDashboard() {
 
         if (bookingRes.status === "fulfilled") {
           const data = unwrap(bookingRes.value);
-          setBookings(Array.isArray(data) ? data : data.bookings || []);
+          const list = Array.isArray(data) ? data : data.bookings || [];
+          setBookings(list);
+        } else {
+          setBookings([]);
         }
         if (loyaltyRes.status === "fulfilled") {
-          setLoyalty(unwrap(loyaltyRes.value));
+          const data = unwrap(loyaltyRes.value);
+          setLoyalty(Object.keys(data || {}).length ? data : null);
+        } else {
+          setLoyalty(null);
         }
         if (reviewRes.status === "fulfilled") {
           const data = unwrap(reviewRes.value);
-          setReviews(Array.isArray(data) ? data : data.reviews || []);
+          const list = Array.isArray(data) ? data : data.reviews || [];
+          setReviews(list);
+        } else {
+          setReviews([]);
         }
         if (
           bookingRes.status === "rejected" &&

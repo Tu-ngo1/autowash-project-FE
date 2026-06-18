@@ -149,11 +149,13 @@ export default function CustomerProfile() {
 
         if (!isMounted) return;
 
-        const apiProfile = profileRes?.data?.data ?? profileRes?.data ?? {};
+        const rawProfile = profileRes?.data?.data ?? profileRes?.data ?? {};
+        const apiProfile = rawProfile;
         const localVehicles = Array.isArray(getUser()?.vehicles)
           ? getUser().vehicles
           : [];
-        const loyalty = unwrapPayload(loyaltyRes);
+        const rawLoyalty = unwrapPayload(loyaltyRes);
+        const loyalty = rawLoyalty;
         const bookings = Array.isArray(bookingsRes?.data)
           ? bookingsRes.data
           : bookingsRes?.data?.bookings || bookingsRes?.data?.data || [];
@@ -206,9 +208,10 @@ export default function CustomerProfile() {
       setVehicleModelsError("");
       try {
         const payload = await getVehicleModels();
-        const list = Array.isArray(payload)
+        const rawList = Array.isArray(payload)
           ? payload
           : payload?.vehicleModels || payload?.models || payload?.items || [];
+        const list = rawList;
         const activeModels = list
           .filter((model) => model?.isActive ?? model?.active ?? true)
           .map((model) => ({

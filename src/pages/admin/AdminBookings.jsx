@@ -27,6 +27,27 @@ const parseDateRange = (value) => {
   };
 };
 
+const getBookingIsoDate = (booking) => {
+  const source = booking.scheduledStartTime || booking.dateTime || booking.date;
+  if (!source) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(source))) {
+    return String(source).slice(0, 10);
+  }
+  return toIsoDate(String(source));
+};
+
+const downloadCsv = (filename, rows) => {
+  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const csv = rows.map((row) => row.map(escape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 export default function AdminBookings() {
   const [allBookings, setAllBookings] = useState([]);
   const [isClientSide, setIsClientSide] = useState(false);
@@ -47,13 +68,61 @@ export default function AdminBookings() {
     limit: 10,
   });
 
+  const filteredBookings = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    const { startDate, endDate } = parseDateRange(dateRange);
+
+    return allBookings.filter((booking) => {
+      const haystack = [
+        booking.bookingCode,
+        booking.code,
+        booking.customerName,
+        booking.customerPhone,
+        booking.customerEmail,
+        booking.vehicleLicensePlate,
+        booking.plate,
+        booking.vehicleModel,
+        booking.service,
+        ...(booking.services || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchSearch = !keyword || haystack.includes(keyword);
+      const matchStatus =
+        statusFilter === "all" ||
+        String(booking.status || "").toUpperCase() ===
+          statusFilter.toUpperCase();
+
+      const bookingDate = getBookingIsoDate(booking);
+      const matchDate =
+        !startDate ||
+        (bookingDate &&
+          bookingDate >= startDate &&
+          bookingDate <= (endDate || startDate));
+
+      return matchSearch && matchStatus && matchDate;
+    });
+  }, [allBookings, dateRange, search, statusFilter]);
+
   const bookings = useMemo(() => {
     if (isClientSide) {
       const startIndex = (pagination.page - 1) * pagination.limit;
-      return allBookings.slice(startIndex, startIndex + pagination.limit);
+      return filteredBookings.slice(startIndex, startIndex + pagination.limit);
     }
-    return allBookings;
-  }, [allBookings, isClientSide, pagination.page, pagination.limit]);
+    return filteredBookings;
+  }, [
+    filteredBookings,
+    isClientSide,
+    pagination.page,
+    pagination.limit,
+  ]);
+
+  useEffect(() => {
+    if (!isClientSide) return;
+    setPagination((prev) => ({ ...prev, total: filteredBookings.length }));
+  }, [filteredBookings.length, isClientSide]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -73,9 +142,8 @@ export default function AdminBookings() {
         ...parseDateRange(dateRange),
       });
       const payload = res.data?.data ?? res.data ?? {};
-      const items = asArrayPayload(res, ["bookings", "items", "data"]).map(
-        normalizeAdminBooking
-      );
+      const apiItems = asArrayPayload(res, ["bookings", "items", "data"]);
+      const items = apiItems.map(normalizeAdminBooking);
 
       const detectClientSide =
         Array.isArray(payload) && items.length > pagination.limit;
@@ -98,6 +166,7 @@ export default function AdminBookings() {
     } catch {
       setAllBookings([]);
       setIsClientSide(false);
+      setPagination((prev) => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
     }
@@ -148,6 +217,36 @@ export default function AdminBookings() {
     );
   };
 
+  const exportBookings = () => {
+    downloadCsv("admin-bookings.csv", [
+      [
+        "Booking Code",
+        "Customer",
+        "Phone",
+        "Plate",
+        "Services",
+        "Status",
+        "Payment Method",
+        "Payment Status",
+        "Date",
+        "Total",
+      ],
+      ...filteredBookings.map((booking) => [
+        booking.bookingCode || booking.code,
+        booking.customerName,
+        booking.customerPhone,
+        booking.vehicleLicensePlate || booking.plate,
+        booking.service || booking.services?.join("; "),
+        booking.status,
+        booking.paymentMethod,
+        booking.paymentStatus,
+        booking.scheduledStartTime || `${booking.date} ${booking.time}`,
+        booking.totalPrice ?? booking.total,
+      ]),
+    ]);
+    setActionMessage("CSV EXPORTED");
+  };
+
   const handleStatusChange = async (status) => {
     if (!selectedBooking) return;
     const id = selectedBooking.id || selectedBooking.bookingId;
@@ -195,7 +294,11 @@ export default function AdminBookings() {
                 Orders, schedules, status override and deletion console
               </p>
             </div>
-            <button className="group flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20">
+            <button
+              type="button"
+              onClick={exportBookings}
+              className="group flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20"
+            >
               <span className="material-symbols-outlined text-[18px]">
                 download
               </span>{" "}

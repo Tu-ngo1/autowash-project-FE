@@ -192,7 +192,8 @@ export default function CustomerBooking() {
           getCustomerBookingConfig().catch(() => ({})),
         ]);
         const payload = response.data || {};
-        const config = unwrapObject(configPayload);
+        const configPayloadObject = unwrapObject(configPayload);
+        const config = configPayloadObject;
         const businessHours =
           payload.businessHours || payload.businessWindow || config.businessHours || {};
         const fetchedVehicles = Array.isArray(payload.vehicles)
@@ -221,10 +222,9 @@ export default function CustomerBooking() {
         setVehicles(nextVehicles);
         setServices(fetchedServices);
         setTimeSlots(fetchedSlots);
+        const voucherList = unwrapList(voucherPayload, ["vouchers", "items", "data"]);
         setCustomerVouchers(
-          unwrapList(voucherPayload, ["vouchers", "items", "data"]).filter(
-            (voucher) => getVoucherCode(voucher),
-          ),
+          voucherList.filter((voucher) => getVoucherCode(voucher)),
         );
 
         if (nextVehicles.length > 0) {
@@ -383,10 +383,9 @@ export default function CustomerBooking() {
     try {
       const currentUser = getUser();
       const payload = await getCustomerVouchers(currentUser?.id || currentUser?.userId);
+      const voucherList = unwrapList(payload, ["vouchers", "items", "data"]);
       setCustomerVouchers(
-        unwrapList(payload, ["vouchers", "items", "data"]).filter((voucher) =>
-          getVoucherCode(voucher),
-        ),
+        voucherList.filter((voucher) => getVoucherCode(voucher)),
       );
     } catch {
       setCustomerVouchers([]);

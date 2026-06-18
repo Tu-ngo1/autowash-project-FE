@@ -70,11 +70,7 @@ export default function CustomerHistory() {
           ? reviewRes
           : reviewRes?.reviews || [];
 
-        if (bookings.length) {
-          setHistory(bookings);
-        } else {
-          setHistory([]);
-        }
+        setHistory(bookings);
         setReviews(reviewList);
       } catch {
         setHistory([]);

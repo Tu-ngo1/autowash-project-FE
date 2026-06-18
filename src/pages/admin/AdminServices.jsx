@@ -89,6 +89,8 @@ export default function AdminServices() {
   const [selectedService, setSelectedService] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     fetchServices();
@@ -98,7 +100,10 @@ export default function AdminServices() {
     setLoading(true);
     try {
       const res = await getAdminServices();
-      const data = Array.isArray(res.data) ? res.data : [];
+      const payload = res.data?.data ?? res.data;
+      const data = Array.isArray(payload)
+        ? payload
+        : payload?.services || payload?.items || [];
       setServices(data);
     } catch (err) {
       console.error("Failed to load services:", err);
@@ -139,6 +144,24 @@ export default function AdminServices() {
     }
   };
 
+  const filteredServices = services.filter((service) => {
+    const keyword = search.trim().toLowerCase();
+    const haystack = [
+      service.name,
+      service.description,
+      service.status,
+      ...getServicePrices(service).map((price) => getVehicleLabel(price)),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchSearch = !keyword || haystack.includes(keyword);
+    const matchStatus =
+      statusFilter === "all" ||
+      String(service.status || "").toUpperCase() === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-[#05070a] text-zinc-100">
       <div className="pointer-events-none fixed inset-0 opacity-70">
@@ -176,6 +199,38 @@ export default function AdminServices() {
               New Service
             </button>
           </div>
+        </div>
+
+        <div
+          className="admin-reveal flex flex-col gap-3 border border-zinc-800 bg-zinc-950 p-4 md:flex-row md:items-center md:justify-between"
+          style={{ animationDelay: "100ms" }}
+        >
+          <div className="relative w-full md:max-w-md">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">
+              search
+            </span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm dịch vụ, mô tả, loại xe..."
+              className="h-11 w-full border border-zinc-800 bg-black pl-10 pr-3 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="h-11 border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+          >
+            <option className="bg-black text-zinc-100" value="all">
+              Tất cả trạng thái
+            </option>
+            <option className="bg-black text-zinc-100" value="ACTIVE">
+              ACTIVE
+            </option>
+            <option className="bg-black text-zinc-100" value="INACTIVE">
+              INACTIVE
+            </option>
+          </select>
         </div>
 
         {/* Data Table */}
@@ -219,7 +274,7 @@ export default function AdminServices() {
                     Đang tải...
                   </td>
                 </tr>
-              ) : services.length === 0 ? (
+              ) : filteredServices.length === 0 ? (
                 <tr>
                   <td
                     colSpan="7"
@@ -229,7 +284,7 @@ export default function AdminServices() {
                   </td>
                 </tr>
               ) : (
-                services.map((service, index) => {
+                filteredServices.map((service, index) => {
                   const expanded = expandedServiceId === service.id;
                   const prices = getServicePrices(service);
 
