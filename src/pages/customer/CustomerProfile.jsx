@@ -8,6 +8,7 @@ import {
   getCustomerProfileLoyalty,
 } from "../../services/customerProfileApi";
 import { getVehicleModels } from "../../services/vehicleModelApi";
+import { getMyCars, createCar, updateCar } from "../../services/customerCarApi";
 
 const statusStyles = {
   PENDING: "bg-[#0061a5]/10 text-[#0061a5]",
@@ -141,15 +142,36 @@ export default function CustomerProfile() {
 
     const loadProfile = async () => {
       try {
-        const [profileRes, bookingsRes, loyaltyRes] = await Promise.all([
+        const [profileRes, bookingsRes, loyaltyRes, carsRes] = await Promise.all([
           getCustomerProfile().catch(() => null),
           getCustomerProfileBookings().catch(() => null),
           getCustomerProfileLoyalty().catch(() => null),
+          getMyCars().catch(() => null),
         ]);
 
         if (!isMounted) return;
 
         const apiProfile = profileRes?.data?.data ?? profileRes?.data ?? {};
+        const apiCars = Array.isArray(carsRes?.data)
+          ? carsRes.data
+          : Array.isArray(carsRes?.data?.data)
+          ? carsRes.data.data
+          : [];
+        const backendVehicles = apiCars.map(car => {
+          const size = car.vehicleSize || "SMALL";
+          const sizeOption = VEHICLE_SIZE_OPTIONS.find(o => o.value === size) || VEHICLE_SIZE_OPTIONS[0];
+          return {
+            id: car.id,
+            plate: car.licensePlate,
+            size: size,
+            type: size,
+            name: `${sizeOption.label} - ${sizeOption.description}`,
+            brand: "Xe",
+            modelName: size,
+            label: `Xe ${sizeOption.label}`,
+            vehicleModelId: null,
+          };
+        });
         const localVehicles = Array.isArray(getUser()?.vehicles)
           ? getUser().vehicles
           : [];
@@ -176,7 +198,7 @@ export default function CustomerProfile() {
           progress: loyalty.progress ?? apiProfile.progress ?? prev.progress,
           washes: apiProfile.washes ?? prev.washes,
           vehicles: mergeVehicles(
-            Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],
+            backendVehicles,
             localVehicles,
             prev.vehicles,
           ),
@@ -345,7 +367,7 @@ export default function CustomerProfile() {
     closeVehicleForm();
   };
 
-  const handleSaveVehicle = (event) => {
+  const handleSaveVehicle = async (event) => {
     event.preventDefault();
     setVehicleError("");
 
@@ -360,8 +382,6 @@ export default function CustomerProfile() {
       return;
     }
 
-    const sizeOption = getVehicleSizeOption(selectedModel.vehicleSize);
-    const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
     const normalizedPlate = vehicleForm.plate.trim().toUpperCase();
     const duplicate = profile.vehicles.some(
       (vehicle) =>
@@ -374,50 +394,54 @@ export default function CustomerProfile() {
       return;
     }
 
-    const nextVehicles = editingVehicleId
-      ? profile.vehicles.map((vehicle) =>
-          (vehicle.id || vehicle.plate) === editingVehicleId
-            ? {
-                ...vehicle,
-                name: typeLabel,
-                plate: normalizedPlate,
-                brand: selectedModel.brand,
-                modelId: selectedModel.id,
-                modelName: selectedModel.modelName,
-                vehicleModelId: selectedModel.id,
-                type: sizeOption.value,
-                size: sizeOption.value,
-                label: `${selectedModel.brand} ${selectedModel.modelName}`,
-              }
-            : vehicle,
-        )
-      : [
-          ...profile.vehicles,
-          {
-            id: `vehicle-${Date.now()}`,
-            name: typeLabel,
-            plate: normalizedPlate,
-            brand: selectedModel.brand,
-            modelId: selectedModel.id,
-            modelName: selectedModel.modelName,
-            vehicleModelId: selectedModel.id,
-            type: sizeOption.value,
-            size: sizeOption.value,
-            label: `${selectedModel.brand} ${selectedModel.modelName}`,
-            default: profile.vehicles.length === 0,
-            lastWash: null,
-          },
-        ];
+    try {
+      if (editingVehicleId && !String(editingVehicleId).startsWith("vehicle-")) {
+        await updateCar(editingVehicleId, {
+          licensePlate: normalizedPlate,
+          vehicleSize: selectedModel.vehicleSize,
+        });
+      } else {
+        await createCar({
+          licensePlate: normalizedPlate,
+          vehicleSize: selectedModel.vehicleSize,
+        });
+      }
 
-    updateUser({ vehicles: nextVehicles });
-    setProfile((prev) => ({
-      ...prev,
-      vehicles: nextVehicles,
-    }));
-    const shouldReturnToBooking = vehicleReturnTo && !editingVehicleId;
-    closeVehicleForm();
-    if (shouldReturnToBooking) {
-      navigate(vehicleReturnTo, { replace: true });
+      // Reload vehicles
+      const carsRes = await getMyCars().catch(() => null);
+      const apiCars = Array.isArray(carsRes?.data)
+        ? carsRes.data
+        : Array.isArray(carsRes?.data?.data)
+        ? carsRes.data.data
+        : [];
+      const nextVehicles = apiCars.map(car => {
+        const size = car.vehicleSize || "SMALL";
+        const sizeOption = VEHICLE_SIZE_OPTIONS.find(o => o.value === size) || VEHICLE_SIZE_OPTIONS[0];
+        return {
+          id: car.id,
+          plate: car.licensePlate,
+          size: size,
+          type: size,
+          name: `${sizeOption.label} - ${sizeOption.description}`,
+          brand: "Xe",
+          modelName: size,
+          label: `Xe ${sizeOption.label}`,
+          vehicleModelId: null,
+        };
+      });
+
+      setProfile((prev) => ({
+        ...prev,
+        vehicles: nextVehicles,
+      }));
+
+      closeVehicleForm();
+      const shouldReturnToBooking = vehicleReturnTo && !editingVehicleId;
+      if (shouldReturnToBooking) {
+        navigate(vehicleReturnTo, { replace: true });
+      }
+    } catch (err) {
+      setVehicleError(err?.response?.data?.message || "Lỗi khi lưu phương tiện.");
     }
   };
 

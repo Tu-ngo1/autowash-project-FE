@@ -18,3 +18,5 @@ export * as adminAnalyticsApi from "./adminAnalyticsApi";
 export * as staffDashboardApi from "./staffDashboardApi";
 export * as staffQueueApi from "./staffQueueApi";
 export * as staffCustomerApi from "./staffCustomerApi";
+export * as customerCarApi from "./customerCarApi";
+

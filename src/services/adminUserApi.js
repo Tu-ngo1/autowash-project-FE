@@ -3,12 +3,10 @@ import api, { apiPath } from "./apiClient";
 const adminUsersPath = (path = "") =>
   apiPath(`/admin/users${path ? `/${String(path).replace(/^\/+/, "")}` : ""}`);
 
-export const getAdminUsers = (params) =>
-  api.get(adminUsersPath(), { params });
+export const getAdminUsers = (params) => api.get(adminUsersPath(), { params });
 export const getAdminUser = (id) => api.get(adminUsersPath(id));
 export const createAdminUser = (data) => api.post(adminUsersPath(), data);
-export const updateAdminUser = (id, data) =>
-  api.put(adminUsersPath(id), data);
+export const updateAdminUser = (id, data) => api.put(adminUsersPath(id), data);
 export const updateAdminUserStatus = (id, status) =>
   api.patch(adminUsersPath(`${id}/status`), { status });
 export const updateAdminUserPoints = (id, data) =>

@@ -70,16 +70,24 @@ export async function login({ account, password }) {
   return normalizeAuthResponse(response.data);
 }
 
-export async function register({ name, email, password, otp }) {
+export async function register({
+  name,
+  username,
+  email,
+  phone,
+  password,
+  otp,
+}) {
   const response = await api.post(apiPath("/auth/register"), {
-    name: name.trim(),
     fullName: name.trim(),
+    username: username.trim(),
     email: email.trim(),
+    phone: phone.trim(),
     password,
     otp: otp?.trim(),
   });
 
-  return response.data;
+  return normalizeAuthResponse(response.data);
 }
 
 export const sendRegistrationOtp = (email) =>
