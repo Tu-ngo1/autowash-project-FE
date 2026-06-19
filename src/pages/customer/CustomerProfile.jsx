@@ -7,6 +7,12 @@ import {
   getCustomerProfileBookings,
   getCustomerProfileLoyalty,
 } from "../../services/customerProfileApi";
+import {
+  addMyCar,
+  getMyCars,
+  normalizeCustomerCar,
+  updateMyCar,
+} from "../../services/customerCarApi";
 import { getVehicleModels } from "../../services/vehicleModelApi";
 
 const statusStyles = {
@@ -49,8 +55,9 @@ const mergeVehicles = (...groups) => {
   return groups
     .flat()
     .filter(Boolean)
+    .map(normalizeCustomerCar)
     .filter((vehicle) => {
-      const key = String(vehicle.plate || vehicle.id || "").toUpperCase();
+      const key = String(vehicle.licensePlate || vehicle.plate || vehicle.id || "").toUpperCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -82,16 +89,26 @@ const getVehicleModelByName = (vehicleModels, brand, modelName) =>
   vehicleModels.find(
     (model) =>
       model.brand === brand &&
-      model.modelName.toLowerCase() === String(modelName || "").toLowerCase(),
+      String(model.modelName || "").toLowerCase() ===
+        String(modelName || "").toLowerCase(),
   );
 
 const normalizeVehicleSize = (vehicle) => {
-  const rawSize = String(vehicle?.size || vehicle?.vehicleSize || vehicle?.type || "").toUpperCase();
+  const rawSize = String(
+    vehicle?.size ||
+      vehicle?.vehicleSize ||
+      vehicle?.vehicle_size ||
+      vehicle?.type ||
+      "",
+  ).toUpperCase();
   if (["SMALL", "MEDIUM", "LARGE", "XLARGE"].includes(rawSize)) return rawSize;
   if (String(vehicle?.type || "").includes("7")) return "LARGE";
   if (String(vehicle?.type || "").toLowerCase().includes("suv")) return "MEDIUM";
   return "SMALL";
 };
+
+const isActiveVehicleModel = (model) =>
+  model?.isActive ?? model?.is_active ?? model?.active ?? true;
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
@@ -119,13 +136,13 @@ export default function CustomerProfile() {
     phone: user.phone || "",
     branch: user.branch || "",
     city: user.city || "",
-    membership: user.tier || "",
-    points: user.points ?? 0,
-    rankPoints: user.rankPoints ?? 0,
-    nextTierTarget: user.nextTierTarget ?? 0,
-    progress: user.progress ?? 0,
-    washes: user.washes ?? 0,
-    vehicles: Array.isArray(user.vehicles) ? user.vehicles : [],
+    membership: "",
+    points: 0,
+    rankPoints: 0,
+    nextTierTarget: 0,
+    progress: 0,
+    washes: 0,
+    vehicles: [],
   });
 
   const [recentBookings, setRecentBookings] = useState([]);
@@ -141,19 +158,17 @@ export default function CustomerProfile() {
 
     const loadProfile = async () => {
       try {
-        const [profileRes, bookingsRes, loyaltyRes] = await Promise.all([
+        const [profileRes, bookingsRes, loyaltyRes, carsRes] = await Promise.all([
           getCustomerProfile().catch(() => null),
           getCustomerProfileBookings().catch(() => null),
           getCustomerProfileLoyalty().catch(() => null),
+          getMyCars().catch(() => []),
         ]);
 
         if (!isMounted) return;
 
         const rawProfile = profileRes?.data?.data ?? profileRes?.data ?? {};
         const apiProfile = rawProfile;
-        const localVehicles = Array.isArray(getUser()?.vehicles)
-          ? getUser().vehicles
-          : [];
         const rawLoyalty = unwrapPayload(loyaltyRes);
         const loyalty = rawLoyalty;
         const bookings = Array.isArray(bookingsRes?.data)
@@ -163,14 +178,22 @@ export default function CustomerProfile() {
         setProfile((prev) => ({
           ...prev,
           ...apiProfile,
-          name: apiProfile.name ?? prev.name,
+          name: apiProfile.name ?? apiProfile.fullName ?? prev.name,
           email: apiProfile.email ?? prev.email,
           phone: apiProfile.phone ?? prev.phone,
           branch: apiProfile.branch ?? prev.branch,
           city: apiProfile.city ?? prev.city,
           membership: loyalty.tier ?? apiProfile.tier ?? prev.membership,
-          points: loyalty.redeemablePoints ?? apiProfile.points ?? prev.points,
-          rankPoints: loyalty.points ?? apiProfile.rankPoints ?? prev.rankPoints,
+          points:
+            loyalty.redeemablePoints ??
+            apiProfile.rewardPoints ??
+            apiProfile.points ??
+            prev.points,
+          rankPoints:
+            loyalty.points ??
+            apiProfile.tierPoints ??
+            apiProfile.rankPoints ??
+            prev.rankPoints,
           nextTierTarget:
             loyalty.nextTierTarget ??
             apiProfile.nextTierTarget ??
@@ -178,9 +201,8 @@ export default function CustomerProfile() {
           progress: loyalty.progress ?? apiProfile.progress ?? prev.progress,
           washes: apiProfile.washes ?? prev.washes,
           vehicles: mergeVehicles(
+            Array.isArray(carsRes) ? carsRes : [],
             Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],
-            localVehicles,
-            prev.vehicles,
           ),
         }));
         setRecentBookings(bookings.slice(-3).reverse());
@@ -210,15 +232,21 @@ export default function CustomerProfile() {
         const payload = await getVehicleModels();
         const rawList = Array.isArray(payload)
           ? payload
-          : payload?.vehicleModels || payload?.models || payload?.items || [];
+          : payload?.vehicleModels ||
+            payload?.vehicle_models ||
+            payload?.models ||
+            payload?.items ||
+            [];
         const list = rawList;
         const activeModels = list
-          .filter((model) => model?.isActive ?? model?.active ?? true)
+          .filter(isActiveVehicleModel)
           .map((model) => ({
             id: model.id,
             brand: model.brand,
             modelName: model.modelName || model.model_name || model.name,
             vehicleSize: String(model.vehicleSize || model.vehicle_size || "").toUpperCase(),
+            model_name: model.model_name || model.modelName || model.name,
+            vehicle_size: String(model.vehicle_size || model.vehicleSize || "").toUpperCase(),
           }))
           .filter((model) => model.id && model.brand && model.modelName && model.vehicleSize);
 
@@ -348,7 +376,7 @@ export default function CustomerProfile() {
     closeVehicleForm();
   };
 
-  const handleSaveVehicle = (event) => {
+  const handleSaveVehicle = async (event) => {
     event.preventDefault();
     setVehicleError("");
 
@@ -363,7 +391,9 @@ export default function CustomerProfile() {
       return;
     }
 
-    const sizeOption = getVehicleSizeOption(selectedModel.vehicleSize);
+    const sizeOption = getVehicleSizeOption(
+      vehicleForm.size || selectedModel.vehicleSize,
+    );
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
     const normalizedPlate = vehicleForm.plate.trim().toUpperCase();
     const duplicate = profile.vehicles.some(
@@ -377,40 +407,55 @@ export default function CustomerProfile() {
       return;
     }
 
+    const vehiclePayload = {
+      licensePlate: normalizedPlate,
+      vehicleSize: sizeOption.value,
+      vehicleModelId: selectedModel.id,
+    };
+    const displayVehicle = {
+      name: typeLabel,
+      plate: normalizedPlate,
+      licensePlate: normalizedPlate,
+      brand: selectedModel.brand,
+      modelId: selectedModel.id,
+      modelName: selectedModel.modelName,
+      model_name: selectedModel.modelName,
+      vehicleModelId: selectedModel.id,
+      type: sizeOption.value,
+      size: sizeOption.value,
+      vehicleSize: sizeOption.value,
+      vehicle_size: sizeOption.value,
+      label: `${selectedModel.brand} ${selectedModel.modelName}`,
+    };
+
+    let savedVehicle;
+    try {
+      savedVehicle = editingVehicleId
+        ? await updateMyCar(editingVehicleId, vehiclePayload)
+        : await addMyCar(vehiclePayload);
+    } catch {
+      setVehicleError("Chưa lưu được xe lên hệ thống. Vui lòng thử lại.");
+      return;
+    }
+
+    const nextVehicle = normalizeCustomerCar({
+      ...displayVehicle,
+      ...savedVehicle,
+      brand: savedVehicle.brand || displayVehicle.brand,
+      modelName: savedVehicle.modelName || displayVehicle.modelName,
+      model_name: savedVehicle.model_name || displayVehicle.model_name,
+      label: savedVehicle.label || displayVehicle.label,
+      default: savedVehicle.default ?? profile.vehicles.length === 0,
+      lastWash: savedVehicle.lastWash ?? null,
+    });
+
     const nextVehicles = editingVehicleId
       ? profile.vehicles.map((vehicle) =>
           (vehicle.id || vehicle.plate) === editingVehicleId
-            ? {
-                ...vehicle,
-                name: typeLabel,
-                plate: normalizedPlate,
-                brand: selectedModel.brand,
-                modelId: selectedModel.id,
-                modelName: selectedModel.modelName,
-                vehicleModelId: selectedModel.id,
-                type: sizeOption.value,
-                size: sizeOption.value,
-                label: `${selectedModel.brand} ${selectedModel.modelName}`,
-              }
+            ? { ...vehicle, ...nextVehicle }
             : vehicle,
         )
-      : [
-          ...profile.vehicles,
-          {
-            id: `vehicle-${Date.now()}`,
-            name: typeLabel,
-            plate: normalizedPlate,
-            brand: selectedModel.brand,
-            modelId: selectedModel.id,
-            modelName: selectedModel.modelName,
-            vehicleModelId: selectedModel.id,
-            type: sizeOption.value,
-            size: sizeOption.value,
-            label: `${selectedModel.brand} ${selectedModel.modelName}`,
-            default: profile.vehicles.length === 0,
-            lastWash: null,
-          },
-        ];
+      : [...profile.vehicles, nextVehicle];
 
     updateUser({ vehicles: nextVehicles });
     setProfile((prev) => ({
@@ -692,7 +737,7 @@ export default function CustomerProfile() {
 
           <aside className="space-y-6">
             <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-              <div className="flex items-end justify-between mb-6">
+              <div className="mb-6">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
                     Recent wash
@@ -701,13 +746,6 @@ export default function CustomerProfile() {
                     Lịch sử gần đây
                   </h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("/history")}
-                  className="rounded-2xl border border-cyan-200 bg-white/70 px-4 py-2 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
-                >
-                  Tất cả
-                </button>
               </div>
               <div className="space-y-3">
                 {recentBookings.length === 0 ? (
@@ -761,7 +799,6 @@ export default function CustomerProfile() {
                 {[
                   ["Đặt lịch mới", "/booking", "local_car_wash"],
                   ["Đổi voucher", "/rewards", "redeem"],
-                  ["Xem lịch sử", "/history", "receipt_long"],
                 ].map(([label, path, icon]) => (
                   <button
                     key={label}
@@ -782,7 +819,7 @@ export default function CustomerProfile() {
       </main>
       </div>
 
-      {showVehicleForm && (
+      {showVehicleForm && !editingVehicleId && (
         <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/55 px-4 py-5 backdrop-blur-xl sm:py-8">
           <div className="pointer-events-none fixed inset-0 min-h-[100dvh]">
             <img
@@ -811,7 +848,7 @@ export default function CustomerProfile() {
                 Garage profile
               </p>
               <h1 className="mt-6 text-4xl font-black leading-tight text-slate-950">
-                {editingVehicleId ? "Chỉnh sửa phương tiện" : "Thêm phương tiện mới"}
+                Thêm phương tiện mới
               </h1>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
                 Thêm biển số để đặt lịch nhanh hơn và theo dõi lịch sử rửa xe theo từng phương tiện.
@@ -821,7 +858,7 @@ export default function CustomerProfile() {
                 <div className="flex flex-col gap-2">
                   <label
                     className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700"
-                    htmlFor="vehicle-plate"
+                    htmlFor="vehicle-add-plate"
                   >
                     Biển số xe
                   </label>
@@ -830,7 +867,7 @@ export default function CustomerProfile() {
                       license
                     </span>
                     <input
-                      id="vehicle-plate"
+                      id="vehicle-add-plate"
                       value={vehicleForm.plate}
                       onChange={(event) =>
                         handleVehicleFieldChange("plate", event.target.value)
@@ -924,7 +961,7 @@ export default function CustomerProfile() {
                   className="h-14 w-full rounded-2xl bg-cyan-400 font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-[0.98]"
                   type="submit"
                 >
-                  {editingVehicleId ? "Lưu thay đổi" : "Thêm xe ngay"}
+                  Thêm xe ngay
                 </button>
               </form>
             </div>
@@ -934,6 +971,142 @@ export default function CustomerProfile() {
                 verified_user
               </span>
               <span>Thông tin xe được bảo mật và chỉ dùng để lên lịch hẹn.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVehicleForm && editingVehicleId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-xl">
+          <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-white/75 bg-white/90 shadow-[0_32px_90px_rgba(2,74,138,0.18)] backdrop-blur-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-cyan-100 px-6 py-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
+                  Garage
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  {editingVehicleId ? "Chỉnh sửa phương tiện" : "Thêm phương tiện"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleVehicleFormBack}
+                className="rounded-2xl bg-slate-950/5 p-2 text-slate-500 transition hover:bg-cyan-50 hover:text-cyan-700"
+                aria-label="Đóng chỉnh sửa phương tiện"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="max-h-[80vh] overflow-y-auto px-6 py-5">
+              <form className="flex flex-col gap-5" onSubmit={handleSaveVehicle}>
+                <label className="flex flex-col gap-2" htmlFor="vehicle-plate">
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                    Biển số xe
+                  </span>
+                  <input
+                    id="vehicle-plate"
+                    value={vehicleForm.plate}
+                    onChange={(event) =>
+                      handleVehicleFieldChange("plate", event.target.value)
+                    }
+                    type="text"
+                    className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black uppercase text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                  />
+                </label>
+                {vehicleError && (
+                  <p className="text-sm font-semibold text-rose-600">
+                    {vehicleError}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label className="flex flex-col gap-2">
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Hãng xe
+                    </span>
+                    <select
+                      value={vehicleForm.brand}
+                      onChange={(event) =>
+                        handleVehicleFieldChange("brand", event.target.value)
+                      }
+                      disabled={vehicleModelsLoading || vehicleBrands.length === 0}
+                      className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                    >
+                      <option value="">
+                        {vehicleModelsLoading ? "Đang tải..." : "Chọn hãng xe"}
+                      </option>
+                      {vehicleBrands.map((brand) => (
+                        <option key={brand} value={brand}>
+                          {brand}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-2">
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Tên xe
+                    </span>
+                    <select
+                      value={vehicleForm.modelId}
+                      onChange={(event) =>
+                        handleVehicleFieldChange("modelId", event.target.value)
+                      }
+                      disabled={!vehicleForm.brand || currentBrandModels.length === 0}
+                      className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                    >
+                      <option value="">Chọn tên xe</option>
+                      {currentBrandModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.modelName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {vehicleModelsError && (
+                  <p className="text-sm font-semibold text-rose-600">
+                    {vehicleModelsError}
+                  </p>
+                )}
+
+                <label className="flex flex-col gap-2">
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                    Loại xe
+                  </span>
+                  <select
+                    value={vehicleForm.size}
+                    onChange={(event) =>
+                      handleVehicleFieldChange("size", event.target.value)
+                    }
+                    className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                  >
+                    <option value="">Chọn loại xe</option>
+                    {VEHICLE_SIZE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={handleVehicleFormBack}
+                    className="h-12 rounded-2xl border border-cyan-100 bg-white px-5 text-sm font-black text-slate-600 transition hover:bg-cyan-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    className="h-12 rounded-2xl bg-cyan-400 px-6 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-[0.98]"
+                    type="submit"
+                  >
+                    {editingVehicleId ? "Lưu thay đổi" : "Thêm xe"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

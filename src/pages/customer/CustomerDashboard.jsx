@@ -113,9 +113,8 @@ export default function CustomerDashboard() {
   const completedCount = bookings.filter(
     (item) => String(item.status || "").toUpperCase() === "COMPLETED",
   ).length;
-  const points =
-    loyalty?.points ?? loyalty?.redeemablePoints ?? user.points ?? 0;
-  const tier = loyalty?.tier || user.tier || "Member";
+  const points = loyalty?.points ?? loyalty?.redeemablePoints ?? 0;
+  const tier = loyalty?.tier || "Member";
   const currentStatus = String(
     latestBooking?.status || "PENDING",
   ).toUpperCase();
@@ -428,7 +427,7 @@ export default function CustomerDashboard() {
             </div>
 
             <div className="rounded-[34px] border border-white/75 bg-white/72 p-7 shadow-sm backdrop-blur-2xl">
-              <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
                     Quy trình chăm sóc
@@ -437,13 +436,6 @@ export default function CustomerDashboard() {
                     Một lượt rửa xe rõ từng công đoạn.
                   </h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("/history")}
-                  className="rounded-full border border-cyan-200 bg-white px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
-                >
-                  Lịch sử dịch vụ
-                </button>
               </div>
 
               <div className="mt-7 grid gap-4 md:grid-cols-4">

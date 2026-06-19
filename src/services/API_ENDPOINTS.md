@@ -91,13 +91,16 @@ Expected response from BE table `vehicle_models`:
 [
   {
     "id": 1,
+    "is_active": true,
     "brand": "Kia",
-    "modelName": "Morning",
-    "vehicleSize": "SMALL",
-    "active": true
+    "model_name": "Morning",
+    "vehicle_size": "SMALL"
   }
 ]
 ```
+
+FE also accepts `modelName`, `vehicleSize`, `isActive`, and `active` as fallback
+field names, but the preferred BE response is the snake_case shape above.
 
 ### Booking Data
 
