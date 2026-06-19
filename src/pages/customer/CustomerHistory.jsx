@@ -224,7 +224,7 @@ export default function CustomerHistory() {
                     <span className="material-symbols-outlined text-[22px] text-cyan-700">
                       {icon}
                     </span>
-                    <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                    <p className="mt-4 whitespace-nowrap text-xs font-black uppercase tracking-[0.08em] text-slate-500">
                       {label}
                     </p>
                     <p className="mt-2 text-2xl font-black text-slate-950">
@@ -405,17 +405,13 @@ export default function CustomerHistory() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between gap-3 rounded-[24px] bg-slate-950 p-4 text-white">
+                      <div className="self-center rounded-[24px] bg-slate-950 p-4 text-white">
                         <div>
                           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
                             Wash record
                           </p>
-                          <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
-                            Hồ sơ lượt rửa được lưu lại để bạn đặt lại hoặc kiểm tra
-                            thông tin nhanh.
-                          </p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="mt-8 flex flex-wrap gap-2">
                           {statusKey === "COMPLETED" &&
                             (getReviewByBookingId(item.id) ? (
                               <button

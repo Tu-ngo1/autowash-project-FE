@@ -4,6 +4,7 @@ import UserNavbar from "../../components/UserNavbar";
 import BookingSummary from "../../components/booking/BookingSummary";
 import { getUser, getUserTier, getUserWalletBalance } from "../../utils/auth";
 import { createBooking, getBookingData } from "../../services/customerBookingApi";
+import { getMyCars } from "../../services/customerCarApi";
 import {
   getCustomerVouchers,
   validateVoucher,
@@ -56,14 +57,20 @@ const getSlotEndTime = (slot, durationMinutes = 60) => {
 };
 
 const VEHICLE_SIZE_OPTIONS = {
-  SMALL: { label: "SMALL", description: "4-5 chỗ", icon: "directions_car" },
-  MEDIUM: { label: "MEDIUM", description: "CUV/SUV 5 chỗ", icon: "commute" },
-  LARGE: { label: "LARGE", description: "7 chỗ", icon: "airport_shuttle" },
-  XLARGE: { label: "XLARGE", description: "Bán tải, Van", icon: "local_shipping" },
+  SMALL: { label: "SMALL", icon: "directions_car" },
+  MEDIUM: { label: "MEDIUM", icon: "commute" },
+  LARGE: { label: "LARGE", icon: "airport_shuttle" },
+  XLARGE: { label: "XLARGE", icon: "local_shipping" },
 };
 
 const normalizeVehicleSize = (vehicle) => {
-  const rawSize = String(vehicle?.size || vehicle?.vehicleSize || vehicle?.type || "").toUpperCase();
+  const rawSize = String(
+    vehicle?.size ||
+      vehicle?.vehicleSize ||
+      vehicle?.vehicle_size ||
+      vehicle?.type ||
+      "",
+  ).toUpperCase();
   if (VEHICLE_SIZE_OPTIONS[rawSize]) return rawSize;
   if (String(vehicle?.type || "").includes("7")) return "LARGE";
   if (String(vehicle?.type || "").toLowerCase().includes("suv")) return "MEDIUM";
@@ -72,6 +79,18 @@ const normalizeVehicleSize = (vehicle) => {
 
 const getVehicleSizeInfo = (vehicle) =>
   VEHICLE_SIZE_OPTIONS[normalizeVehicleSize(vehicle)] || VEHICLE_SIZE_OPTIONS.SMALL;
+
+const getVehicleDisplayName = (vehicle) => {
+  const brand = vehicle?.brand || "";
+  const model =
+    vehicle?.modelName ||
+    vehicle?.model_name ||
+    vehicle?.model ||
+    vehicle?.name ||
+    "";
+  const displayName = `${brand} ${model}`.trim();
+  return displayName || vehicle?.label || getVehicleSizeInfo(vehicle).label;
+};
 
 const unwrapList = (payload, keys = []) => {
   if (Array.isArray(payload)) return payload;
@@ -126,6 +145,10 @@ const getTierRule = (tierRules, tier) =>
       String(tier || "").toUpperCase(),
   ) || {};
 
+const getProfileVehicles = () => {
+  return [];
+};
+
 const mergeVehicles = (...groups) => {
   const seen = new Set();
   return groups
@@ -134,10 +157,7 @@ const mergeVehicles = (...groups) => {
     .map((vehicle) => ({
       ...vehicle,
       id: vehicle.id || vehicle._id || vehicle.plate,
-      label:
-        vehicle.label ||
-        vehicle.name ||
-        `${getVehicleSizeInfo(vehicle).label} - ${getVehicleSizeInfo(vehicle).description}`,
+      label: getVehicleDisplayName(vehicle),
     }))
     .filter((vehicle) => {
       const key = String(vehicle.plate || vehicle.id || "").toUpperCase();
@@ -184,8 +204,9 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [response, voucherPayload, configPayload] = await Promise.all([
-          getBookingData(),
+        const [response, carsPayload, voucherPayload, configPayload] = await Promise.all([
+          getBookingData().catch(() => ({ data: {} })),
+          getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
@@ -196,12 +217,12 @@ export default function CustomerBooking() {
         const config = configPayloadObject;
         const businessHours =
           payload.businessHours || payload.businessWindow || config.businessHours || {};
-        const fetchedVehicles = Array.isArray(payload.vehicles)
-          ? payload.vehicles
-          : [];
-        const profileVehicles = Array.isArray(getUser()?.vehicles)
-          ? getUser().vehicles
-          : [];
+        const fetchedVehicles = Array.isArray(carsPayload)
+          ? carsPayload
+          : Array.isArray(payload.vehicles)
+            ? payload.vehicles
+            : [];
+        const profileVehicles = getProfileVehicles();
         const fetchedServices = Array.isArray(payload.services)
           ? payload.services
           : [];
@@ -240,9 +261,7 @@ export default function CustomerBooking() {
         setBookingDataError(
           "Không thể tải dữ liệu đặt lịch. Vui lòng thử lại sau.",
         );
-        const profileVehicles = Array.isArray(getUser()?.vehicles)
-          ? getUser().vehicles
-          : [];
+        const profileVehicles = getProfileVehicles();
         const nextVehicles = mergeVehicles(profileVehicles);
         setVehicles(nextVehicles);
         if (nextVehicles.length > 0) {
@@ -306,12 +325,16 @@ export default function CustomerBooking() {
     setError("");
     setSuccess("");
 
-    if (!plate.trim() || !service || !date || !timeSlot) {
-      setError("Vui lòng điền đủ thông tin Biển số, Dịch vụ, Ngày và Khung giờ.");
+    if (!selectedVehicle?.id || !plate.trim() || !service || !date || !timeSlot) {
+      setError("Vui lòng chọn xe, dịch vụ, ngày và khung giờ.");
       return;
     }
 
     const booking = {
+      vehicleId: selectedVehicle.id,
+      scheduledStartTime: `${date}T${timeSlot}:00`,
+      serviceIds: [service],
+      customerNote: "",
       plate: plate.trim(),
       serviceId: service,
       date,
@@ -527,13 +550,13 @@ export default function CustomerBooking() {
                           {getVehicleSizeInfo(vehicle).icon}
                         </span>
                         <p className="text-base font-black">
-                          {vehicle.label || vehicle.name || getVehicleSizeInfo(vehicle).label}
+                          {getVehicleDisplayName(vehicle)}
                         </p>
                         <p className="text-xs font-bold text-slate-500">
                           {vehicle.plate}
                         </p>
                         <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-700">
-                          {getVehicleSizeInfo(vehicle).description}
+                          {getVehicleSizeInfo(vehicle).label}
                         </p>
                       </button>
                     );
@@ -558,18 +581,6 @@ export default function CustomerBooking() {
                     Thêm xe mới
                   </p>
                 </button>
-              </div>
-
-              <div className="mt-6">
-                <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                  Biển số xe
-                </label>
-                <input
-                  type="text"
-                  value={plate}
-                  onChange={(event) => setPlate(event.target.value)}
-                  className="w-full rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                />
               </div>
             </section>
 
