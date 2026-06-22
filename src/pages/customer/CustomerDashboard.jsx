@@ -6,7 +6,9 @@ import {
   getCustomerDashboardBookings,
   getCustomerDashboardLoyalty,
 } from "../../services/customerDashboardApi";
-
+import ReviewModal from "../../components/customer/ReviewModal";
+import { createReview, getMyReviews } from "../../services/customerReviewApi";
+import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 const statusLabels = {
   PENDING: "Chờ tiếp nhận",
   RECEIVED: "Đã tiếp nhận",
@@ -16,7 +18,8 @@ const statusLabels = {
   CANCELLED: "Đã hủy",
 };
 
-const unwrap = (payload) => payload?.data?.data ?? payload?.data ?? payload ?? {};
+const unwrap = (payload) =>
+  payload?.data?.data ?? payload?.data ?? payload ?? {};
 
 const formatCurrency = (value) =>
   Number(value || 0).toLocaleString("vi-VN") + "đ";
@@ -35,6 +38,11 @@ export default function CustomerDashboard() {
   const user = getUser() || {};
   const [bookings, setBookings] = useState([]);
   const [loyalty, setLoyalty] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [dismissedReviewIds, setDismissedReviewIds] = useState([]);
+  const [reviewBooking, setReviewBooking] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -45,21 +53,38 @@ export default function CustomerDashboard() {
       setLoading(true);
       setError("");
       try {
-        const [bookingRes, loyaltyRes] = await Promise.allSettled([
-        getCustomerDashboardBookings(),
-        getCustomerDashboardLoyalty(),
+        const [bookingRes, loyaltyRes, reviewRes] = await Promise.allSettled([
+          getCustomerDashboardBookings(),
+          getCustomerDashboardLoyalty(),
+          getMyReviews(),
         ]);
 
         if (!alive) return;
 
         if (bookingRes.status === "fulfilled") {
           const data = unwrap(bookingRes.value);
-          setBookings(Array.isArray(data) ? data : data.bookings || []);
+          const list = Array.isArray(data) ? data : data.bookings || [];
+          setBookings(list);
+        } else {
+          setBookings([]);
         }
         if (loyaltyRes.status === "fulfilled") {
-          setLoyalty(unwrap(loyaltyRes.value));
+          const data = unwrap(loyaltyRes.value);
+          setLoyalty(Object.keys(data || {}).length ? data : null);
+        } else {
+          setLoyalty(null);
         }
-        if (bookingRes.status === "rejected" && loyaltyRes.status === "rejected") {
+        if (reviewRes.status === "fulfilled") {
+          const data = unwrap(reviewRes.value);
+          const list = Array.isArray(data) ? data : data.reviews || [];
+          setReviews(list);
+        } else {
+          setReviews([]);
+        }
+        if (
+          bookingRes.status === "rejected" &&
+          loyaltyRes.status === "rejected"
+        ) {
           setError("Không thể tải dữ liệu dashboard. Vui lòng thử lại sau.");
         }
       } finally {
@@ -88,9 +113,11 @@ export default function CustomerDashboard() {
   const completedCount = bookings.filter(
     (item) => String(item.status || "").toUpperCase() === "COMPLETED",
   ).length;
-  const points = loyalty?.points ?? loyalty?.redeemablePoints ?? user.points ?? 0;
-  const tier = loyalty?.tier || user.tier || "Member";
-  const currentStatus = String(latestBooking?.status || "PENDING").toUpperCase();
+  const points = loyalty?.points ?? loyalty?.redeemablePoints ?? 0;
+  const tier = loyalty?.tier || "Member";
+  const currentStatus = String(
+    latestBooking?.status || "PENDING",
+  ).toUpperCase();
 
   const statLine = [
     ["Đang xử lý", activeBookings.length],
@@ -98,6 +125,39 @@ export default function CustomerDashboard() {
     ["Điểm thưởng", points],
     ["Hạng", tier],
   ];
+
+  const getReviewByBookingId = (bookingId) =>
+    reviews.find(
+      (review) => String(review.bookingId) === String(bookingId),
+    );
+
+  const pendingReviewBooking = bookings.find(
+    (booking) =>
+      String(booking.status || "").toUpperCase() === "COMPLETED" &&
+      !getReviewByBookingId(booking.id) &&
+      !dismissedReviewIds.includes(String(booking.id)),
+  );
+
+  const handleSubmitReview = async (payload) => {
+    setReviewLoading(true);
+    setReviewMessage("");
+
+    try {
+      const created = await createReview(payload);
+      setReviews((prev) => [...prev, created]);
+      setReviewBooking(null);
+      setReviewMessage("Cảm ơn bạn đã đánh giá dịch vụ.");
+    } catch (err) {
+      setReviewMessage(
+        getFriendlyErrorMessage(
+          err,
+          "Chưa gửi được đánh giá. Vui lòng thử lại sau.",
+        ),
+      );
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
   return (
     <div className="customer-motion-root min-h-screen overflow-hidden bg-[#eefbff] text-slate-950">
@@ -138,14 +198,17 @@ export default function CustomerDashboard() {
                     Chào mừng {user.name || "khách hàng"}.
                   </h1>
                   <p className="mt-6 max-w-2xl text-lg font-bold leading-8 text-white drop-shadow-[0_4px_18px_rgba(2,6,23,0.72)]">
-                    Xe của bạn được theo dõi theo từng công đoạn: phủ bọt, xịt áp
-                    lực, lau chi tiết và sấy khô trước khi bàn giao.
+                    Xe của bạn được theo dõi theo từng công đoạn: phủ bọt, xịt
+                    áp lực, lau chi tiết và sấy khô trước khi bàn giao.
                   </p>
                 </div>
 
                 <div className="grid gap-3 rounded-[26px] border border-white/28 bg-slate-950/58 p-4 shadow-[0_18px_55px_rgba(2,6,23,0.42)] backdrop-blur-xl sm:grid-cols-4">
                   {statLine.map(([label, value]) => (
-                    <div key={label} className="rounded-2xl bg-white/[0.08] p-4 ring-1 ring-white/10">
+                    <div
+                      key={label}
+                      className="rounded-2xl bg-white/[0.08] p-4 ring-1 ring-white/10"
+                    >
                       <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
                         {label}
                       </p>
@@ -186,10 +249,15 @@ export default function CustomerDashboard() {
                     ["DRYING", "Sấy khô", "air"],
                     ["COMPLETED", "Hoàn tất", "verified"],
                   ].map(([key, label, icon], index) => {
-                    const currentIndex = ["PENDING", "WASHING", "DRYING", "COMPLETED"].indexOf(
-                      currentStatus,
-                    );
-                    const isActive = key === currentStatus || (currentIndex === -1 && index === 0);
+                    const currentIndex = [
+                      "PENDING",
+                      "WASHING",
+                      "DRYING",
+                      "COMPLETED",
+                    ].indexOf(currentStatus);
+                    const isActive =
+                      key === currentStatus ||
+                      (currentIndex === -1 && index === 0);
                     const isDone = currentIndex > index;
                     return (
                       <div
@@ -218,7 +286,9 @@ export default function CustomerDashboard() {
                         <div>
                           <p className="font-black text-slate-950">{label}</p>
                           <p className="text-sm text-slate-500">
-                            {isActive ? "Đang cập nhật tại khoang rửa" : "Theo dõi tự động"}
+                            {isActive
+                              ? "Đang cập nhật tại khoang rửa"
+                              : "Theo dõi tự động"}
                           </p>
                         </div>
                       </div>
@@ -238,6 +308,41 @@ export default function CustomerDashboard() {
                   </span>
                 </div>
               </section>
+
+              {pendingReviewBooking && (
+                <section className="rounded-[34px] border border-cyan-200 bg-white/82 p-6 shadow-[0_26px_70px_rgba(2,74,138,0.12)] backdrop-blur-2xl">
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                    Dịch vụ đã hoàn tất
+                  </p>
+                  <h2 className="mt-3 text-2xl font-black text-slate-950">
+                    Đánh giá lượt rửa xe {pendingReviewBooking.plate || ""}
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                    Chia sẻ trải nghiệm của bạn sau khi nhận xe.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setReviewBooking(pendingReviewBooking)}
+                      className="rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-300"
+                    >
+                      Đánh giá ngay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDismissedReviewIds((prev) => [
+                          ...prev,
+                          String(pendingReviewBooking.id),
+                        ])
+                      }
+                      className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-600 ring-1 ring-cyan-100 transition hover:bg-cyan-50"
+                    >
+                      Để sau
+                    </button>
+                  </div>
+                </section>
+              )}
 
               <section className="rounded-[34px] border border-white/75 bg-slate-950 p-6 text-white shadow-[0_26px_70px_rgba(2,20,38,0.2)]">
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
@@ -265,6 +370,12 @@ export default function CustomerDashboard() {
               </section>
             </aside>
           </section>
+
+          {reviewMessage && (
+            <div className="mt-6 rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 ring-1 ring-cyan-100">
+              {reviewMessage}
+            </div>
+          )}
 
           {error && (
             <div className="mt-6 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-100">
@@ -301,7 +412,9 @@ export default function CustomerDashboard() {
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                     Điểm
                   </p>
-                  <p className="mt-2 text-xl font-black">{loading ? "..." : points}</p>
+                  <p className="mt-2 text-xl font-black">
+                    {loading ? "..." : points}
+                  </p>
                 </div>
               </div>
               <button
@@ -314,7 +427,7 @@ export default function CustomerDashboard() {
             </div>
 
             <div className="rounded-[34px] border border-white/75 bg-white/72 p-7 shadow-sm backdrop-blur-2xl">
-              <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
                     Quy trình chăm sóc
@@ -323,13 +436,6 @@ export default function CustomerDashboard() {
                     Một lượt rửa xe rõ từng công đoạn.
                   </h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("/history")}
-                  className="rounded-full border border-cyan-200 bg-white px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
-                >
-                  Lịch sử dịch vụ
-                </button>
               </div>
 
               <div className="mt-7 grid gap-4 md:grid-cols-4">
@@ -343,7 +449,9 @@ export default function CustomerDashboard() {
                     <p className="font-mono text-sm font-black text-cyan-700">
                       {step}
                     </p>
-                    <h3 className="mt-4 text-lg font-black text-slate-950">{title}</h3>
+                    <h3 className="mt-4 text-lg font-black text-slate-950">
+                      {title}
+                    </h3>
                     <p className="mt-2 text-sm leading-6 text-slate-500">
                       {description}
                     </p>
@@ -354,6 +462,12 @@ export default function CustomerDashboard() {
           </section>
         </main>
       </div>
+      <ReviewModal
+        booking={reviewBooking}
+        loading={reviewLoading}
+        onClose={() => setReviewBooking(null)}
+        onSubmit={handleSubmitReview}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ export * as adminUserApi from "./adminUserApi";
 export * as adminDashboardApi from "./adminDashboardApi";
 export * as adminServiceApi from "./adminServiceApi";
 export * as customerBookingApi from "./customerBookingApi";
+export * as customerCarApi from "./customerCarApi";
 export * as adminBookingApi from "./adminBookingApi";
 export * as customerVoucherApi from "./customerVoucherApi";
 export * as customerConfigApi from "./customerConfigApi";
@@ -16,7 +17,7 @@ export * as adminPromotionApi from "./adminPromotionApi";
 export * as customerLoyaltyApi from "./customerLoyaltyApi";
 export * as adminAnalyticsApi from "./adminAnalyticsApi";
 export * as staffDashboardApi from "./staffDashboardApi";
+export * as staffBookingApi from "./staffBookingApi";
 export * as staffQueueApi from "./staffQueueApi";
 export * as staffCustomerApi from "./staffCustomerApi";
-export * as customerCarApi from "./customerCarApi";
-
+export * as customerReviewApi from "./customerReviewApi";

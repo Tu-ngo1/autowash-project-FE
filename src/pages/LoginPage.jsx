@@ -55,18 +55,35 @@ const VALUE_PILLARS = [
 
 function LoginPanel() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ account: "", password: "", remember: false });
+  const [form, setForm] = useState({
+    account: "",
+    password: "",
+    remember: false,
+  });
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const next = {};
-    const email = form.account.trim();
-    if (!email) next.account = "Vui lòng nhập email.";
-    else if (!EMAIL_PATTERN.test(email)) next.account = "Email không đúng định dạng.";
+    const account = form.account.trim();
+    if (!account) {
+      next.account = "Vui lòng nhập tên đăng nhập hoặc số điện thoại.";
+    } else {
+      const isNum = /^\d+$/.test(account);
+      if (isNum) {
+        if (account.length < 10 || account.length > 11) {
+          next.account = "Số điện thoại phải gồm 10 đến 11 chữ số.";
+        }
+      } else {
+        if (account.length < 3) {
+          next.account = "Tên đăng nhập phải từ 3 ký tự trở lên.";
+        }
+      }
+    }
     if (!form.password) next.password = "Vui lòng nhập mật khẩu.";
-    else if (form.password.length < 6) next.password = "Mật khẩu cần ít nhất 6 ký tự.";
+    else if (form.password.length < 6)
+      next.password = "Mật khẩu cần ít nhất 6 ký tự.";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -93,7 +110,9 @@ function LoginPanel() {
         password: form.password,
       });
       setAuth(authResponse);
-      navigate(ROLE_PATHS[authResponse.user.role] || "/dashboard", { replace: true });
+      navigate(ROLE_PATHS[authResponse.user.role] || "/dashboard", {
+        replace: true,
+      });
     } catch (err) {
       setSubmitError(
         getFriendlyErrorMessage(
@@ -133,19 +152,19 @@ function LoginPanel() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="text-sm font-bold text-slate-700">
-              Email
-            </span>
+            <span className="text-sm font-bold text-slate-700">Tên đăng nhập hoặc Số điện thoại</span>
             <input
               name="account"
-              type="email"
+              type="text"
               value={form.account}
               onChange={handleChange}
               className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-              placeholder="customer@autowash.com"
-              autoComplete="email"
+              placeholder="Nhập tên đăng nhập hoặc số điện thoại..."
+              autoComplete="username"
             />
-            {errors.account && <p className="mt-2 text-sm text-rose-600">{errors.account}</p>}
+            {errors.account && (
+              <p className="mt-2 text-sm text-rose-600">{errors.account}</p>
+            )}
           </label>
 
           <label className="block">
@@ -158,7 +177,9 @@ function LoginPanel() {
               className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
               placeholder="••••••••"
             />
-            {errors.password && <p className="mt-2 text-sm text-rose-600">{errors.password}</p>}
+            {errors.password && (
+              <p className="mt-2 text-sm text-rose-600">{errors.password}</p>
+            )}
           </label>
 
           <div className="flex items-center justify-between gap-3">
@@ -172,7 +193,10 @@ function LoginPanel() {
               />
               Duy trì đăng nhập
             </label>
-            <button type="button" className="text-sm font-bold text-cyan-700 hover:underline">
+            <button
+              type="button"
+              className="text-sm font-bold text-cyan-700 hover:underline"
+            >
               Quên mật khẩu
             </button>
           </div>
@@ -189,7 +213,9 @@ function LoginPanel() {
             className="group relative h-14 w-full overflow-hidden rounded-2xl bg-slate-950 text-sm font-black text-white shadow-[0_18px_40px_rgba(8,47,73,0.22)] transition hover:-translate-y-0.5 hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/25 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
-            <span className="relative">{loading ? "Đang xác thực..." : "Vào hệ thống"}</span>
+            <span className="relative">
+              {loading ? "Đang xác thực..." : "Vào hệ thống"}
+            </span>
           </button>
         </form>
       </div>
@@ -247,10 +273,20 @@ export default function LoginPage() {
           </button>
 
           <div className="hidden items-center gap-7 text-sm font-black text-slate-600 md:flex">
-            <a href="#home-login" className="transition hover:text-cyan-700">Home</a>
-            <a href="#experience" className="transition hover:text-cyan-700">Trải nghiệm</a>
-            <a href="#process" className="transition hover:text-cyan-700">Quy trình</a>
-            <button type="button" onClick={() => navigate("/register")} className="rounded-full bg-white px-5 py-2.5 text-cyan-800 shadow-sm ring-1 ring-cyan-100 transition hover:-translate-y-0.5 hover:ring-cyan-300">
+            <a href="#home-login" className="transition hover:text-cyan-700">
+              Home
+            </a>
+            <a href="#experience" className="transition hover:text-cyan-700">
+              Trải nghiệm
+            </a>
+            <a href="#process" className="transition hover:text-cyan-700">
+              Quy trình
+            </a>
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+              className="rounded-full bg-white px-5 py-2.5 text-cyan-800 shadow-sm ring-1 ring-cyan-100 transition hover:-translate-y-0.5 hover:ring-cyan-300"
+            >
               Tạo tài khoản
             </button>
           </div>
@@ -258,7 +294,10 @@ export default function LoginPage() {
       </header>
 
       <main className="relative z-10">
-        <section id="home-login" className="mx-auto grid min-h-[100dvh] max-w-7xl items-center gap-10 px-4 pb-10 pt-32 sm:px-6 lg:grid-cols-[minmax(0,1.08fr)_440px] lg:px-10">
+        <section
+          id="home-login"
+          className="mx-auto grid min-h-[100dvh] max-w-7xl items-center gap-10 px-4 pb-10 pt-32 sm:px-6 lg:grid-cols-[minmax(0,1.08fr)_440px] lg:px-10"
+        >
           <div className="home-reveal">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/16 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-100 shadow-sm backdrop-blur">
               <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
@@ -266,7 +305,8 @@ export default function LoginPage() {
             </div>
 
             <h1 className="mt-8 max-w-4xl text-5xl font-black leading-[0.93] tracking-normal text-white drop-shadow-[0_18px_40px_rgba(2,20,38,0.28)] sm:text-6xl lg:text-7xl">
-              AutoWash biến lịch rửa xe thành một trải nghiệm sạch, nhanh và rõ ràng.
+              AutoWash biến lịch rửa xe thành một trải nghiệm sạch, nhanh và rõ
+              ràng.
             </h1>
             <div className="mt-9 flex flex-wrap gap-3">
               <button
@@ -288,7 +328,10 @@ export default function LoginPage() {
           <LoginPanel />
         </section>
 
-        <section id="experience" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-10">
+        <section
+          id="experience"
+          className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-10"
+        >
           <div className="home-reveal relative overflow-hidden rounded-[34px] border border-white/45 bg-white/18 p-5 shadow-[0_34px_100px_rgba(2,20,38,0.18)] backdrop-blur-xl md:p-7">
             <img
               src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=1800&auto=format&fit=crop"
@@ -301,7 +344,9 @@ export default function LoginPage() {
               <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
                 Clean mobility interface
               </p>
-              <h2 className="mt-3 text-4xl font-black leading-tight">Niềm tin được giữ trọn từ lúc đặt lịch đến khi bàn giao xe.</h2>
+              <h2 className="mt-3 text-4xl font-black leading-tight">
+                Niềm tin được giữ trọn từ lúc đặt lịch đến khi bàn giao xe.
+              </h2>
             </div>
           </div>
         </section>
@@ -317,13 +362,20 @@ export default function LoginPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-cyan-200">
                 <span className="material-symbols-outlined">{item.icon}</span>
               </div>
-              <h3 className="mt-6 text-xl font-black text-slate-950">{item.title}</h3>
-              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">{item.copy}</p>
+              <h3 className="mt-6 text-xl font-black text-slate-950">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
+                {item.copy}
+              </p>
             </article>
           ))}
         </section>
 
-        <section id="process" className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-10">
+        <section
+          id="process"
+          className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-10"
+        >
           <div className="home-reveal relative overflow-hidden rounded-[34px] border border-cyan-100 bg-slate-950 p-6 text-white shadow-[0_28px_80px_rgba(8,47,73,0.22)] sm:p-8">
             <div className="home-shimmer pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-transparent via-cyan-300/12 to-transparent" />
             <div className="mb-8">
@@ -331,15 +383,23 @@ export default function LoginPage() {
                 Flow rõ vai trò
               </p>
               <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight">
-                Từ lúc khách đặt lịch đến khi xe rời khoang, mọi bước đều có chỗ đứng rõ ràng.
+                Từ lúc khách đặt lịch đến khi xe rời khoang, mọi bước đều có chỗ
+                đứng rõ ràng.
               </h2>
             </div>
             <div className="grid gap-6 md:grid-cols-4">
               {FLOW_STEPS.map((step, index) => (
-                <div key={step.title} className="relative rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                <div
+                  key={step.title}
+                  className="relative rounded-[24px] border border-white/10 bg-white/[0.04] p-5"
+                >
                   <div className="flex items-center justify-between">
-                    <p className="font-mono text-sm text-cyan-300">0{index + 1}</p>
-                    <span className="material-symbols-outlined text-cyan-200">{step.icon}</span>
+                    <p className="font-mono text-sm text-cyan-300">
+                      0{index + 1}
+                    </p>
+                    <span className="material-symbols-outlined text-cyan-200">
+                      {step.icon}
+                    </span>
                   </div>
                   <h3 className="mt-5 text-lg font-black">{step.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">

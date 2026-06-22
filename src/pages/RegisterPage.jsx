@@ -7,11 +7,9 @@ import {
   verifyRegistrationOtp,
 } from "../services/authApi";
 import { getFriendlyErrorMessage } from "../utils/errorMessage";
-import { getUserRole, setAuth } from "../utils/auth";
 
 const RESEND_SECONDS = 60;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-const PHONE_PATTERN = /^0\d{9}$/;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -35,7 +33,7 @@ export default function RegisterPage() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [registering, setRegistering] = useState(false);
 
-  const normalizedEmail = useMemo(() => form.email.trim().toLowerCase(), [form.email]);
+  const normalizedEmail = useMemo(() => form.email.trim(), [form.email]);
   const emailChangedAfterVerify =
     otpVerified && verifiedEmail && verifiedEmail !== normalizedEmail;
 
@@ -61,19 +59,21 @@ export default function RegisterPage() {
     return "";
   };
 
-  const validateProfileFields = () => {
+  const validateForm = () => {
     const next = {};
     if (!form.name.trim()) next.name = "Họ và tên không được để trống.";
     if (!form.username.trim()) {
       next.username = "Tên đăng nhập không được để trống.";
     } else if (form.username.trim().length < 3) {
-      next.username = "Tên đăng nhập phải có ít nhất 3 ký tự.";
+      next.username = "Tên đăng nhập phải từ 3 ký tự trở lên.";
     }
     if (!form.phone.trim()) {
       next.phone = "Số điện thoại không được để trống.";
-    } else if (!PHONE_PATTERN.test(form.phone.trim())) {
-      next.phone = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0.";
+    } else if (!/^[0-9]{10,11}$/.test(form.phone.trim())) {
+      next.phone = "Số điện thoại phải gồm 10 đến 11 chữ số.";
     }
+    const emailError = validateEmail();
+    if (emailError) next.email = emailError;
     if (!form.password) {
       next.password = "Mật khẩu không được để trống.";
     } else if (form.password.length < 6) {
@@ -82,13 +82,6 @@ export default function RegisterPage() {
     if (form.password !== form.confirmPassword) {
       next.confirmPassword = "Mật khẩu xác nhận không khớp.";
     }
-    return next;
-  };
-
-  const validateForm = () => {
-    const next = {};
-    const emailError = validateEmail();
-    if (emailError) next.email = emailError;
     if (!form.otp.trim()) {
       next.otp = "Vui lòng nhập mã OTP đã gửi qua email.";
     } else if (!/^[0-9]{6}$/.test(form.otp.trim())) {
@@ -97,7 +90,6 @@ export default function RegisterPage() {
     if (!otpVerified) {
       next.otp = "Vui lòng xác thực OTP trước khi đăng ký.";
     }
-    Object.assign(next, validateProfileFields());
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -127,7 +119,7 @@ export default function RegisterPage() {
         name === "otp"
           ? value.replace(/\D/g, "").slice(0, 6)
           : name === "phone"
-            ? value.replace(/\D/g, "").slice(0, 10)
+            ? value.replace(/\D/g, "").slice(0, 11)
             : value,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -189,10 +181,7 @@ export default function RegisterPage() {
       const response = await verifyRegistrationOtp(normalizedEmail, form.otp);
       setOtpVerified(true);
       setVerifiedEmail(normalizedEmail);
-      setOtpMessage(
-        response?.message ||
-          "Email đã được xác thực. Vui lòng điền thông tin còn lại.",
-      );
+      setOtpMessage(response?.message || "Email đã được xác thực.");
       setErrors((prev) => ({ ...prev, otp: "" }));
     } catch (err) {
       setOtpVerified(false);
@@ -204,29 +193,21 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (registering || !otpVerified) return;
+    if (registering) return;
     setSubmitError("");
     if (!validateForm()) return;
 
     setRegistering(true);
     try {
-      const authResponse = await register({
+      await register({
         name: form.name,
-        username: form.username,
-        email: normalizedEmail,
+        email: form.email,
         phone: form.phone,
+        username: form.username,
         password: form.password,
         otp: form.otp,
       });
-      setAuth(authResponse);
-      const role = getUserRole();
-      if (role === "ADMIN") {
-        navigate("/admin/dashboard", { replace: true });
-      } else if (role === "STAFF") {
-        navigate("/staff/dashboard", { replace: true });
-      } else {
-        navigate("/customer/dashboard", { replace: true });
-      }
+      navigate("/", { replace: true });
     } catch (err) {
       setSubmitError(applyBackendErrors(err));
     } finally {
@@ -245,8 +226,8 @@ export default function RegisterPage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-24"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(3,24,44,0.56),rgba(12,112,151,0.28)_45%,rgba(239,253,255,0.96)_82%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.09)_1px,transparent_1px)] bg-[size:72px_72px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(239,253,255,0.96),rgba(225,246,252,0.9)_48%,rgba(255,255,255,0.98)_86%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.06)_1px,transparent_1px)] bg-[size:72px_72px]" />
         <div className="absolute right-[-120px] top-[-80px] h-[520px] w-[520px] rounded-full bg-cyan-200/50 blur-3xl" />
         <div className="wash-foam-drift absolute bottom-[-110px] left-[-120px] h-72 w-[78vw] rounded-[50%] bg-white/40 blur-3xl" />
       </div>
@@ -278,8 +259,9 @@ export default function RegisterPage() {
       </header>
 
       <div className="relative z-10 mx-auto grid max-w-7xl gap-7 py-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:py-10">
-        <main className="relative overflow-hidden rounded-[30px] border border-white/90 bg-white/94 p-5 shadow-[0_30px_90px_rgba(2,55,88,0.18)] backdrop-blur-xl sm:p-8">
-          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-200/55 blur-3xl" />
+        <main className="relative overflow-hidden rounded-[30px] border border-cyan-100 bg-gradient-to-br from-white via-cyan-50/82 to-sky-100/72 p-5 shadow-[0_30px_90px_rgba(2,55,88,0.14)] sm:p-8">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-200/65 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-16 h-60 w-60 rounded-full bg-sky-100/80 blur-3xl" />
           <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" />
 
           <div className="relative mb-8 max-w-3xl">
@@ -288,34 +270,36 @@ export default function RegisterPage() {
               Email OTP access
             </div>
             <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl">
-              Tạo tài khoản để đưa xe vào khoang rửa.
+              Đăng ký tài khoản
             </h1>
-            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-700">
-              Bước 1: xác thực email bằng OTP. Bước 2: điền thông tin còn lại
-              và hoàn tất đăng ký.
+            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-600">
+              Xác thực email bằng OTP, sau đó dùng tài khoản này để đặt lịch,
+              xem trạng thái rửa xe và lưu lịch sử chăm sóc.
             </p>
           </div>
 
           <form className="relative space-y-6" onSubmit={handleSubmit}>
-            <section className="rounded-[26px] border border-cyan-100 bg-cyan-50/88 p-4 shadow-inner shadow-white/70 sm:p-5">
+            <section className="rounded-[26px] border border-cyan-100 bg-cyan-100/62 p-4 shadow-inner shadow-white/70 sm:p-5">
               <div className="flex items-start gap-3">
                 <span className="mt-1 rounded-2xl bg-white p-2.5 text-cyan-700 ring-1 ring-cyan-100">
                   <Mail size={20} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-black text-slate-950">
-                    Bước 1 — Xác thực email
+                    Xác thực email
                   </h2>
                   <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">
-                    Nhập email, nhận mã OTP và xác thực trước khi điền thông
-                    tin tài khoản.
+                    Nhập email rồi nhấn nhận mã OTP. Mã chỉ dùng một lần và sẽ
+                    được gửi qua email từ hệ thống.
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <label className="block">
-                  <span className="text-sm font-black text-slate-900">Email</span>
+                  <span className="text-sm font-black text-slate-900">
+                    Email
+                  </span>
                   <input
                     name="email"
                     type="email"
@@ -323,7 +307,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className={inputClass}
                     autoComplete="email"
-                    disabled={sendingOtp || verifyingOtp || registering}
+                    disabled={otpVerified || sendingOtp || verifyingOtp || registering}
                   />
                   {errors.email && (
                     <p className="mt-2 text-sm text-rose-600">{errors.email}</p>
@@ -333,7 +317,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={handleSendOtp}
-                  disabled={sendingOtp || cooldown > 0 || registering}
+                  disabled={otpVerified || sendingOtp || cooldown > 0 || registering}
                   className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_34px_rgba(8,47,73,0.18)] transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {sendingOtp ? (
@@ -343,13 +327,15 @@ export default function RegisterPage() {
                   ) : (
                     <Mail size={18} />
                   )}
-                  {cooldown > 0 ? `${cooldown}s` : "Gửi mã OTP"}
+                  {cooldown > 0 ? `${cooldown}s` : "Nhận mã"}
                 </button>
               </div>
 
               <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
                 <label className="block">
-                  <span className="text-sm font-black text-slate-900">Mã OTP</span>
+                  <span className="text-sm font-black text-slate-900">
+                    Mã OTP
+                  </span>
                   <input
                     name="otp"
                     type="text"
@@ -359,7 +345,7 @@ export default function RegisterPage() {
                     className={`${inputClass} text-center text-lg font-semibold tracking-[0.28em]`}
                     placeholder="------"
                     autoComplete="one-time-code"
-                    disabled={!otpSent || verifyingOtp || registering}
+                    disabled={otpVerified || !otpSent || verifyingOtp || registering}
                   />
                   {errors.otp && (
                     <p className="mt-2 text-sm text-rose-600">{errors.otp}</p>
@@ -369,7 +355,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={handleVerifyOtp}
-                  disabled={!otpSent || verifyingOtp || otpVerified || registering}
+                  disabled={otpVerified || !otpSent || verifyingOtp || registering}
                   className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-800 transition hover:-translate-y-0.5 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                 >
                   {verifyingOtp ? (
@@ -384,39 +370,38 @@ export default function RegisterPage() {
               </div>
 
               {otpMessage && (
-                <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cyan-800 ring-1 ring-cyan-100">
+              <div className="mt-4 rounded-2xl bg-white/88 px-4 py-3 text-sm font-semibold text-cyan-800 ring-1 ring-cyan-100">
                   {otpMessage}
                 </div>
               )}
             </section>
 
-            {otpVerified && (
-              <section className="space-y-5 rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
-                <div>
-                  <h2 className="text-base font-black text-slate-950">
-                    Bước 2 — Thông tin tài khoản
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                    Email đã xác thực. Điền các thông tin còn lại rồi nhấn đăng
-                    ký.
-                  </p>
-                </div>
+            {submitError && (
+              <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-black text-rose-700 shadow-sm">
+                {submitError}
+              </div>
+            )}
 
-                <label className="block">
-                  <span className="text-sm font-black text-slate-900">Họ và tên</span>
-                  <input
-                    name="name"
-                    type="text"
-                    value={form.name}
-                    onChange={handleChange}
-                    className={inputClass}
-                    autoComplete="name"
-                    disabled={registering}
-                  />
-                  {errors.name && (
-                    <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
-                  )}
-                </label>
+            {otpVerified && (
+              <>
+                <div className="grid gap-5">
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Họ và tên
+                    </span>
+                    <input
+                      name="name"
+                      type="text"
+                      value={form.name}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="name"
+                    />
+                    {errors.name && (
+                      <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
+                    )}
+                  </label>
+                </div>
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <label className="block">
@@ -430,12 +415,9 @@ export default function RegisterPage() {
                       onChange={handleChange}
                       className={inputClass}
                       autoComplete="username"
-                      disabled={registering}
                     />
                     {errors.username && (
-                      <p className="mt-2 text-sm text-rose-600">
-                        {errors.username}
-                      </p>
+                      <p className="mt-2 text-sm text-rose-600">{errors.username}</p>
                     )}
                   </label>
 
@@ -450,8 +432,6 @@ export default function RegisterPage() {
                       onChange={handleChange}
                       className={inputClass}
                       autoComplete="tel"
-                      placeholder="0987654321"
-                      disabled={registering}
                     />
                     {errors.phone && (
                       <p className="mt-2 text-sm text-rose-600">{errors.phone}</p>
@@ -461,7 +441,9 @@ export default function RegisterPage() {
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <label className="block">
-                    <span className="text-sm font-black text-slate-900">Mật khẩu</span>
+                    <span className="text-sm font-black text-slate-900">
+                      Mật khẩu
+                    </span>
                     <input
                       name="password"
                       type="password"
@@ -469,7 +451,6 @@ export default function RegisterPage() {
                       onChange={handleChange}
                       className={inputClass}
                       autoComplete="new-password"
-                      disabled={registering}
                     />
                     {errors.password && (
                       <p className="mt-2 text-sm text-rose-600">
@@ -489,7 +470,6 @@ export default function RegisterPage() {
                       onChange={handleChange}
                       className={inputClass}
                       autoComplete="new-password"
-                      disabled={registering}
                     />
                     {errors.confirmPassword && (
                       <p className="mt-2 text-sm text-rose-600">
@@ -498,27 +478,19 @@ export default function RegisterPage() {
                     )}
                   </label>
                 </div>
-              </section>
-            )}
 
-            {submitError && (
-              <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-black text-rose-700 shadow-sm">
-                {submitError}
-              </div>
-            )}
-
-            {otpVerified && (
-              <button
-                type="submit"
-                disabled={registering}
-                className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
-                {registering && <Loader2 size={18} className="animate-spin" />}
-                <span className="relative">
-                  {registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
-                </span>
-              </button>
+                <button
+                  type="submit"
+                  disabled={registering}
+                  className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
+                  {registering && <Loader2 size={18} className="animate-spin" />}
+                  <span className="relative">
+                    {registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
+                  </span>
+                </button>
+              </>
             )}
           </form>
 
@@ -559,9 +531,8 @@ export default function RegisterPage() {
 
           {[
             ["1", "Nhập email", "Dùng đúng email bạn muốn nhận thông báo."],
-            ["2", "Nhận OTP", "Nhấn gửi mã và kiểm tra hộp thư."],
-            ["3", "Xác thực", "Nhập mã 6 số để mở phần điền thông tin."],
-            ["4", "Đăng ký", "Điền username, mật khẩu và hoàn tất."],
+            ["2", "Nhận OTP", "Kiểm tra hộp thư đến hoặc thư rác nếu chưa thấy mã."],
+            ["3", "Xác thực", "Nhập mã 6 số rồi hoàn tất đăng ký."],
           ].map(([step, title, description]) => (
             <div
               key={step}

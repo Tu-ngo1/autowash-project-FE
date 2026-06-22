@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCustomerBookingHistory } from "../../services/customerHistoryApi";
+import ReviewModal from "../../components/customer/ReviewModal";
 import UserNavbar from "../../components/UserNavbar";
+import { createReview, getMyReviews } from "../../services/customerReviewApi";
+import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 const STATUS_LABELS = {
   COMPLETED: {
     label: "Hoàn thành",
@@ -45,6 +48,10 @@ export default function CustomerHistory() {
   const [statusFilter, setStatusFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewBooking, setReviewBooking] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -52,18 +59,22 @@ export default function CustomerHistory() {
       setError("");
 
       try {
-      const response = await getCustomerBookingHistory();
-        const bookings = Array.isArray(response.data)
-          ? response.data
-          : response.data?.bookings || [];
+        const [historyRes, reviewRes] = await Promise.all([
+          getCustomerBookingHistory(),
+          getMyReviews().catch(() => []),
+        ]);
+        const bookings = Array.isArray(historyRes.data)
+          ? historyRes.data
+          : historyRes.data?.bookings || [];
+        const reviewList = Array.isArray(reviewRes)
+          ? reviewRes
+          : reviewRes?.reviews || [];
 
-        if (bookings.length) {
-          setHistory(bookings);
-        } else {
-          setHistory([]);
-        }
+        setHistory(bookings);
+        setReviews(reviewList);
       } catch {
         setHistory([]);
+        setReviews([]);
         setError("Không thể tải lịch sử dịch vụ. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);
@@ -122,21 +133,45 @@ export default function CustomerHistory() {
 
   const summary = useMemo(() => {
     const completed = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "COMPLETED",
+      (item) => String(item.status || "").toUpperCase() === "COMPLETED"
     ).length;
     const pending = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "PENDING",
+      (item) => String(item.status || "").toUpperCase() === "PENDING"
     ).length;
     const cancelled = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "CANCELLED",
+      (item) => String(item.status || "").toUpperCase() === "CANCELLED"
     ).length;
     const total = history.length;
     const spent = history.reduce(
       (sum, item) => sum + (Number(item.price) || 0),
-      0,
+      0
     );
     return { completed, pending, cancelled, total, spent };
   }, [history]);
+
+  const getReviewByBookingId = (bookingId) =>
+    reviews.find((review) => String(review.bookingId) === String(bookingId));
+
+  const handleSubmitReview = async (payload) => {
+    setReviewLoading(true);
+    setReviewMessage("");
+
+    try {
+      const created = await createReview(payload);
+      setReviews((prev) => [...prev, created]);
+      setReviewBooking(null);
+      setReviewMessage("Cảm ơn bạn đã đánh giá dịch vụ.");
+    } catch (err) {
+      setReviewMessage(
+        getFriendlyErrorMessage(
+          err,
+          "Chưa gửi được đánh giá. Vui lòng thử lại sau."
+        )
+      );
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
   return (
     <div className="customer-motion-root min-h-screen overflow-hidden bg-[#eefbff] text-slate-950">
@@ -187,7 +222,7 @@ export default function CustomerHistory() {
                     <span className="material-symbols-outlined text-[22px] text-cyan-700">
                       {icon}
                     </span>
-                    <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                    <p className="mt-4 whitespace-nowrap text-xs font-black uppercase tracking-[0.08em] text-slate-500">
                       {label}
                     </p>
                     <p className="mt-2 text-2xl font-black text-slate-950">
@@ -260,6 +295,12 @@ export default function CustomerHistory() {
           </section>
 
           <section>
+            {reviewMessage && (
+              <div className="mb-6 rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 ring-1 ring-cyan-100">
+                {reviewMessage}
+              </div>
+            )}
+
             {loading ? (
               <div className="rounded-[30px] border border-white/75 bg-white/70 p-8 font-black text-slate-500 shadow-sm backdrop-blur-2xl">
                 Đang tải lịch sử dịch vụ...
@@ -277,8 +318,8 @@ export default function CustomerHistory() {
                   Bạn chưa có lượt rửa xe nào.
                 </h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
-                  Tất cả lịch sử đặt lịch sẽ hiển thị ở đây sau khi bạn hoàn thành
-                  hoặc lưu đơn dịch vụ.
+                  Tất cả lịch sử đặt lịch sẽ hiển thị ở đây sau khi bạn hoàn
+                  thành hoặc lưu đơn dịch vụ.
                 </p>
                 <button
                   type="button"
@@ -356,30 +397,47 @@ export default function CustomerHistory() {
                               Tổng
                             </p>
                             <p className="mt-2 font-black text-slate-950">
-                              {formatCurrency(item.price)}
+                              {formatCurrency(item.totalPrice)}
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between gap-3 rounded-[24px] bg-slate-950 p-4 text-white">
+                      <div className="self-center rounded-[24px] bg-slate-950 p-4 text-white">
                         <div>
                           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
                             Wash record
                           </p>
-                          <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">
-                            Hồ sơ lượt rửa được lưu lại để bạn đặt lại hoặc kiểm tra
-                            thông tin nhanh.
-                          </p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {(statusKey === "COMPLETED" || statusKey === "PENDING") && (
+                        <div className="mt-8 flex flex-wrap gap-2">
+                          {statusKey === "COMPLETED" &&
+                            (getReviewByBookingId(item.id) ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-xl bg-emerald-100 px-4 py-2 text-xs font-black text-emerald-700"
+                              >
+                                Đã đánh giá
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setReviewBooking(item)}
+                                className="rounded-xl bg-amber-300 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-amber-200"
+                              >
+                                Đánh giá
+                              </button>
+                            ))}
+                          {(statusKey === "COMPLETED" ||
+                            statusKey === "PENDING") && (
                             <button
                               type="button"
                               onClick={() => navigate("/booking")}
                               className="rounded-xl bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-white"
                             >
-                              {statusKey === "COMPLETED" ? "Đặt lại" : "Sửa lịch"}
+                              {statusKey === "COMPLETED"
+                                ? "Đặt lại"
+                                : "Sửa lịch"}
                             </button>
                           )}
                           <button
@@ -399,6 +457,12 @@ export default function CustomerHistory() {
           </section>
         </main>
       </div>
+      <ReviewModal
+        booking={reviewBooking}
+        loading={reviewLoading}
+        onClose={() => setReviewBooking(null)}
+        onSubmit={handleSubmitReview}
+      />
     </div>
   );
 }

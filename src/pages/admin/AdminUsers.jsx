@@ -1,5 +1,5 @@
 // src/pages/admin/AdminUsers.jsx
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   addAdminUserVehicle,
   createAdminUser,
@@ -65,36 +65,37 @@ export default function AdminUsers() {
           payload.items ||
           payload.content ||
           [];
-      const normalizedCustomers = customersData.map(normalizeAdminCustomer);
-      setCustomers(normalizedCustomers);
-
-      const customerCount = normalizedCustomers.filter(
-        (c) => (c.role || "CUSTOMER").toUpperCase() === "CUSTOMER"
-      ).length;
-      const staffCount = normalizedCustomers.filter(
-        (c) => (c.role || "").toUpperCase() === "STAFF"
-      ).length;
-      const activeCount = normalizedCustomers.filter(
-        (c) => c.status === "ACTIVE"
-      ).length;
-      const lockedCount = normalizedCustomers.filter(
-        (c) =>
-          c.status === "INACTIVE" ||
-          c.status === "LOCKED" ||
-          c.status === "DISABLED"
-      ).length;
-      setStats({
-        customers: customerCount,
-        staff: staffCount,
-        active: activeCount,
-        locked: lockedCount,
-      });
+      applyCustomers(customersData);
     } catch (err) {
       console.error("Failed to load customers:", err);
-      setCustomers([]);
+      applyCustomers([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyCustomers = (items) => {
+    const normalizedCustomers = items.map(normalizeAdminCustomer);
+    setCustomers(normalizedCustomers);
+
+    const customerCount = normalizedCustomers.filter(
+      (c) => (c.role || "CUSTOMER").toUpperCase() === "CUSTOMER",
+    ).length;
+    const staffCount = normalizedCustomers.filter(
+      (c) => (c.role || "").toUpperCase() === "STAFF",
+    ).length;
+    const banned = normalizedCustomers.filter(
+      (c) =>
+        c.status === "INACTIVE" ||
+        c.status === "LOCKED" ||
+        c.status === "DISABLED",
+    ).length;
+    setStats({
+      total: normalizedCustomers.length,
+      customers: customerCount,
+      staff: staffCount,
+      banned,
+    });
   };
 
   const fetchCustomerDetails = async (id) => {
@@ -180,18 +181,37 @@ export default function AdminUsers() {
     }
   };
 
-  const filteredCustomers = customers.filter((c) => {
-    const matchSearch =
-      c.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-      c.email?.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone?.includes(search);
-    const matchTier =
-      tierFilter === "all" ||
-      String(c.tierLevel || "").toUpperCase() === tierFilter.toUpperCase();
-    const role = (c.role || "CUSTOMER").toUpperCase();
-    const matchRole = roleFilter === "all" || role === roleFilter;
-    return matchSearch && matchTier && matchRole;
-  });
+  const filteredCustomers = useMemo(
+    () =>
+      customers.filter((c) => {
+        const keyword = search.trim().toLowerCase();
+        const haystack = [
+          c.name,
+          c.fullName,
+          c.email,
+          c.phone,
+          c.tier,
+          c.role,
+          ...(c.vehicles || []).flatMap((vehicle) => [
+            vehicle.plate,
+            vehicle.licensePlate,
+            vehicle.model,
+            vehicle.brand,
+          ]),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        const matchSearch = !keyword || haystack.includes(keyword);
+        const matchTier =
+          tierFilter === "all" ||
+          String(c.tier || "").toUpperCase() === tierFilter.toUpperCase();
+        const role = (c.role || "CUSTOMER").toUpperCase();
+        const matchRole = roleFilter === "all" || role === roleFilter;
+        return matchSearch && matchTier && matchRole;
+      }),
+    [customers, roleFilter, search, tierFilter],
+  );
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-[#05070a] text-zinc-100">
