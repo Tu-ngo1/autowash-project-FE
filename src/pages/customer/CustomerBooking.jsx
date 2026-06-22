@@ -57,14 +57,20 @@ const getSlotEndTime = (slot, durationMinutes = 60) => {
 };
 
 const VEHICLE_SIZE_OPTIONS = {
-  SMALL: { label: "SMALL", description: "4-5 chỗ", icon: "directions_car" },
-  MEDIUM: { label: "MEDIUM", description: "CUV/SUV 5 chỗ", icon: "commute" },
-  LARGE: { label: "LARGE", description: "7 chỗ", icon: "airport_shuttle" },
-  XLARGE: { label: "XLARGE", description: "Bán tải, Van", icon: "local_shipping" },
+  SMALL: { label: "SMALL", icon: "directions_car" },
+  MEDIUM: { label: "MEDIUM", icon: "commute" },
+  LARGE: { label: "LARGE", icon: "airport_shuttle" },
+  XLARGE: { label: "XLARGE", icon: "local_shipping" },
 };
 
 const normalizeVehicleSize = (vehicle) => {
-  const rawSize = String(vehicle?.size || vehicle?.vehicleSize || vehicle?.type || "").toUpperCase();
+  const rawSize = String(
+    vehicle?.size ||
+      vehicle?.vehicleSize ||
+      vehicle?.vehicle_size ||
+      vehicle?.type ||
+      "",
+  ).toUpperCase();
   if (VEHICLE_SIZE_OPTIONS[rawSize]) return rawSize;
   if (String(vehicle?.type || "").includes("7")) return "LARGE";
   if (String(vehicle?.type || "").toLowerCase().includes("suv")) return "MEDIUM";
@@ -73,6 +79,18 @@ const normalizeVehicleSize = (vehicle) => {
 
 const getVehicleSizeInfo = (vehicle) =>
   VEHICLE_SIZE_OPTIONS[normalizeVehicleSize(vehicle)] || VEHICLE_SIZE_OPTIONS.SMALL;
+
+const getVehicleDisplayName = (vehicle) => {
+  const brand = vehicle?.brand || "";
+  const model =
+    vehicle?.modelName ||
+    vehicle?.model_name ||
+    vehicle?.model ||
+    vehicle?.name ||
+    "";
+  const displayName = `${brand} ${model}`.trim();
+  return displayName || vehicle?.label || getVehicleSizeInfo(vehicle).label;
+};
 
 const unwrapList = (payload, keys = []) => {
   if (Array.isArray(payload)) return payload;
@@ -127,6 +145,10 @@ const getTierRule = (tierRules, tier) =>
       String(tier || "").toUpperCase(),
   ) || {};
 
+const getProfileVehicles = () => {
+  return [];
+};
+
 const mergeVehicles = (...groups) => {
   const seen = new Set();
   return groups
@@ -135,10 +157,7 @@ const mergeVehicles = (...groups) => {
     .map((vehicle) => ({
       ...vehicle,
       id: vehicle.id || vehicle._id || vehicle.plate,
-      label:
-        vehicle.label ||
-        vehicle.name ||
-        `${getVehicleSizeInfo(vehicle).label} - ${getVehicleSizeInfo(vehicle).description}`,
+      label: getVehicleDisplayName(vehicle),
     }))
     .filter((vehicle) => {
       const key = String(vehicle.plate || vehicle.id || "").toUpperCase();
@@ -157,6 +176,7 @@ export default function CustomerBooking() {
   const [customerVouchers, setCustomerVouchers] = useState([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(false);
   const [bookingDataError, setBookingDataError] = useState("");
 
   const [userTier, setUserTier] = useState("Member");
@@ -165,6 +185,7 @@ export default function CustomerBooking() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [plate, setPlate] = useState("");
   const [service, setService] = useState("");
+  const [selectedAddons, setSelectedAddons] = useState([]);
   const [date, setDate] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PAYOS");
@@ -176,8 +197,59 @@ export default function CustomerBooking() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const fetchBookingData = async (carSize, initialConfig = null) => {
+    setLoadingServices(true);
+    setSelectedAddons([]); // Reset selected addons on vehicle change
+    try {
+      const response = await getBookingData(carSize);
+      const payload = response.data || {};
+      const config = initialConfig || unwrapObject(await getCustomerBookingConfig().catch(() => ({})));
+
+      const businessHours =
+        payload.businessHours || payload.businessWindow || config.businessHours || {};
+      const fetchedServices = Array.isArray(payload.services)
+        ? payload.services
+        : [];
+      const fetchedSlots = normalizeHourlySlots(payload.timeSlots, businessHours);
+
+      setBookingConfig({
+        businessHours,
+        slotDurationMinutes:
+          payload.slotDurationMinutes || config.slotDurationMinutes || 60,
+        tierRules:
+          payload.tierRules ||
+          payload.tierConfigs ||
+          config.tierRules ||
+          config.tierConfigs ||
+          [],
+      });
+      setServices(fetchedServices);
+      setTimeSlots(fetchedSlots);
+
+      if (fetchedServices.length > 0) {
+        const nextMainServices = fetchedServices.filter(
+          (item) => item.isMain === true,
+        );
+        const defaultMainService = nextMainServices.length > 0 ? nextMainServices[0] : fetchedServices[0];
+        if (defaultMainService) {
+          setService(defaultMainService.id);
+        }
+      } else {
+        setService("");
+      }
+      setBookingDataError("");
+    } catch {
+      setBookingDataError("Không thể tải danh sách dịch vụ cho loại xe này.");
+      setServices([]);
+      setTimeSlots([]);
+    } finally {
+      setLoadingServices(false);
+      setLoadingData(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
         const tier = getUserTier() || "Member";
         const balance = Number(getUserWalletBalance()) || 0;
@@ -185,116 +257,100 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [response, voucherPayload, configPayload, carsRes] = await Promise.all([
-          getBookingData().catch(() => ({})),
+        const [carsPayload, voucherPayload, configPayload] = await Promise.all([
+          getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
-          getMyCars().catch(() => null),
         ]);
-        const payload = response.data || {};
-        const config = unwrapObject(configPayload);
-        const businessHours =
-          payload.businessHours || payload.businessWindow || config.businessHours || {};
-        const fetchedVehicles = Array.isArray(payload.vehicles)
-          ? payload.vehicles
-          : [];
-        const apiCars = Array.isArray(carsRes?.data)
-          ? carsRes.data
-          : Array.isArray(carsRes?.data?.data)
-          ? carsRes.data.data
-          : [];
-        const profileVehicles = apiCars.map(car => {
-          const size = car.vehicleSize || "SMALL";
-          const sizeOption = VEHICLE_SIZE_OPTIONS[size] || VEHICLE_SIZE_OPTIONS.SMALL;
-          return {
-            id: car.id,
-            plate: car.licensePlate,
-            size: size,
-            type: size,
-            name: `${sizeOption.label} - ${sizeOption.description}`,
-            brand: "Xe",
-            modelName: size,
-            label: `Xe ${sizeOption.label}`,
-            vehicleModelId: null,
-          };
-        });
-        const fetchedServices = Array.isArray(payload.services)
-          ? payload.services
-          : [];
-        const fetchedSlots = normalizeHourlySlots(payload.timeSlots, businessHours);
-        const nextVehicles = mergeVehicles(fetchedVehicles, profileVehicles);
 
-        setBookingConfig({
-          businessHours,
-          slotDurationMinutes:
-            payload.slotDurationMinutes || config.slotDurationMinutes || 60,
-          tierRules:
-            payload.tierRules ||
-            payload.tierConfigs ||
-            config.tierRules ||
-            config.tierConfigs ||
-            [],
-        });
+        const config = unwrapObject(configPayload);
+        const fetchedVehicles = Array.isArray(carsPayload) ? carsPayload : [];
+        const nextVehicles = mergeVehicles(fetchedVehicles, getProfileVehicles());
+
         setVehicles(nextVehicles);
-        setServices(fetchedServices);
-        setTimeSlots(fetchedSlots);
+        const voucherList = unwrapList(voucherPayload, ["vouchers", "items", "data"]);
         setCustomerVouchers(
-          unwrapList(voucherPayload, ["vouchers", "items", "data"]).filter(
-            (voucher) => getVoucherCode(voucher),
-          ),
+          voucherList.filter((voucher) => getVoucherCode(voucher)),
         );
 
         if (nextVehicles.length > 0) {
           setSelectedVehicle(nextVehicles[0]);
           setPlate(nextVehicles[0].plate || "");
-        }
-        if (fetchedServices.length > 0) {
-          const popular =
-            fetchedServices.find((item) => item.popular) || fetchedServices[1];
-          setService((popular || fetchedServices[0]).id);
+        } else {
+          // If no vehicles, trigger fetching with default car size (null)
+          fetchBookingData(null, config);
         }
       } catch {
-        setBookingDataError(
-          "Không thể tải dữ liệu đặt lịch. Vui lòng thử lại sau.",
-        );
-        const profileVehicles = Array.isArray(getUser()?.vehicles)
-          ? getUser().vehicles
-          : [];
-        const nextVehicles = mergeVehicles(profileVehicles);
-        setVehicles(nextVehicles);
-        if (nextVehicles.length > 0) {
-          setSelectedVehicle(nextVehicles[0]);
-          setPlate(nextVehicles[0].plate || "");
-        }
-        setServices([]);
-        setTimeSlots([]);
-        setBookingConfig({});
-        setCustomerVouchers([]);
-      } finally {
+        setBookingDataError("Không thể tải thông tin xe và voucher. Vui lòng thử lại sau.");
         setLoadingData(false);
       }
     };
 
-    fetchData();
+    fetchInitialData();
   }, []);
 
-  const serviceInfo = services.find((item) => item.id === service) || {
+  const vehicleIdOrPlate = selectedVehicle?.id || selectedVehicle?.plate;
+
+  useEffect(() => {
+    if (vehicleIdOrPlate) {
+      const carSize = normalizeVehicleSize(selectedVehicle);
+      fetchBookingData(carSize);
+    }
+  }, [vehicleIdOrPlate]);
+
+  const mainServices = useMemo(() => {
+    const filtered = services.filter((item) => item.isMain === true);
+    return filtered.length > 0 ? filtered : services;
+  }, [services]);
+
+  const addonServices = useMemo(() => {
+    return services.filter((item) => item.isMain === false);
+  }, [services]);
+
+  const serviceInfo = mainServices.find((item) => item.id === service) || {
     price: 0,
-    label: "",
+    name: "",
     description: "",
   };
+
+  const addonCost = selectedAddons.reduce((sum, addonId) => {
+    const addon = addonServices.find((item) => item.id === addonId);
+    return sum + (addon?.price || 0);
+  }, 0);
+
   const tierRule = getTierRule(bookingConfig.tierRules || [], userTier);
   const discountPercent = Number(
     tierRule.discountPercent ?? tierRule.discountRate ?? 0,
   );
   const discountAmount = Math.round(
-    (serviceInfo.price * discountPercent) / 100,
+    ((serviceInfo.price + addonCost) * discountPercent) / 100,
   );
   const voucherAmount = voucherApplied ? voucherValue : 0;
-  const subtotal = serviceInfo.price;
+  const subtotal = serviceInfo.price + addonCost;
   const totalPrice = Math.max(subtotal - discountAmount - voucherAmount, 0);
+
+  const selectedAddonLabels = selectedAddons
+    .map(
+      (addonId) =>
+        addonServices.find((item) => item.id === addonId)?.name,
+    )
+    .filter(Boolean);
+
+  const mainServiceLabel = serviceInfo.name || "Chưa chọn";
+  const displayServiceLabel =
+    selectedAddonLabels.length > 0
+      ? `${mainServiceLabel} (+ ${selectedAddonLabels.join(", ")})`
+      : mainServiceLabel;
+
+  const handleToggleAddon = (addonId) => {
+    setSelectedAddons((prev) =>
+      prev.includes(addonId)
+        ? prev.filter((id) => id !== addonId)
+        : [...prev, addonId],
+    );
+  };
 
   const today = new Date();
   const minDate = today.toISOString().slice(0, 10);
@@ -325,21 +381,26 @@ export default function CustomerBooking() {
     setError("");
     setSuccess("");
 
-    if (!selectedVehicle || String(selectedVehicle.id).startsWith("vehicle-")) {
-      setError("Vui lòng thêm xe vào tài khoản từ trang Cá nhân trước khi đặt lịch.");
-      return;
-    }
-
-    if (!service || !date || !timeSlot) {
-      setError("Vui lòng chọn đầy đủ Dịch vụ, Ngày và Khung giờ.");
+    if (!selectedVehicle?.id || !plate.trim() || !service || !date || !timeSlot) {
+      setError("Vui lòng chọn xe, dịch vụ, ngày và khung giờ.");
       return;
     }
 
     const booking = {
-      vehicleId: Number(selectedVehicle.id),
+      vehicleId: selectedVehicle.id,
       scheduledStartTime: `${date}T${timeSlot}:00`,
-      serviceIds: [Number(service)],
+      serviceIds: [service, ...selectedAddons],
       customerNote: "",
+      plate: plate.trim(),
+      serviceId: service,
+      date,
+      time: timeSlot,
+      startTime: timeSlot,
+      endTime: getSlotEndTime(timeSlot, slotDurationMinutes),
+      durationMinutes: slotDurationMinutes,
+      paymentMethod,
+      voucherCode: voucherApplied ? voucherCode : null,
+      price: totalPrice,
     };
 
     setLoading(true);
@@ -401,10 +462,9 @@ export default function CustomerBooking() {
     try {
       const currentUser = getUser();
       const payload = await getCustomerVouchers(currentUser?.id || currentUser?.userId);
+      const voucherList = unwrapList(payload, ["vouchers", "items", "data"]);
       setCustomerVouchers(
-        unwrapList(payload, ["vouchers", "items", "data"]).filter((voucher) =>
-          getVoucherCode(voucher),
-        ),
+        voucherList.filter((voucher) => getVoucherCode(voucher)),
       );
     } catch {
       setCustomerVouchers([]);
@@ -546,13 +606,13 @@ export default function CustomerBooking() {
                           {getVehicleSizeInfo(vehicle).icon}
                         </span>
                         <p className="text-base font-black">
-                          {vehicle.label || vehicle.name || getVehicleSizeInfo(vehicle).label}
+                          {getVehicleDisplayName(vehicle)}
                         </p>
                         <p className="text-xs font-bold text-slate-500">
                           {vehicle.plate}
                         </p>
                         <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-700">
-                          {getVehicleSizeInfo(vehicle).description}
+                          {getVehicleSizeInfo(vehicle).label}
                         </p>
                       </button>
                     );
@@ -578,71 +638,104 @@ export default function CustomerBooking() {
                   </p>
                 </button>
               </div>
-
-              <div className="mt-6">
-                <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                  Biển số xe
-                </label>
-                <input
-                  type="text"
-                  value={plate}
-                  onChange={(event) => setPlate(event.target.value)}
-                  className="w-full rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                />
-              </div>
             </section>
 
             <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
               <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                 <span className="material-symbols-outlined">layers</span>
-                Gói dịch vụ
+                Chọn Dịch Vụ Rửa Xe
               </h2>
 
-              <div className="space-y-4">
-                {services.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-6 text-center text-sm font-semibold text-slate-500">
-                    Chưa có gói dịch vụ nào.
-                  </div>
-                ) : (
-                  services.map((item, index) => {
-                  const active = service === item.id;
-                  return (
-                    <label
-                      key={item.id}
-                      className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
-                        active
-                          ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
-                          : "border-white/80 bg-white/72"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="service"
-                        checked={active}
-                        onChange={() => setService(item.id)}
-                        className="h-5 w-5 text-cyan-600 focus:ring-cyan-500"
-                      />
-                      <div className="flex-grow">
-                        <div className="mb-1 flex justify-between gap-4">
-                          <h3 className="font-black text-slate-950">
-                            {item.label || item.name || "Dịch vụ"}
-                          </h3>
-                          <span className="whitespace-nowrap font-black text-cyan-700">
-                            {formatPrice(item.price)}
-                          </span>
-                        </div>
-                        <p className="text-xs font-semibold text-slate-500">
-                          {item.description}
-                        </p>
-                        {(item.popular || index === 1) && (
-                          <span className="mt-2 inline-block rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">
-                            PHỔ BIẾN NHẤT
-                          </span>
-                        )}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="mb-4 text-sm font-black uppercase tracking-[0.16em] text-cyan-700">
+                    Dịch vụ chính (Chọn 1)
+                  </h3>
+                  <div className="space-y-4">
+                    {mainServices.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-6 text-center text-sm font-semibold text-slate-500">
+                        Chưa có gói dịch vụ chính nào.
                       </div>
-                    </label>
-                  );
-                  })
+                    ) : (
+                      mainServices.map((item) => {
+                        const active = service === item.id;
+                        return (
+                          <label
+                            key={item.id}
+                            className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
+                              active
+                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                                : "border-white/80 bg-white/72"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="service"
+                              checked={active}
+                              onChange={() => setService(item.id)}
+                              className="h-5 w-5 text-cyan-600 focus:ring-cyan-500"
+                            />
+                            <div className="flex-grow">
+                              <div className="mb-1 flex justify-between gap-4">
+                                <h4 className="font-black text-slate-950">
+                                  {item.name || "Dịch vụ"}
+                                </h4>
+                                <span className="whitespace-nowrap font-black text-cyan-700">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-500">
+                                {item.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {addonServices.length > 0 && (
+                  <div>
+                    <h3 className="mb-4 text-sm font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Dịch vụ đi kèm (Chọn nhiều)
+                    </h3>
+                    <div className="space-y-4">
+                      {addonServices.map((item) => {
+                        const active = selectedAddons.includes(item.id);
+                        return (
+                          <label
+                            key={item.id}
+                            className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
+                              active
+                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                                : "border-white/80 bg-white/72"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => handleToggleAddon(item.id)}
+                              className="h-5 w-5 rounded border-cyan-200 text-cyan-600 focus:ring-cyan-500"
+                            />
+                            <div className="flex-grow">
+                              <div className="mb-1 flex justify-between gap-4">
+                                <h4 className="font-black text-slate-950">
+                                  {item.name || "Dịch vụ phụ"}
+                                </h4>
+                                <span className="whitespace-nowrap font-black text-cyan-700">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-500">
+                                {item.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             </section>
@@ -904,7 +997,10 @@ export default function CustomerBooking() {
             handleSubmit={handleSubmit}
             loading={loading}
             selectedVehicle={selectedVehicle}
-            serviceInfo={serviceInfo}
+            serviceInfo={{
+              ...serviceInfo,
+              label: displayServiceLabel,
+            }}
             subtotal={subtotal}
             success={success}
             timeSlot={timeSlot}

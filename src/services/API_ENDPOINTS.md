@@ -86,13 +86,16 @@ Expected response from BE table `vehicle_models`:
 [
   {
     "id": 1,
+    "is_active": true,
     "brand": "Kia",
-    "modelName": "Morning",
-    "vehicleSize": "SMALL",
-    "active": true
+    "model_name": "Morning",
+    "vehicle_size": "SMALL"
   }
 ]
 ```
+
+FE also accepts `modelName`, `vehicleSize`, `isActive`, and `active` as fallback
+field names, but the preferred BE response is the snake_case shape above.
 
 ### Booking Data
 
@@ -210,9 +213,43 @@ Validate voucher response:
 }
 ```
 
+### Customer Reviews
+
+File: `customerReviewApi.js`
+
+- `GET /api/customer/reviews/my`
+- `POST /api/customer/reviews`
+- `PUT /api/customer/reviews/:id`
+
+Create review request:
+
+```json
+{
+  "bookingId": 12,
+  "rating": 5,
+  "comment": "Nhận xét của khách hàng"
+}
+```
+
+Review response:
+
+```json
+{
+  "id": 1,
+  "bookingId": 12,
+  "rating": 5,
+  "comment": "Nhận xét của khách hàng",
+  "createdAt": "2026-06-14T10:30:00"
+}
+```
+
 ## Admin API Needed By Existing FE
 
 Current BE only exposes admin analytics and booking list. These endpoints are still used by admin pages and need BE support later:
+
+Admin pages do not hardcode demo data. If an endpoint returns an empty list or
+fails, the related table/chart shows an empty state. BE should return real DB
+data using the shapes below.
 
 - `GET /api/admin/analytics/dashboard`
 - `GET /api/admin/analytics/revenue`
@@ -232,6 +269,125 @@ Current BE only exposes admin analytics and booking list. These endpoints are st
 - `PUT /api/admin/services/:id`
 - `DELETE /api/admin/services/:id`
 - `PATCH /api/admin/services/:id/status`
+
+Admin booking list should support query params from FE:
+
+```http
+GET /api/admin/bookings?page=1&limit=10&status=PENDING&search=51F&startDate=2026-06-01&endDate=2026-06-15
+```
+
+Preferred booking list response:
+
+```json
+{
+  "bookings": [
+    {
+      "id": 1001,
+      "bookingCode": "BK-260615-001",
+      "customerName": "Nguyen Minh Anh",
+      "customerPhone": "0901234567",
+      "customerEmail": "minhanh@example.com",
+      "vehicleLicensePlate": "51F-123.45",
+      "vehicleModel": "Toyota Vios",
+      "tierLevel": "GOLD",
+      "services": ["Rửa tiêu chuẩn"],
+      "status": "PENDING",
+      "paymentStatus": "UNPAID",
+      "paymentMethod": "CASH",
+      "scheduledStartTime": "2026-06-15T09:00:00",
+      "totalPrice": 180000
+    }
+  ],
+  "total": 1
+}
+```
+
+Admin users response should return users/customers/staff in one list:
+
+```json
+{
+  "users": [
+    {
+      "id": 201,
+      "name": "Nguyen Minh Anh",
+      "email": "minhanh@example.com",
+      "phone": "0901234567",
+      "role": "CUSTOMER",
+      "tier": "GOLD",
+      "status": "ACTIVE",
+      "tierPoints": 1280,
+      "rewardPoints": 420,
+      "carCount": 2,
+      "bookingCount": 14,
+      "createdAt": "2026-05-18T08:30:00",
+      "vehicles": [
+        {
+          "id": 1,
+          "brand": "Toyota",
+          "model": "Vios",
+          "plate": "51F-123.45",
+          "licensePlate": "51F-123.45"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Admin service response should support both the old flat shape and the new price matrix shape. Preferred response:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Standard Wash",
+    "description": "Rửa xe tiêu chuẩn",
+    "status": "ACTIVE",
+    "rating": 4.8,
+    "totalRevenue": 850000,
+    "servicePrices": [
+      {
+        "id": 11,
+        "vehicleSize": "SMALL",
+        "vehicleLabel": "Small (Sedan)",
+        "price": 150000,
+        "duration": 20,
+        "active": true
+      }
+    ]
+  }
+]
+```
+
+Create/update service request:
+
+```json
+{
+  "name": "Standard Wash",
+  "description": "Rửa xe tiêu chuẩn",
+  "status": "ACTIVE",
+  "servicePrices": [
+    {
+      "vehicleSize": "SMALL",
+      "price": 150000,
+      "duration": 20,
+      "active": true
+    },
+    {
+      "vehicleSize": "MEDIUM",
+      "price": 200000,
+      "duration": 30,
+      "active": true
+    },
+    {
+      "vehicleSize": "LARGE",
+      "price": 250000,
+      "duration": 40,
+      "active": true
+    }
+  ]
+}
+```
 - `GET /api/admin/tiers`
 - `PUT /api/admin/tiers/:id`
 - `GET /api/admin/vouchers`
@@ -239,6 +395,61 @@ Current BE only exposes admin analytics and booking list. These endpoints are st
 - `PUT /api/admin/vouchers/:id`
 - `DELETE /api/admin/vouchers/:id`
 - `PATCH /api/admin/vouchers/:id/status`
+
+Admin tier response should include the number of customers currently in each tier
+so the Promotions & Tiers page can display it without making an additional users
+request.
+
+Preferred `GET /api/admin/tiers` response:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "MEMBER",
+    "description": "Khách hàng mới",
+    "pointsRequired": 0,
+    "discountPercent": 0,
+    "customerCount": 18
+  },
+  {
+    "id": 2,
+    "name": "SILVER",
+    "description": "Khách hàng thân thiết",
+    "pointsRequired": 500,
+    "discountPercent": 5,
+    "customerCount": 9
+  },
+  {
+    "id": 3,
+    "name": "GOLD",
+    "description": "Khách hàng ưu tiên",
+    "pointsRequired": 1000,
+    "discountPercent": 10,
+    "customerCount": 4
+  },
+  {
+    "id": 4,
+    "name": "PLATINUM",
+    "description": "Khách hàng cao cấp",
+    "pointsRequired": 2000,
+    "discountPercent": 15,
+    "customerCount": 1
+  }
+]
+```
+
+FE also accepts `totalCustomers` or `customersCount` as fallback field names, but
+`customerCount` is the preferred field.
+
+`PUT /api/admin/tiers/:id` request:
+
+```json
+{
+  "pointsRequired": 1000,
+  "discountPercent": 10
+}
+```
 
 ## Staff API Needed By Existing FE
 

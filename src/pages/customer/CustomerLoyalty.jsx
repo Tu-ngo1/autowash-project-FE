@@ -123,8 +123,9 @@ export function VoucherPage() {
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        const tiers = unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]);
         setTierConfigs(
-          unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]).sort(
+          tiers.sort(
             (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
           ),
         );
@@ -282,22 +283,20 @@ export function VoucherPage() {
 export default function CustomerLoyalty() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [allVouchers, setAllVouchers] = useState([]);
   const [tierConfigs, setTierConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [profileRes, voucherRes, tierRes] = await Promise.all([
+        const [profileRes, tierRes] = await Promise.all([
           getMyLoyalty().catch(() => null),
-          getLoyaltyVouchers().catch(() => []),
           getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
-        setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        const tiers = unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]);
         setTierConfigs(
-          unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]).sort(
+          tiers.sort(
             (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
           ),
         );
@@ -331,7 +330,6 @@ export default function CustomerLoyalty() {
   }, [profile, nextTier, tierConfigs, tier]);
 
   const myVouchers = profile?.vouchers || [];
-  const previewVouchers = allVouchers.slice(0, 4);
 
   return (
     <PageShell>
@@ -376,14 +374,14 @@ export default function CustomerLoyalty() {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-4 text-sm font-semibold leading-6 text-amber-50/78">
-            {nextTier
-              ? `Còn ${Math.max(
-                  getTierMinPoints(nextTier) - (profile?.points ?? 0),
-                  0,
-                ).toLocaleString("vi-VN")} điểm để lên hạng ${getTierLabel(nextTier)}.`
-              : "Bạn đã đạt hạng cao nhất."}
-          </p>
+          {nextTier && (
+            <p className="mt-4 text-sm font-semibold leading-6 text-amber-50/78">
+              {`Còn ${Math.max(
+                getTierMinPoints(nextTier) - (profile?.points ?? 0),
+                0,
+              ).toLocaleString("vi-VN")} điểm để lên hạng ${getTierLabel(nextTier)}.`}
+            </p>
+          )}
         </aside>
       </section>
 
@@ -462,52 +460,6 @@ export default function CustomerLoyalty() {
             )}
           </section>
 
-          <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                  Kho voucher
-                </p>
-                <h2 className="mt-2 text-3xl font-black text-slate-950">
-                  Ưu đãi có thể đổi
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate("/rewards/vouchers")}
-                className="rounded-2xl border border-cyan-200 bg-white/70 px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
-              >
-                Xem tất cả
-              </button>
-            </div>
-
-            {previewVouchers.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-10 text-center">
-                <span className="material-symbols-outlined text-[48px] text-cyan-200">
-                  inventory_2
-                </span>
-                <p className="mt-4 font-black text-slate-700">Chưa có voucher nào.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {previewVouchers.map((voucher) => (
-                  <VoucherCard
-                    key={voucher.id || voucher.voucherId || voucher.code || getVoucherName(voucher)}
-                    voucher={voucher}
-                    redeemablePoints={profile?.redeemablePoints ?? 0}
-                    onRedeem={async (voucherId) => {
-                      try {
-                        await redeemVoucher(voucherId);
-                        navigate("/rewards/vouchers");
-                      } catch (err) {
-                        navigate("/rewards/vouchers");
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
         </>
       )}
     </PageShell>

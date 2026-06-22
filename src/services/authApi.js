@@ -47,13 +47,13 @@ const normalizeAuthResponse = (payload) => {
 };
 
 export async function login({ account, password }) {
-  const email = account.trim();
+  const usernameOrPhone = account.trim();
   const testLoginEnabled =
     import.meta.env.VITE_ENABLE_TEST_LOGIN === "true";
   const testAccount = testLoginEnabled
     ? TEST_ACCOUNTS.find(
         (user) =>
-          user.email.toLowerCase() === email.toLowerCase() &&
+          user.email.toLowerCase() === usernameOrPhone.toLowerCase() &&
           user.password === password,
       )
     : null;
@@ -63,7 +63,7 @@ export async function login({ account, password }) {
   }
 
   const response = await api.post(apiPath("/auth/login"), {
-    email,
+    usernameOrPhone,
     password,
   });
 
@@ -72,19 +72,26 @@ export async function login({ account, password }) {
 
 export async function register({
   name,
+  fullName,
+  phone = "",
   username,
   email,
-  phone,
   password,
   otp,
+  licensePlate = "",
+  role = "CUSTOMER",
 }) {
+  const normalizedEmail = email.trim();
+  const normalizedName = (fullName || name || "").trim();
   const response = await api.post(apiPath("/auth/register"), {
-    fullName: name.trim(),
-    username: username.trim(),
-    email: email.trim(),
+    fullName: normalizedName,
+    email: normalizedEmail,
     phone: phone.trim(),
+    username: username?.trim() || normalizedEmail,
     password,
     otp: otp?.trim(),
+    licensePlate: licensePlate.trim(),
+    role,
   });
 
   return normalizeAuthResponse(response.data);
@@ -93,12 +100,10 @@ export async function register({
 export const sendRegistrationOtp = (email) =>
   api.post(apiPath("/auth/register/send-otp"), {
     email: email.trim(),
-    purpose: "REGISTER",
   }).then((response) => response.data);
 
 export const verifyRegistrationOtp = (email, otp) =>
   api.post(apiPath("/auth/register/verify-otp"), {
     email: email.trim(),
     otp: otp.trim(),
-    purpose: "REGISTER",
   }).then((response) => response.data);

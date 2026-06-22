@@ -52,6 +52,9 @@ function StatusBadge({ status }) {
   );
 }
 
+const canDeleteBooking = (booking) =>
+  String(booking?.status || "").toUpperCase() !== "COMPLETED";
+
 export default function AdminBookingsTable({
   bookings,
   fetchBookingDetails,
@@ -122,7 +125,7 @@ export default function AdminBookingsTable({
               <div className="flex justify-between gap-3 border-t border-zinc-800 pt-2">
                 <span>Tổng tiền</span>
                 <span className="font-mono font-black text-zinc-100">
-                  {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
+                  {(booking.finalPrice ?? booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                 </span>
               </div>
               <div className="flex gap-2 border-t border-zinc-800 pt-3">
@@ -137,17 +140,21 @@ export default function AdminBookingsTable({
                   <span className="material-symbols-outlined text-[16px]">edit</span>
                   Edit
                 </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDeleteBooking?.(booking);
-                  }}
-                  className="flex flex-1 items-center justify-center gap-2 border border-red-400/50 bg-red-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-red-300"
-                >
-                  <span className="material-symbols-outlined text-[16px]">delete</span>
-                  Delete
-                </button>
+                {canDeleteBooking(booking) && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDeleteBooking?.(booking);
+                    }}
+                    className="flex flex-1 items-center justify-center gap-2 border border-red-400/50 bg-red-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-red-300"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      delete
+                    </span>
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
           </button>
@@ -233,7 +240,7 @@ export default function AdminBookingsTable({
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
-                    {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
+                    {(booking.finalPrice ?? booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                   </span>
                 </td>
                 <td className="px-3 py-3 text-center align-middle">
@@ -251,19 +258,21 @@ export default function AdminBookingsTable({
                         edit
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteBooking?.(booking);
-                      }}
-                      className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
-                      title="Xóa booking"
-                    >
-                      <span className="material-symbols-outlined text-[17px]">
-                        delete
-                    </span>
-                  </button>
+                    {canDeleteBooking(booking) && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteBooking?.(booking);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
+                        title="Xóa booking"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">
+                          delete
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
