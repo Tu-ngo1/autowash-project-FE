@@ -207,8 +207,8 @@ export default function RegisterPage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-24"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(3,24,44,0.56),rgba(12,112,151,0.28)_45%,rgba(239,253,255,0.96)_82%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.09)_1px,transparent_1px)] bg-[size:72px_72px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(239,253,255,0.96),rgba(225,246,252,0.9)_48%,rgba(255,255,255,0.98)_86%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.06)_1px,transparent_1px)] bg-[size:72px_72px]" />
         <div className="absolute right-[-120px] top-[-80px] h-[520px] w-[520px] rounded-full bg-cyan-200/50 blur-3xl" />
         <div className="wash-foam-drift absolute bottom-[-110px] left-[-120px] h-72 w-[78vw] rounded-[50%] bg-white/40 blur-3xl" />
       </div>
@@ -240,8 +240,9 @@ export default function RegisterPage() {
       </header>
 
       <div className="relative z-10 mx-auto grid max-w-7xl gap-7 py-8 lg:grid-cols-[minmax(0,1fr)_390px] lg:py-10">
-        <main className="relative overflow-hidden rounded-[30px] border border-white/90 bg-white/94 p-5 shadow-[0_30px_90px_rgba(2,55,88,0.18)] backdrop-blur-xl sm:p-8">
-          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-200/55 blur-3xl" />
+        <main className="relative overflow-hidden rounded-[30px] border border-cyan-100 bg-gradient-to-br from-white via-cyan-50/82 to-sky-100/72 p-5 shadow-[0_30px_90px_rgba(2,55,88,0.14)] sm:p-8">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-200/65 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-16 h-60 w-60 rounded-full bg-sky-100/80 blur-3xl" />
           <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" />
 
           <div className="relative mb-8 max-w-3xl">
@@ -250,9 +251,9 @@ export default function RegisterPage() {
               Email OTP access
             </div>
             <h1 className="mt-5 text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl">
-              Tạo tài khoản để đưa xe vào khoang rửa.
+              Đăng ký tài khoản
             </h1>
-            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-700">
+            <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-600">
               Xác thực email bằng OTP, sau đó dùng tài khoản này để đặt lịch,
               xem trạng thái rửa xe và lưu lịch sử chăm sóc.
             </p>
@@ -278,7 +279,7 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            <section className="rounded-[26px] border border-cyan-100 bg-cyan-50/88 p-4 shadow-inner shadow-white/70 sm:p-5">
+            <section className="rounded-[26px] border border-cyan-100 bg-cyan-100/62 p-4 shadow-inner shadow-white/70 sm:p-5">
               <div className="flex items-start gap-3">
                 <span className="mt-1 rounded-2xl bg-white p-2.5 text-cyan-700 ring-1 ring-cyan-100">
                   <Mail size={20} />
@@ -369,7 +370,7 @@ export default function RegisterPage() {
               </div>
 
               {otpMessage && (
-                <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cyan-800 ring-1 ring-cyan-100">
+              <div className="mt-4 rounded-2xl bg-white/88 px-4 py-3 text-sm font-semibold text-cyan-800 ring-1 ring-cyan-100">
                   {otpMessage}
                 </div>
               )}

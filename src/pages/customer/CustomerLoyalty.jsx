@@ -374,14 +374,14 @@ export default function CustomerLoyalty() {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-4 text-sm font-semibold leading-6 text-amber-50/78">
-            {nextTier
-              ? `Còn ${Math.max(
-                  getTierMinPoints(nextTier) - (profile?.points ?? 0),
-                  0,
-                ).toLocaleString("vi-VN")} điểm để lên hạng ${getTierLabel(nextTier)}.`
-              : "Bạn đã đạt hạng cao nhất."}
-          </p>
+          {nextTier && (
+            <p className="mt-4 text-sm font-semibold leading-6 text-amber-50/78">
+              {`Còn ${Math.max(
+                getTierMinPoints(nextTier) - (profile?.points ?? 0),
+                0,
+              ).toLocaleString("vi-VN")} điểm để lên hạng ${getTierLabel(nextTier)}.`}
+            </p>
+          )}
         </aside>
       </section>
 

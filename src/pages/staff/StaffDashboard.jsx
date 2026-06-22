@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import StaffNavbar from "../../components/StaffNavbar";
 import {
   confirmPendingAppointment,
   getPendingAppointments,
 } from "../../services/staffDashboardApi";
+import { checkInBookingByQr } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_STYLES = {
@@ -111,7 +113,7 @@ function getAppointmentValue(item, keys, fallback = "Chưa có dữ liệu") {
   return value || fallback;
 }
 
-function AppointmentSnapshot({ appointment }) {
+function AppointmentSnapshot({ appointment, scannedCode }) {
   if (!appointment) {
     return (
       <div className="rounded-3xl border border-dashed border-teal-100/30 bg-[#123746]/88 p-4">
@@ -126,6 +128,14 @@ function AppointmentSnapshot({ appointment }) {
             >
               Thông tin đặt lịch
             </p>
+            {scannedCode ? (
+              <p
+                className="mt-2 break-all text-sm font-bold text-[#ecfeff]"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                Mã vừa quét: {scannedCode}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -172,6 +182,14 @@ function AppointmentSnapshot({ appointment }) {
           >
             Thông tin đặt lịch
           </p>
+          {scannedCode ? (
+            <p
+              className="mt-1 break-all text-[12px] font-bold text-[#a9f7ef]"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              Mã vừa quét: {scannedCode}
+            </p>
+          ) : null}
           <p
             className="mt-1 text-2xl font-black tracking-wider text-[#ecfeff]"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
@@ -206,6 +224,9 @@ function AppointmentSnapshot({ appointment }) {
 export default function StaffDashboard() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const scanControlsRef = useRef(null);
+  const qrReaderRef = useRef(null);
+  const lastQrRef = useRef("");
   const [pendingList, setPendingList] = useState([]);
   const [scannedResult, setScannedResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -213,6 +234,9 @@ export default function StaffDashboard() {
   const [error, setError] = useState("");
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [scanWarning, setScanWarning] = useState("");
+  const [scanStatus, setScanStatus] = useState("");
+  const [scannedCode, setScannedCode] = useState("");
 
   const fetchPendingAppointments = async () => {
     setLoading(true);
@@ -242,42 +266,133 @@ export default function StaffDashboard() {
     fetchPendingAppointments();
   }, []);
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+  const releaseScanner = () => {
+    if (scanControlsRef.current) {
+      scanControlsRef.current.stop();
+      scanControlsRef.current = null;
     }
     if (videoRef.current) {
+      const stream = videoRef.current.srcObject || streamRef.current;
+      if (stream?.getTracks) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
       videoRef.current.srcObject = null;
     }
-    setCameraActive(false);
+    streamRef.current = null;
+    qrReaderRef.current = null;
   };
 
-  const startCamera = async () => {
+  const stopCamera = () => {
+    releaseScanner();
+    lastQrRef.current = "";
+    setCameraActive(false);
+    setScanStatus("");
+  };
+
+  const startCamera = () => {
     setCameraError("");
+    setScanWarning("");
+    setScannedCode("");
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError("Trình duyệt hiện tại không hỗ trợ mở camera.");
       return;
     }
 
+    setCameraActive(true);
+    setScanStatus("Đang chờ QR/barcode...");
+  };
+
+  const normalizeScannedBooking = (payload) => {
+    const booking = payload?.data?.data ?? payload?.data ?? payload ?? {};
+    const scheduledStartTime = booking.scheduledStartTime || booking.dateTime || "";
+    const services = Array.isArray(booking.services)
+      ? booking.services
+      : booking.service
+        ? [booking.service]
+        : [];
+
+    return {
+      ...booking,
+      plate: booking.vehicleLicensePlate || booking.plate || "",
+      time:
+        booking.time ||
+        (scheduledStartTime.includes("T")
+          ? scheduledStartTime.split("T")[1]?.slice(0, 5)
+          : ""),
+      service: booking.service || booking.serviceName || services.join(", "),
+      tier: booking.tier || booking.status || "Đã quét",
+      scanned: true,
+    };
+  };
+
+  const handleQrDetected = async (qrContent) => {
+    if (!qrContent || submitLoading) return;
+    if (lastQrRef.current === qrContent) return;
+
+    lastQrRef.current = qrContent;
+    setScannedCode(qrContent);
+    setScanWarning("");
+    releaseScanner();
+    setCameraActive(false);
+    setSubmitLoading(true);
+    setScanStatus("Đã đọc mã, đang check-in...");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
-      streamRef.current = stream;
-      setCameraActive(true);
+      const response = await checkInBookingByQr(qrContent);
+      const booking = normalizeScannedBooking(response);
+      setScannedResult(booking);
+      setScanStatus("Check-in thành công.");
+      fetchPendingAppointments();
+    } catch (err) {
+      setScanStatus("Đã đọc mã, backend chưa nhận.");
+      setScanWarning(
+        getFriendlyErrorMessage(
+          err,
+          "Đã đọc được mã, nhưng backend chưa check-in được mã này.",
+        ),
+      );
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const startQrScanner = async () => {
+    if (!videoRef.current) return;
+    if (scanControlsRef.current) {
+      scanControlsRef.current.stop();
+      scanControlsRef.current = null;
+    }
+
+    try {
+      const reader = new BrowserMultiFormatReader();
+      qrReaderRef.current = reader;
+      setScanStatus("Đang quét mã...");
+      scanControlsRef.current = await reader.decodeFromConstraints(
+        {
+          video: {
+            facingMode: { ideal: "environment" },
+          },
+          audio: false,
+        },
+        videoRef.current,
+        (result) => {
+          if (result) {
+            handleQrDetected(result.getText());
+          }
+        },
+      );
+      streamRef.current = videoRef.current.srcObject;
     } catch {
+      setCameraActive(false);
+      setScanStatus("");
       setCameraError(
-        "Không thể mở camera. Hãy kiểm tra quyền camera của trình duyệt.",
+        "Không thể mở chế độ quét mã. Hãy kiểm tra quyền camera của trình duyệt.",
       );
     }
   };
 
   useEffect(() => {
-    if (cameraActive && videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(() => {});
+    if (cameraActive && videoRef.current) {
+      startQrScanner();
     }
   }, [cameraActive]);
 
@@ -391,7 +506,10 @@ export default function StaffDashboard() {
                       {scannedResult.plate}
                     </div>
                   </div>
-                  <AppointmentSnapshot appointment={scannedResult} />
+                  <AppointmentSnapshot
+                    appointment={scannedResult}
+                    scannedCode={scannedCode}
+                  />
                   <button
                     type="button"
                     disabled={submitLoading}
@@ -418,20 +536,25 @@ export default function StaffDashboard() {
                 <div className="space-y-3.5">
                   <div className="staff-scanline relative h-[300px] overflow-hidden border border-dashed border-teal-100/35 rounded-3xl bg-[#123746]/90 shadow-[inset_0_0_0_1px_rgba(111,246,223,0.08),0_18px_44px_rgba(3,30,43,0.22)] lg:h-[320px]">
                     {cameraActive ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        muted
-                        playsInline
-                        className="h-full w-full object-cover"
-                      />
+                      <>
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          muted
+                          playsInline
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-[#6ff6df]/25 bg-slate-950/70 px-4 py-3 text-center text-[12px] font-bold uppercase tracking-[0.16em] text-[#6ff6df] backdrop-blur">
+                          {scanStatus || "Đang quét mã..."}
+                        </div>
+                      </>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center text-[#e5fbff] text-center p-4">
                         <span className="material-symbols-outlined text-[40px] mb-2 text-[#7ddbd1] animate-pulse">
                           center_focus_weak
                         </span>
                         <p className="text-[13px] font-semibold leading-relaxed">
-                          Camera đang tắt. Bật camera để kiểm tra khung hình.
+                          Camera đang tắt. Bật camera để quét QR/barcode check-in.
                         </p>
                       </div>
                     )}
@@ -442,6 +565,12 @@ export default function StaffDashboard() {
                   {cameraError && (
                     <div className="rounded border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-300">
                       {cameraError}
+                    </div>
+                  )}
+
+                  {scanWarning && (
+                    <div className="rounded border border-amber-300/35 bg-amber-300/10 px-3 py-2 text-[13px] font-semibold text-amber-100">
+                      {scanWarning}
                     </div>
                   )}
 
@@ -458,10 +587,13 @@ export default function StaffDashboard() {
                     <span className="material-symbols-outlined text-[18px]">
                       {cameraActive ? "videocam_off" : "videocam"}
                     </span>
-                    {cameraActive ? "TẮT CAMERA" : "BẬT CAMERA LAPTOP"}
+                    {cameraActive ? "TẮT QUÉT MÃ" : "BẬT QUÉT MÃ"}
                   </button>
 
-                  <AppointmentSnapshot appointment={null} />
+                  <AppointmentSnapshot
+                    appointment={scannedResult}
+                    scannedCode={scannedCode}
+                  />
                 </div>
               )}
             </div>
