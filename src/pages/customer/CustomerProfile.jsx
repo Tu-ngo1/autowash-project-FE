@@ -1075,20 +1075,12 @@ export default function CustomerProfile() {
                   <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                     Loại xe
                   </span>
-                  <select
+                  <input
                     value={vehicleForm.size}
-                    onChange={(event) =>
-                      handleVehicleFieldChange("size", event.target.value)
-                    }
-                    className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                  >
-                    <option value="">Chọn loại xe</option>
-                    {VEHICLE_SIZE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    readOnly
+                    placeholder="Tự động theo hãng và tên xe"
+                    className="h-13 w-full cursor-not-allowed rounded-2xl border border-cyan-100 bg-slate-100/80 px-4 text-sm font-black uppercase text-slate-600 outline-none"
+                  />
                 </label>
 
                 <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
