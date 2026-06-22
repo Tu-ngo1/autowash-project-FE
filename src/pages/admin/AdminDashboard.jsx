@@ -299,7 +299,11 @@ export default function AdminDashboard() {
       ]);
       const bookingItems = apiBookingItems.map(normalizeAdminBooking);
       setBookings(bookingItems);
-      const statusItems = asArrayPayload(statusRes, ["items", "statuses", "data"]);
+      const statusItems = asArrayPayload(statusRes, [
+        "items",
+        "statuses",
+        "data",
+      ]);
       setBookingsByStatus(statusItems);
       const voucherItems = asArrayPayload(voucherRes, [
         "items",
@@ -362,8 +366,16 @@ export default function AdminDashboard() {
   }, [bookingsByStatus, dashboard]);
 
   const revenueTotal = useMemo(() => {
-    const backendRevenue = getMetric(dashboard, ["totalRevenue", "revenue", "totalSales"]);
-    if (backendRevenue !== undefined && backendRevenue !== null && backendRevenue !== 0) {
+    const backendRevenue = getMetric(dashboard, [
+      "totalRevenue",
+      "revenue",
+      "totalSales",
+    ]);
+    if (
+      backendRevenue !== undefined &&
+      backendRevenue !== null &&
+      backendRevenue !== 0
+    ) {
       return backendRevenue;
     }
     if (bookings.length > 0) {
@@ -371,7 +383,10 @@ export default function AdminDashboard() {
         .filter(
           (item) => String(item.status || "").toUpperCase() === "COMPLETED"
         )
-        .reduce((sum, item) => sum + (item.totalPrice ?? 0), 0);
+        .reduce(
+          (sum, item) => sum + (item.finalPrice ?? item.totalPrice ?? 0),
+          0
+        );
     }
     return 0;
   }, [bookings, dashboard]); // Sửa lại mảng dependency chính xác
@@ -618,7 +633,7 @@ export default function AdminDashboard() {
                       {booking.status || "-"}
                     </td>
                     <td className="p-4 text-right font-black text-zinc-100">
-                      {formatCurrency(booking.totalPrice)}
+                      {formatCurrency(booking.finalPrice)}
                     </td>
                   </tr>
                 ))

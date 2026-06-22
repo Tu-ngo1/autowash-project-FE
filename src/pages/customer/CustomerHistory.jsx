@@ -133,26 +133,24 @@ export default function CustomerHistory() {
 
   const summary = useMemo(() => {
     const completed = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "COMPLETED",
+      (item) => String(item.status || "").toUpperCase() === "COMPLETED"
     ).length;
     const pending = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "PENDING",
+      (item) => String(item.status || "").toUpperCase() === "PENDING"
     ).length;
     const cancelled = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "CANCELLED",
+      (item) => String(item.status || "").toUpperCase() === "CANCELLED"
     ).length;
     const total = history.length;
     const spent = history.reduce(
       (sum, item) => sum + (Number(item.price) || 0),
-      0,
+      0
     );
     return { completed, pending, cancelled, total, spent };
   }, [history]);
 
   const getReviewByBookingId = (bookingId) =>
-    reviews.find(
-      (review) => String(review.bookingId) === String(bookingId),
-    );
+    reviews.find((review) => String(review.bookingId) === String(bookingId));
 
   const handleSubmitReview = async (payload) => {
     setReviewLoading(true);
@@ -167,8 +165,8 @@ export default function CustomerHistory() {
       setReviewMessage(
         getFriendlyErrorMessage(
           err,
-          "Chưa gửi được đánh giá. Vui lòng thử lại sau.",
-        ),
+          "Chưa gửi được đánh giá. Vui lòng thử lại sau."
+        )
       );
     } finally {
       setReviewLoading(false);
@@ -320,8 +318,8 @@ export default function CustomerHistory() {
                   Bạn chưa có lượt rửa xe nào.
                 </h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-6 text-slate-500">
-                  Tất cả lịch sử đặt lịch sẽ hiển thị ở đây sau khi bạn hoàn thành
-                  hoặc lưu đơn dịch vụ.
+                  Tất cả lịch sử đặt lịch sẽ hiển thị ở đây sau khi bạn hoàn
+                  thành hoặc lưu đơn dịch vụ.
                 </p>
                 <button
                   type="button"
@@ -399,7 +397,7 @@ export default function CustomerHistory() {
                               Tổng
                             </p>
                             <p className="mt-2 font-black text-slate-950">
-                              {formatCurrency(item.price)}
+                              {formatCurrency(item.totalPrice)}
                             </p>
                           </div>
                         </div>
@@ -430,13 +428,16 @@ export default function CustomerHistory() {
                                 Đánh giá
                               </button>
                             ))}
-                          {(statusKey === "COMPLETED" || statusKey === "PENDING") && (
+                          {(statusKey === "COMPLETED" ||
+                            statusKey === "PENDING") && (
                             <button
                               type="button"
                               onClick={() => navigate("/booking")}
                               className="rounded-xl bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-white"
                             >
-                              {statusKey === "COMPLETED" ? "Đặt lại" : "Sửa lịch"}
+                              {statusKey === "COMPLETED"
+                                ? "Đặt lại"
+                                : "Sửa lịch"}
                             </button>
                           )}
                           <button

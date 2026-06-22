@@ -176,6 +176,7 @@ export default function CustomerBooking() {
   const [customerVouchers, setCustomerVouchers] = useState([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(false);
   const [bookingDataError, setBookingDataError] = useState("");
 
   const [userTier, setUserTier] = useState("Member");
@@ -184,6 +185,7 @@ export default function CustomerBooking() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [plate, setPlate] = useState("");
   const [service, setService] = useState("");
+  const [selectedAddons, setSelectedAddons] = useState([]);
   const [date, setDate] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PAYOS");
@@ -195,8 +197,59 @@ export default function CustomerBooking() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const fetchBookingData = async (carSize, initialConfig = null) => {
+    setLoadingServices(true);
+    setSelectedAddons([]); // Reset selected addons on vehicle change
+    try {
+      const response = await getBookingData(carSize);
+      const payload = response.data || {};
+      const config = initialConfig || unwrapObject(await getCustomerBookingConfig().catch(() => ({})));
+
+      const businessHours =
+        payload.businessHours || payload.businessWindow || config.businessHours || {};
+      const fetchedServices = Array.isArray(payload.services)
+        ? payload.services
+        : [];
+      const fetchedSlots = normalizeHourlySlots(payload.timeSlots, businessHours);
+
+      setBookingConfig({
+        businessHours,
+        slotDurationMinutes:
+          payload.slotDurationMinutes || config.slotDurationMinutes || 60,
+        tierRules:
+          payload.tierRules ||
+          payload.tierConfigs ||
+          config.tierRules ||
+          config.tierConfigs ||
+          [],
+      });
+      setServices(fetchedServices);
+      setTimeSlots(fetchedSlots);
+
+      if (fetchedServices.length > 0) {
+        const nextMainServices = fetchedServices.filter(
+          (item) => item.isMain === true,
+        );
+        const defaultMainService = nextMainServices.length > 0 ? nextMainServices[0] : fetchedServices[0];
+        if (defaultMainService) {
+          setService(defaultMainService.id);
+        }
+      } else {
+        setService("");
+      }
+      setBookingDataError("");
+    } catch {
+      setBookingDataError("Không thể tải danh sách dịch vụ cho loại xe này.");
+      setServices([]);
+      setTimeSlots([]);
+    } finally {
+      setLoadingServices(false);
+      setLoadingData(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
         const tier = getUserTier() || "Member";
         const balance = Number(getUserWalletBalance()) || 0;
@@ -204,45 +257,19 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [response, carsPayload, voucherPayload, configPayload] = await Promise.all([
-          getBookingData().catch(() => ({ data: {} })),
+        const [carsPayload, voucherPayload, configPayload] = await Promise.all([
           getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
         ]);
-        const payload = response.data || {};
-        const configPayloadObject = unwrapObject(configPayload);
-        const config = configPayloadObject;
-        const businessHours =
-          payload.businessHours || payload.businessWindow || config.businessHours || {};
-        const fetchedVehicles = Array.isArray(carsPayload)
-          ? carsPayload
-          : Array.isArray(payload.vehicles)
-            ? payload.vehicles
-            : [];
-        const profileVehicles = getProfileVehicles();
-        const fetchedServices = Array.isArray(payload.services)
-          ? payload.services
-          : [];
-        const fetchedSlots = normalizeHourlySlots(payload.timeSlots, businessHours);
-        const nextVehicles = mergeVehicles(fetchedVehicles, profileVehicles);
 
-        setBookingConfig({
-          businessHours,
-          slotDurationMinutes:
-            payload.slotDurationMinutes || config.slotDurationMinutes || 60,
-          tierRules:
-            payload.tierRules ||
-            payload.tierConfigs ||
-            config.tierRules ||
-            config.tierConfigs ||
-            [],
-        });
+        const config = unwrapObject(configPayload);
+        const fetchedVehicles = Array.isArray(carsPayload) ? carsPayload : [];
+        const nextVehicles = mergeVehicles(fetchedVehicles, getProfileVehicles());
+
         setVehicles(nextVehicles);
-        setServices(fetchedServices);
-        setTimeSlots(fetchedSlots);
         const voucherList = unwrapList(voucherPayload, ["vouchers", "items", "data"]);
         setCustomerVouchers(
           voucherList.filter((voucher) => getVoucherCode(voucher)),
@@ -251,50 +278,79 @@ export default function CustomerBooking() {
         if (nextVehicles.length > 0) {
           setSelectedVehicle(nextVehicles[0]);
           setPlate(nextVehicles[0].plate || "");
-        }
-        if (fetchedServices.length > 0) {
-          const popular =
-            fetchedServices.find((item) => item.popular) || fetchedServices[1];
-          setService((popular || fetchedServices[0]).id);
+        } else {
+          // If no vehicles, trigger fetching with default car size (null)
+          fetchBookingData(null, config);
         }
       } catch {
-        setBookingDataError(
-          "Không thể tải dữ liệu đặt lịch. Vui lòng thử lại sau.",
-        );
-        const profileVehicles = getProfileVehicles();
-        const nextVehicles = mergeVehicles(profileVehicles);
-        setVehicles(nextVehicles);
-        if (nextVehicles.length > 0) {
-          setSelectedVehicle(nextVehicles[0]);
-          setPlate(nextVehicles[0].plate || "");
-        }
-        setServices([]);
-        setTimeSlots([]);
-        setBookingConfig({});
-        setCustomerVouchers([]);
-      } finally {
+        setBookingDataError("Không thể tải thông tin xe và voucher. Vui lòng thử lại sau.");
         setLoadingData(false);
       }
     };
 
-    fetchData();
+    fetchInitialData();
   }, []);
 
-  const serviceInfo = services.find((item) => item.id === service) || {
+  const vehicleIdOrPlate = selectedVehicle?.id || selectedVehicle?.plate;
+
+  useEffect(() => {
+    if (vehicleIdOrPlate) {
+      const carSize = normalizeVehicleSize(selectedVehicle);
+      fetchBookingData(carSize);
+    }
+  }, [vehicleIdOrPlate]);
+
+  const mainServices = useMemo(() => {
+    const filtered = services.filter((item) => item.isMain === true);
+    return filtered.length > 0 ? filtered : services;
+  }, [services]);
+
+  const addonServices = useMemo(() => {
+    return services.filter((item) => item.isMain === false);
+  }, [services]);
+
+  const serviceInfo = mainServices.find((item) => item.id === service) || {
     price: 0,
-    label: "",
+    name: "",
     description: "",
   };
+
+  const addonCost = selectedAddons.reduce((sum, addonId) => {
+    const addon = addonServices.find((item) => item.id === addonId);
+    return sum + (addon?.price || 0);
+  }, 0);
+
   const tierRule = getTierRule(bookingConfig.tierRules || [], userTier);
   const discountPercent = Number(
     tierRule.discountPercent ?? tierRule.discountRate ?? 0,
   );
   const discountAmount = Math.round(
-    (serviceInfo.price * discountPercent) / 100,
+    ((serviceInfo.price + addonCost) * discountPercent) / 100,
   );
   const voucherAmount = voucherApplied ? voucherValue : 0;
-  const subtotal = serviceInfo.price;
+  const subtotal = serviceInfo.price + addonCost;
   const totalPrice = Math.max(subtotal - discountAmount - voucherAmount, 0);
+
+  const selectedAddonLabels = selectedAddons
+    .map(
+      (addonId) =>
+        addonServices.find((item) => item.id === addonId)?.name,
+    )
+    .filter(Boolean);
+
+  const mainServiceLabel = serviceInfo.name || "Chưa chọn";
+  const displayServiceLabel =
+    selectedAddonLabels.length > 0
+      ? `${mainServiceLabel} (+ ${selectedAddonLabels.join(", ")})`
+      : mainServiceLabel;
+
+  const handleToggleAddon = (addonId) => {
+    setSelectedAddons((prev) =>
+      prev.includes(addonId)
+        ? prev.filter((id) => id !== addonId)
+        : [...prev, addonId],
+    );
+  };
 
   const today = new Date();
   const minDate = today.toISOString().slice(0, 10);
@@ -333,7 +389,7 @@ export default function CustomerBooking() {
     const booking = {
       vehicleId: selectedVehicle.id,
       scheduledStartTime: `${date}T${timeSlot}:00`,
-      serviceIds: [service],
+      serviceIds: [service, ...selectedAddons],
       customerNote: "",
       plate: plate.trim(),
       serviceId: service,
@@ -587,54 +643,99 @@ export default function CustomerBooking() {
             <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
               <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                 <span className="material-symbols-outlined">layers</span>
-                Gói dịch vụ
+                Chọn Dịch Vụ Rửa Xe
               </h2>
 
-              <div className="space-y-4">
-                {services.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-6 text-center text-sm font-semibold text-slate-500">
-                    Chưa có gói dịch vụ nào.
-                  </div>
-                ) : (
-                  services.map((item, index) => {
-                  const active = service === item.id;
-                  return (
-                    <label
-                      key={item.id}
-                      className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
-                        active
-                          ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
-                          : "border-white/80 bg-white/72"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="service"
-                        checked={active}
-                        onChange={() => setService(item.id)}
-                        className="h-5 w-5 text-cyan-600 focus:ring-cyan-500"
-                      />
-                      <div className="flex-grow">
-                        <div className="mb-1 flex justify-between gap-4">
-                          <h3 className="font-black text-slate-950">
-                            {item.label || item.name || "Dịch vụ"}
-                          </h3>
-                          <span className="whitespace-nowrap font-black text-cyan-700">
-                            {formatPrice(item.price)}
-                          </span>
-                        </div>
-                        <p className="text-xs font-semibold text-slate-500">
-                          {item.description}
-                        </p>
-                        {(item.popular || index === 1) && (
-                          <span className="mt-2 inline-block rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">
-                            PHỔ BIẾN NHẤT
-                          </span>
-                        )}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="mb-4 text-sm font-black uppercase tracking-[0.16em] text-cyan-700">
+                    Dịch vụ chính (Chọn 1)
+                  </h3>
+                  <div className="space-y-4">
+                    {mainServices.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-6 text-center text-sm font-semibold text-slate-500">
+                        Chưa có gói dịch vụ chính nào.
                       </div>
-                    </label>
-                  );
-                  })
+                    ) : (
+                      mainServices.map((item) => {
+                        const active = service === item.id;
+                        return (
+                          <label
+                            key={item.id}
+                            className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
+                              active
+                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                                : "border-white/80 bg-white/72"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="service"
+                              checked={active}
+                              onChange={() => setService(item.id)}
+                              className="h-5 w-5 text-cyan-600 focus:ring-cyan-500"
+                            />
+                            <div className="flex-grow">
+                              <div className="mb-1 flex justify-between gap-4">
+                                <h4 className="font-black text-slate-950">
+                                  {item.name || "Dịch vụ"}
+                                </h4>
+                                <span className="whitespace-nowrap font-black text-cyan-700">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-500">
+                                {item.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {addonServices.length > 0 && (
+                  <div>
+                    <h3 className="mb-4 text-sm font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Dịch vụ đi kèm (Chọn nhiều)
+                    </h3>
+                    <div className="space-y-4">
+                      {addonServices.map((item) => {
+                        const active = selectedAddons.includes(item.id);
+                        return (
+                          <label
+                            key={item.id}
+                            className={`flex cursor-pointer items-center gap-4 rounded-[24px] border p-5 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
+                              active
+                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                                : "border-white/80 bg-white/72"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => handleToggleAddon(item.id)}
+                              className="h-5 w-5 rounded border-cyan-200 text-cyan-600 focus:ring-cyan-500"
+                            />
+                            <div className="flex-grow">
+                              <div className="mb-1 flex justify-between gap-4">
+                                <h4 className="font-black text-slate-950">
+                                  {item.name || "Dịch vụ phụ"}
+                                </h4>
+                                <span className="whitespace-nowrap font-black text-cyan-700">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-500">
+                                {item.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             </section>
@@ -896,7 +997,10 @@ export default function CustomerBooking() {
             handleSubmit={handleSubmit}
             loading={loading}
             selectedVehicle={selectedVehicle}
-            serviceInfo={serviceInfo}
+            serviceInfo={{
+              ...serviceInfo,
+              label: displayServiceLabel,
+            }}
             subtotal={subtotal}
             success={success}
             timeSlot={timeSlot}
