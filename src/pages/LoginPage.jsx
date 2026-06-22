@@ -66,10 +66,21 @@ function LoginPanel() {
 
   const validate = () => {
     const next = {};
-    const email = form.account.trim();
-    if (!email) next.account = "Vui lòng nhập email.";
-    else if (!EMAIL_PATTERN.test(email))
-      next.account = "Email không đúng định dạng.";
+    const account = form.account.trim();
+    if (!account) {
+      next.account = "Vui lòng nhập tên đăng nhập hoặc số điện thoại.";
+    } else {
+      const isNum = /^\d+$/.test(account);
+      if (isNum) {
+        if (account.length < 10 || account.length > 11) {
+          next.account = "Số điện thoại phải gồm 10 đến 11 chữ số.";
+        }
+      } else {
+        if (account.length < 3) {
+          next.account = "Tên đăng nhập phải từ 3 ký tự trở lên.";
+        }
+      }
+    }
     if (!form.password) next.password = "Vui lòng nhập mật khẩu.";
     else if (form.password.length < 6)
       next.password = "Mật khẩu cần ít nhất 6 ký tự.";
@@ -141,15 +152,15 @@ function LoginPanel() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="text-sm font-bold text-slate-700">Email</span>
+            <span className="text-sm font-bold text-slate-700">Tên đăng nhập hoặc Số điện thoại</span>
             <input
               name="account"
-              type="email"
+              type="text"
               value={form.account}
               onChange={handleChange}
               className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-              placeholder="customer@autowash.com"
-              autoComplete="email"
+              placeholder="Nhập tên đăng nhập hoặc số điện thoại..."
+              autoComplete="username"
             />
             {errors.account && (
               <p className="mt-2 text-sm text-rose-600">{errors.account}</p>

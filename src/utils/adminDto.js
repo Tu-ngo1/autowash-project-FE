@@ -36,6 +36,9 @@ export const normalizeAdminBooking = (booking = {}) => {
       ? [booking.service]
       : [];
 
+  const rawTotalPrice = booking.totalPrice ?? booking.total ?? booking.price ?? booking.amount ?? 0;
+  const rawFinalPrice = booking.finalPrice ?? rawTotalPrice;
+
   return {
     ...booking,
     id: booking.id ?? booking.bookingId,
@@ -48,8 +51,11 @@ export const normalizeAdminBooking = (booking = {}) => {
     time: booking.time ?? time,
     service: booking.service ?? services.join(", "),
     services,
-    total: booking.total ?? booking.totalPrice ?? booking.price ?? booking.amount ?? 0,
-    totalPrice: booking.totalPrice ?? booking.total ?? booking.price ?? booking.amount ?? 0,
+    total: rawFinalPrice,
+    totalPrice: rawTotalPrice,
+    finalPrice: rawFinalPrice,
+    discount: booking.discount ?? 0,
+    tier: booking.tierLevel ?? booking.tier ?? "MEMBER",
     paymentMethod: booking.paymentMethod ?? booking.method,
     paymentStatus: booking.paymentStatus ?? booking.payStatus,
     scheduledStartTime: scheduled,

@@ -40,7 +40,8 @@ const normalizeBookingResponse = (response) => {
   };
 };
 
-export const getBookingData = () => api.get(customerBookingsPath("data"));
+export const getBookingData = (carSize) =>
+  api.get(customerBookingsPath(`data${carSize ? `?carSize=${carSize}` : ""}`));
 export const getMyBookings = () =>
   api.get(customerBookingsPath("my")).then(normalizeBookingResponse);
 export const createBooking = (data) =>

@@ -125,7 +125,7 @@ export default function AdminBookingsTable({
               <div className="flex justify-between gap-3 border-t border-zinc-800 pt-2">
                 <span>Tổng tiền</span>
                 <span className="font-mono font-black text-zinc-100">
-                  {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
+                  {(booking.finalPrice ?? booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                 </span>
               </div>
               <div className="flex gap-2 border-t border-zinc-800 pt-3">
@@ -240,7 +240,7 @@ export default function AdminBookingsTable({
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
-                    {(booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
+                    {(booking.finalPrice ?? booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                   </span>
                 </td>
                 <td className="px-3 py-3 text-center align-middle">

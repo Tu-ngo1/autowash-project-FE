@@ -241,7 +241,7 @@ export default function AdminBookings() {
         booking.paymentMethod,
         booking.paymentStatus,
         booking.scheduledStartTime || `${booking.date} ${booking.time}`,
-        booking.totalPrice ?? booking.total,
+        booking.finalPrice ?? booking.totalPrice ?? booking.total,
       ]),
     ]);
     setActionMessage("CSV EXPORTED");
@@ -619,7 +619,7 @@ export default function AdminBookings() {
                       Tổng thanh toán
                     </span>
                     <span className="font-headline-sm text-secondary">
-                      {selectedBooking.totalPrice?.toLocaleString()}đ
+                      {selectedBooking.finalPrice?.toLocaleString()}đ
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1">

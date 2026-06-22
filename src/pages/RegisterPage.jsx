@@ -15,6 +15,8 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",
+    username: "",
+    phone: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -60,6 +62,16 @@ export default function RegisterPage() {
   const validateForm = () => {
     const next = {};
     if (!form.name.trim()) next.name = "Họ và tên không được để trống.";
+    if (!form.username.trim()) {
+      next.username = "Tên đăng nhập không được để trống.";
+    } else if (form.username.trim().length < 3) {
+      next.username = "Tên đăng nhập phải từ 3 ký tự trở lên.";
+    }
+    if (!form.phone.trim()) {
+      next.phone = "Số điện thoại không được để trống.";
+    } else if (!/^[0-9]{10,11}$/.test(form.phone.trim())) {
+      next.phone = "Số điện thoại phải gồm 10 đến 11 chữ số.";
+    }
     const emailError = validateEmail();
     if (emailError) next.email = emailError;
     if (!form.password) {
@@ -103,7 +115,12 @@ export default function RegisterPage() {
     const { name, value } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === "otp" ? value.replace(/\D/g, "").slice(0, 6) : value,
+      [name]:
+        name === "otp"
+          ? value.replace(/\D/g, "").slice(0, 6)
+          : name === "phone"
+            ? value.replace(/\D/g, "").slice(0, 11)
+            : value,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setSubmitError("");
@@ -185,6 +202,8 @@ export default function RegisterPage() {
       await register({
         name: form.name,
         email: form.email,
+        phone: form.phone,
+        username: form.username,
         password: form.password,
         otp: form.otp,
       });
@@ -260,25 +279,6 @@ export default function RegisterPage() {
           </div>
 
           <form className="relative space-y-6" onSubmit={handleSubmit}>
-            <div className="grid gap-5">
-              <label className="block">
-                <span className="text-sm font-black text-slate-900">
-                  Họ và tên
-                </span>
-                <input
-                  name="name"
-                  type="text"
-                  value={form.name}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="name"
-                />
-                {errors.name && (
-                  <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
-                )}
-              </label>
-            </div>
-
             <section className="rounded-[26px] border border-cyan-100 bg-cyan-100/62 p-4 shadow-inner shadow-white/70 sm:p-5">
               <div className="flex items-start gap-3">
                 <span className="mt-1 rounded-2xl bg-white p-2.5 text-cyan-700 ring-1 ring-cyan-100">
@@ -307,7 +307,7 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className={inputClass}
                     autoComplete="email"
-                    disabled={sendingOtp || verifyingOtp || registering}
+                    disabled={otpVerified || sendingOtp || verifyingOtp || registering}
                   />
                   {errors.email && (
                     <p className="mt-2 text-sm text-rose-600">{errors.email}</p>
@@ -317,7 +317,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={handleSendOtp}
-                  disabled={sendingOtp || cooldown > 0 || registering}
+                  disabled={otpVerified || sendingOtp || cooldown > 0 || registering}
                   className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_34px_rgba(8,47,73,0.18)] transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {sendingOtp ? (
@@ -345,7 +345,7 @@ export default function RegisterPage() {
                     className={`${inputClass} text-center text-lg font-semibold tracking-[0.28em]`}
                     placeholder="------"
                     autoComplete="one-time-code"
-                    disabled={!otpSent || verifyingOtp || registering}
+                    disabled={otpVerified || !otpSent || verifyingOtp || registering}
                   />
                   {errors.otp && (
                     <p className="mt-2 text-sm text-rose-600">{errors.otp}</p>
@@ -355,7 +355,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={handleVerifyOtp}
-                  disabled={!otpSent || verifyingOtp || otpVerified || registering}
+                  disabled={otpVerified || !otpSent || verifyingOtp || registering}
                   className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-800 transition hover:-translate-y-0.5 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                 >
                   {verifyingOtp ? (
@@ -376,61 +376,122 @@ export default function RegisterPage() {
               )}
             </section>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-black text-slate-900">
-                  Mật khẩu
-                </span>
-                <input
-                  name="password"
-                  type="password"
-                  value={form.password}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="new-password"
-                />
-                {errors.password && (
-                  <p className="mt-2 text-sm text-rose-600">
-                    {errors.password}
-                  </p>
-                )}
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-black text-slate-900">
-                  Xác nhận mật khẩu
-                </span>
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  value={form.confirmPassword}
-                  onChange={handleChange}
-                  className={inputClass}
-                  autoComplete="new-password"
-                />
-                {errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-rose-600">
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </label>
-            </div>
-
             {submitError && (
               <div className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-black text-rose-700 shadow-sm">
                 {submitError}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={registering}
-              className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
-              {registering && <Loader2 size={18} className="animate-spin" />}
-              <span className="relative">{registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}</span>
-            </button>
+            {otpVerified && (
+              <>
+                <div className="grid gap-5">
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Họ và tên
+                    </span>
+                    <input
+                      name="name"
+                      type="text"
+                      value={form.name}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="name"
+                    />
+                    {errors.name && (
+                      <p className="mt-2 text-sm text-rose-600">{errors.name}</p>
+                    )}
+                  </label>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Tên đăng nhập
+                    </span>
+                    <input
+                      name="username"
+                      type="text"
+                      value={form.username}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="username"
+                    />
+                    {errors.username && (
+                      <p className="mt-2 text-sm text-rose-600">{errors.username}</p>
+                    )}
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Số điện thoại
+                    </span>
+                    <input
+                      name="phone"
+                      type="tel"
+                      value={form.phone}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="tel"
+                    />
+                    {errors.phone && (
+                      <p className="mt-2 text-sm text-rose-600">{errors.phone}</p>
+                    )}
+                  </label>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Mật khẩu
+                    </span>
+                    <input
+                      name="password"
+                      type="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="new-password"
+                    />
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-rose-600">
+                        {errors.password}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-900">
+                      Xác nhận mật khẩu
+                    </span>
+                    <input
+                      name="confirmPassword"
+                      type="password"
+                      value={form.confirmPassword}
+                      onChange={handleChange}
+                      className={inputClass}
+                      autoComplete="new-password"
+                    />
+                    {errors.confirmPassword && (
+                      <p className="mt-2 text-sm text-rose-600">
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={registering}
+                  className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
+                  {registering && <Loader2 size={18} className="animate-spin" />}
+                  <span className="relative">
+                    {registering ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
+                  </span>
+                </button>
+              </>
+            )}
           </form>
 
           <p className="relative mt-6 text-center text-sm font-bold text-slate-700">
