@@ -15,6 +15,55 @@ const TIER_STYLES = {
   Member: "border-[#4f7883] text-[#b8d8de] bg-[#123746]",
 };
 
+const unwrapStaffPayload = (payload, keys = []) => {
+  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+  return [];
+};
+
+const formatStaffTime = (value) => {
+  if (!value) return "";
+  const text = String(value);
+  if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
+  return text.slice(0, 5);
+};
+
+const normalizeStaffBooking = (booking = {}) => {
+  const services = Array.isArray(booking.services)
+    ? booking.services
+    : booking.service
+      ? [booking.service]
+      : [];
+  const scheduledStartTime =
+    booking.scheduledStartTime || booking.dateTime || booking.startTime || "";
+
+  return {
+    ...booking,
+    id: booking.id ?? booking.bookingId,
+    plate:
+      booking.plate ||
+      booking.vehicleLicensePlate ||
+      booking.licensePlate ||
+      booking.vehicle?.licensePlate ||
+      "",
+    time:
+      booking.time ||
+      booking.appointmentTime ||
+      booking.bookingTime ||
+      formatStaffTime(scheduledStartTime),
+    service:
+      booking.service ||
+      booking.serviceName ||
+      booking.packageName ||
+      services.join(", "),
+    services,
+    tier: booking.tier || booking.tierLevel || booking.status || "Member",
+  };
+};
+
 function PendingCard({ item, onConfirm, disabled }) {
   const tierStyle = TIER_STYLES[item.tier] || TIER_STYLES.Member;
 
@@ -243,13 +292,11 @@ export default function StaffDashboard() {
     setError("");
     try {
       const response = await getPendingAppointments();
-      if (Array.isArray(response.data)) {
-        setPendingList(response.data);
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        setPendingList(response.data.data);
-      } else {
-        setPendingList([]);
-      }
+      setPendingList(
+        unwrapStaffPayload(response, ["items", "bookings", "pending"]).map(
+          normalizeStaffBooking,
+        ),
+      );
     } catch (err) {
       setError(
         getFriendlyErrorMessage(
@@ -302,28 +349,10 @@ export default function StaffDashboard() {
     setScanStatus("Đang chờ QR/barcode...");
   };
 
-  const normalizeScannedBooking = (payload) => {
-    const booking = payload?.data?.data ?? payload?.data ?? payload ?? {};
-    const scheduledStartTime = booking.scheduledStartTime || booking.dateTime || "";
-    const services = Array.isArray(booking.services)
-      ? booking.services
-      : booking.service
-        ? [booking.service]
-        : [];
-
-    return {
-      ...booking,
-      plate: booking.vehicleLicensePlate || booking.plate || "",
-      time:
-        booking.time ||
-        (scheduledStartTime.includes("T")
-          ? scheduledStartTime.split("T")[1]?.slice(0, 5)
-          : ""),
-      service: booking.service || booking.serviceName || services.join(", "),
-      tier: booking.tier || booking.status || "Đã quét",
-      scanned: true,
-    };
-  };
+  const normalizeScannedBooking = (payload) => ({
+    ...normalizeStaffBooking(payload?.data?.data ?? payload?.data ?? payload ?? {}),
+    scanned: true,
+  });
 
   const handleQrDetected = async (qrContent) => {
     if (!qrContent || submitLoading) return;

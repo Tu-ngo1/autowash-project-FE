@@ -10,6 +10,95 @@ import {
   updateVoucherStatus as updateVoucherStatusApi,
 } from "../../services/adminPromotionApi";
 
+const TIER_ORDER = {
+  MEMBER: 0,
+  SILVER: 1,
+  GOLD: 2,
+  PLATINUM: 3,
+};
+
+const getTierName = (tier = {}) =>
+  String(tier.name || tier.tier || tier.tierLevel || tier.id || "MEMBER");
+
+const getTierRank = (tier) => TIER_ORDER[getTierName(tier).toUpperCase()] ?? 99;
+
+const sortTiersLowToHigh = (items = []) =>
+  [...items].sort((a, b) => getTierRank(a) - getTierRank(b));
+
+const isMemberTier = (tier) => getTierName(tier).toUpperCase() === "MEMBER";
+
+const getTierPointsRequired = (tier) =>
+  isMemberTier(tier) ? 0 : tier.pointsRequired;
+
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+};
+
+const formatVoucherDate = (value) => {
+  const dateValue = toDateInputValue(value);
+  if (!dateValue) return "-";
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateValue;
+  return date.toLocaleDateString("vi-VN");
+};
+
+const normalizeVoucher = (voucher = {}) => {
+  const discountPercent = voucher.discountPercent ?? voucher.percent;
+  const discountAmount =
+    voucher.discountAmount ?? voucher.amount ?? voucher.value;
+  const rawTier = String(
+    voucher.tier || voucher.targetTier || voucher.tierLevel || "all",
+  );
+  const tier = rawTier.toUpperCase() === "MEMBER" ? "all" : rawTier;
+  const isActive =
+    voucher.isActive ??
+    voucher.active ??
+    String(voucher.status || "ACTIVE").toUpperCase() === "ACTIVE";
+
+  return {
+    ...voucher,
+    code: voucher.code || voucher.voucherCode || "",
+    voucherCode: voucher.voucherCode || voucher.code || "",
+    name: voucher.name || voucher.campaignName || "Voucher",
+    campaignName: voucher.campaignName || voucher.name || "Voucher",
+    pointsRequired: voucher.pointsRequired ?? voucher.pointCost ?? 0,
+    pointCost: voucher.pointCost ?? voucher.pointsRequired ?? 0,
+    tier,
+    targetTier: voucher.targetTier || (tier === "all" ? "MEMBER" : tier),
+    discountType:
+      discountPercent !== null && discountPercent !== undefined
+        ? "percentage"
+        : "fixed",
+    discountValue: discountPercent ?? discountAmount ?? 0,
+    discountAmount,
+    discountPercent,
+    isActive: Boolean(isActive),
+    startDate: toDateInputValue(voucher.startDate || voucher.startAt),
+    endDate: toDateInputValue(voucher.endDate || voucher.endAt),
+  };
+};
+
+const toBackendVoucherPayload = (voucher = {}) => {
+  const discountType = voucher.discountType || "percentage";
+  const discountValue = Number(voucher.discountValue) || 0;
+  const tier = String(voucher.tier || voucher.targetTier || "all");
+
+  return {
+    ...voucher,
+    voucherCode: voucher.voucherCode || voucher.code,
+    campaignName: voucher.campaignName || voucher.name,
+    pointCost: Number(voucher.pointCost ?? voucher.pointsRequired ?? 0),
+    targetTier: tier === "all" || tier === "TẤT CẢ" ? "MEMBER" : tier.toUpperCase(),
+    discountPercent: discountType === "percentage" ? discountValue : null,
+    discountAmount: discountType === "fixed" ? discountValue : null,
+    isActive: Boolean(voucher.isActive),
+    active: Boolean(voucher.isActive),
+    startAt: voucher.startDate ? `${voucher.startDate}T00:00:00` : voucher.startAt,
+    endAt: voucher.endDate ? `${voucher.endDate}T23:59:59` : voucher.endAt,
+  };
+};
+
 export default function AdminPromotions() {
   const [tiers, setTiers] = useState([]);
   const [vouchers, setVouchers] = useState([]);
@@ -30,7 +119,7 @@ export default function AdminPromotions() {
       const res = await getTiers();
       const payload = res.data?.data ?? res.data;
       const nextTiers = Array.isArray(payload) ? payload : payload?.tiers || [];
-      setTiers(nextTiers);
+      setTiers(sortTiersLowToHigh(nextTiers));
     } catch {
       setTiers([]);
     }
@@ -44,7 +133,7 @@ export default function AdminPromotions() {
       const nextVouchers = Array.isArray(payload)
         ? payload
         : payload?.vouchers || [];
-      setVouchers(nextVouchers);
+      setVouchers(nextVouchers.map(normalizeVoucher));
     } catch {
       setVouchers([]);
     } finally {
@@ -83,7 +172,7 @@ export default function AdminPromotions() {
 
   const createVoucher = async (data) => {
     try {
-      await createVoucherApi(data);
+      await createVoucherApi(toBackendVoucherPayload(data));
       fetchVouchers();
       setIsAddDrawerOpen(false);
     } catch (err) {
@@ -93,7 +182,7 @@ export default function AdminPromotions() {
 
   const updateVoucher = async (voucherId, data) => {
     try {
-      await updateVoucherApi(voucherId, data);
+      await updateVoucherApi(voucherId, toBackendVoucherPayload(data));
       fetchVouchers();
       setIsDrawerOpen(false);
     } catch (err) {
@@ -119,9 +208,10 @@ export default function AdminPromotions() {
   });
 
   const getTierBadge = (tier) => {
-    if (tier === "Platinum")
+    const normalized = String(tier || "").toUpperCase();
+    if (normalized === "PLATINUM")
       return "border-cyan-300/60 bg-cyan-300/10 text-cyan-200";
-    if (tier === "Gold")
+    if (normalized === "GOLD")
       return "border-yellow-300/60 bg-yellow-300/10 text-yellow-200";
     return "border-zinc-700 bg-zinc-900 text-zinc-300";
   };
@@ -129,7 +219,7 @@ export default function AdminPromotions() {
   const getTierCustomerCount = (tier) =>
     tier.customerCount ?? tier.totalCustomers ?? tier.customersCount ?? 0;
 
-  const tierCustomerStats = tiers.map((tier) => ({
+  const tierCustomerStats = sortTiersLowToHigh(tiers).map((tier) => ({
     id: tier.id || tier.name,
     name: tier.name || tier.tier || tier.tierLevel || "Tier",
     customerCount: getTierCustomerCount(tier),
@@ -158,10 +248,10 @@ export default function AdminPromotions() {
                 </span>
               </div>
               <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
-                Promotion Control
+                Quản lý ưu đãi
               </h1>
               <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
-                Tier thresholds, voucher campaigns and loyalty exchange rules.
+                Cấu hình hạng thành viên, chiến dịch voucher và quy tắc đổi điểm.
               </p>
             </div>
             <button
@@ -169,7 +259,7 @@ export default function AdminPromotions() {
               className="group flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
-              New Campaign
+              Tạo chiến dịch
             </button>
           </div>
         </div>
@@ -218,7 +308,7 @@ export default function AdminPromotions() {
                   {tier.customerCount.toLocaleString()}
                 </div>
                 <p className="mt-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-600">
-                  Customers
+                  Customer
                 </p>
               </div>
             ))}
@@ -237,10 +327,6 @@ export default function AdminPromotions() {
               </span>
               Cấu hình Quy tắc Hạng Thẻ
             </h2>
-            <p className="mt-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">
-              Thiết lập điểm thăng hạng và đặc quyền giảm giá mặc định tự động
-              dựa trên cấp bậc.
-            </p>
           </div>
           <div className="flex flex-col">
             {tiers.map((tier, idx) => (
@@ -295,16 +381,27 @@ export default function AdminPromotions() {
                     Điểm thăng hạng (pts)
                   </label>
                   <input
-                    className="h-10 w-full border border-zinc-800 bg-black px-3 font-mono text-sm font-black text-zinc-100 outline-none focus:border-cyan-400"
+                    className={`h-10 w-full border px-3 font-mono text-sm font-black outline-none focus:border-cyan-400 ${
+                      isMemberTier(tier)
+                        ? "cursor-not-allowed border-zinc-900 bg-zinc-950 text-zinc-500"
+                        : "border-zinc-800 bg-black text-zinc-100"
+                    }`}
                     type="text"
-                    defaultValue={tier.pointsRequired?.toLocaleString()}
-                    onBlur={(e) =>
+                    disabled={isMemberTier(tier)}
+                    value={isMemberTier(tier) ? "0" : undefined}
+                    defaultValue={
+                      isMemberTier(tier)
+                        ? undefined
+                        : getTierPointsRequired(tier)?.toLocaleString()
+                    }
+                    onBlur={(e) => {
+                      if (isMemberTier(tier)) return;
                       updateTier(tier.id, {
                         pointsRequired: parseInt(
                           e.target.value.replace(/,/g, "")
                         ),
-                      })
-                    }
+                      });
+                    }}
                   />
                 </div>
                 <div className="md:col-span-3 flex flex-col gap-1">
@@ -453,17 +550,17 @@ export default function AdminPromotions() {
                             voucher.tier
                           )}`}
                         >
-                          {voucher.tier === "all"
-                            ? "All Tiers"
+                          {String(voucher.tier).toLowerCase() === "all"
+                            ? "Tất cả hạng"
                             : `${voucher.tier} & Up`}
                         </span>
                       </td>
                       <td className="px-4 py-4">
                         <div className="font-mono text-sm text-zinc-100">
-                          {voucher.startDate}
+                          {formatVoucherDate(voucher.startDate || voucher.startAt)}
                         </div>
                         <div className="font-mono text-sm text-zinc-500">
-                          {voucher.endDate}
+                          {formatVoucherDate(voucher.endDate || voucher.endAt)}
                         </div>
                       </td>
                       <td className="px-4 py-4 text-center">
@@ -512,7 +609,7 @@ export default function AdminPromotions() {
           {/* Pagination */}
           <div className="mt-2 flex items-center justify-between pb-8">
             <span className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              Showing {filteredVouchers.length} of {vouchers.length}
+              Đang hiển thị {filteredVouchers.length} trong {vouchers.length}
             </span>
             <span className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
               Tổng: {vouchers.length}

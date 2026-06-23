@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../services/authApi";
+import { login } from "../services/LoginServices";
 import { getUserRole, isAuthenticated, setAuth } from "../utils/auth";
 import { getFriendlyErrorMessage } from "../utils/errorMessage";
 
@@ -15,40 +15,40 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
 const FLOW_STEPS = [
   {
     title: "Đặt lịch",
-    copy: "Khách chọn xe, dịch vụ và khung giờ phù hợp với lịch cá nhân.",
+    copy: "Chọn xe và giờ rửa.",
     icon: "event_available",
   },
   {
     title: "Tiếp nhận",
-    copy: "Nhân viên xác nhận xe vào khoang và bắt đầu quy trình chăm sóc.",
+    copy: "Nhận xe tại khoang.",
     icon: "qr_code_scanner",
   },
   {
-    title: "Rửa & hoàn thiện",
-    copy: "Các bước phủ bọt, xịt áp lực, lau chi tiết và sấy khô được cập nhật rõ ràng.",
+    title: "Rửa xe",
+    copy: "Phủ bọt, xịt và sấy.",
     icon: "local_car_wash",
   },
   {
     title: "Nhận xe",
-    copy: "Khách xem lại lịch sử, điểm thưởng và ưu đãi trong tài khoản.",
+    copy: "Kiểm tra và bàn giao.",
     icon: "verified",
   },
 ];
 
 const VALUE_PILLARS = [
   {
-    title: "Rửa bọt tuyết",
-    copy: "Lớp bọt phủ đều thân xe, làm mềm bụi bẩn trước khi xịt sạch bằng nước áp lực.",
+    title: "Phủ bọt",
+    copy: "Làm mềm bụi bẩn.",
     icon: "local_car_wash",
   },
   {
-    title: "Xịt gầm áp lực",
-    copy: "Làm sạch khu vực gầm, hốc bánh và các điểm dễ bám bùn sau mỗi chuyến đi.",
+    title: "Xịt áp lực",
+    copy: "Rửa gầm và hốc bánh.",
     icon: "water_drop",
   },
   {
-    title: "Lau sấy hoàn thiện",
-    copy: "Lau chi tiết, sấy khô và kiểm tra bề mặt để xe sạch bóng khi bàn giao.",
+    title: "Lau sấy",
+    copy: "Sấy khô và bàn giao.",
     icon: "auto_fix_high",
   },
 ];
@@ -126,19 +126,19 @@ function LoginPanel() {
   };
 
   return (
-    <section className="home-reveal relative overflow-hidden rounded-[30px] border border-white/75 bg-white/88 p-5 shadow-[0_34px_110px_rgba(2,74,138,0.2)] backdrop-blur-2xl sm:p-7">
+    <section className="home-reveal relative w-full overflow-hidden rounded-[34px] border border-white/75 bg-white/90 p-6 shadow-[0_34px_110px_rgba(2,74,138,0.2)] backdrop-blur-2xl sm:p-8 lg:p-9">
       <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-cyan-200/70 blur-3xl" />
       <div className="home-shimmer pointer-events-none absolute inset-y-0 left-0 w-28 bg-gradient-to-r from-transparent via-cyan-200/25 to-transparent" />
       <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" />
 
       <div className="relative">
-        <div className="mb-7 flex items-center justify-between gap-4">
+        <div className="mb-8 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-600">
               Member access
             </p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">
-              Đăng nhập khoang rửa
+            <h2 className="mt-2 text-3xl font-black text-slate-950">
+              Đăng nhập
             </h2>
           </div>
           <button
@@ -150,15 +150,17 @@ function LoginPanel() {
           </button>
         </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="text-sm font-bold text-slate-700">Tên đăng nhập hoặc Số điện thoại</span>
+            <span className="text-sm font-bold text-slate-700">
+              Tên đăng nhập hoặc Số điện thoại
+            </span>
             <input
               name="account"
               type="text"
               value={form.account}
               onChange={handleChange}
-              className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+              className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-5 text-base font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
               placeholder="Nhập tên đăng nhập hoặc số điện thoại..."
               autoComplete="username"
             />
@@ -174,7 +176,7 @@ function LoginPanel() {
               type="password"
               value={form.password}
               onChange={handleChange}
-              className="mt-2 h-13 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+              className="mt-2 h-14 w-full rounded-2xl border border-slate-200 bg-white px-5 text-base font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
               placeholder="••••••••"
             />
             {errors.password && (
@@ -210,7 +212,7 @@ function LoginPanel() {
           <button
             type="submit"
             disabled={loading}
-            className="group relative h-14 w-full overflow-hidden rounded-2xl bg-slate-950 text-sm font-black text-white shadow-[0_18px_40px_rgba(8,47,73,0.22)] transition hover:-translate-y-0.5 hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="group relative h-[60px] w-full overflow-hidden rounded-2xl bg-slate-950 text-base font-black text-white shadow-[0_18px_40px_rgba(8,47,73,0.22)] transition hover:-translate-y-0.5 hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/25 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
             <span className="relative">
@@ -233,15 +235,15 @@ export default function LoginPage() {
   }, [navigate]);
 
   return (
-    <div className="home-motion-root min-h-screen overflow-hidden bg-[#eafaff] text-slate-950">
+    <div className="home-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
         <img
           src="https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=2400&auto=format&fit=crop"
           alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-36"
+          className="absolute inset-0 h-full w-full object-cover opacity-42"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(102deg,rgba(2,20,38,0.88),rgba(6,73,108,0.62)_40%,rgba(235,252,255,0.92)_82%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_32%,rgba(125,226,255,0.54),transparent_30%),radial-gradient(circle_at_22%_78%,rgba(255,255,255,0.32),transparent_28%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(102deg,rgba(2,22,42,0.9),rgba(0,104,151,0.66)_42%,rgba(210,247,255,0.86)_84%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_32%,rgba(0,210,255,0.48),transparent_30%),radial-gradient(circle_at_20%_76%,rgba(88,231,255,0.22),transparent_28%)]" />
         <div className="absolute left-0 top-0 h-[520px] w-[520px] rounded-full bg-cyan-200/30 blur-3xl" />
         <div className="absolute right-[-120px] top-20 h-[460px] w-[460px] rounded-full bg-blue-300/30 blur-3xl" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:72px_72px]" />
@@ -296,17 +298,16 @@ export default function LoginPage() {
       <main className="relative z-10">
         <section
           id="home-login"
-          className="mx-auto grid min-h-[100dvh] max-w-7xl items-center gap-10 px-4 pb-10 pt-32 sm:px-6 lg:grid-cols-[minmax(0,1.08fr)_440px] lg:px-10"
+          className="mx-auto grid min-h-[100dvh] max-w-[1480px] items-center gap-10 px-4 pb-10 pt-32 sm:px-6 lg:grid-cols-[minmax(0,0.95fr)_560px] lg:px-10 xl:grid-cols-[minmax(0,1fr)_600px]"
         >
           <div className="home-reveal">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/16 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-100 shadow-sm backdrop-blur">
               <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
-              Bọt tuyết • áp lực nước • sấy khô
+              Chào mừng
             </div>
 
             <h1 className="mt-8 max-w-4xl text-5xl font-black leading-[0.93] tracking-normal text-white drop-shadow-[0_18px_40px_rgba(2,20,38,0.28)] sm:text-6xl lg:text-7xl">
-              AutoWash biến lịch rửa xe thành một trải nghiệm sạch, nhanh và rõ
-              ràng.
+              AutoWash System.
             </h1>
             <div className="mt-9 flex flex-wrap gap-3">
               <button
@@ -314,7 +315,7 @@ export default function LoginPage() {
                 onClick={() => navigate("/register")}
                 className="rounded-2xl bg-cyan-300 px-6 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.34)] transition hover:-translate-y-0.5 hover:bg-white"
               >
-                Bắt đầu với autoWash
+                Tạo tài khoản
               </button>
               <a
                 href="#experience"
@@ -342,10 +343,10 @@ export default function LoginPage() {
             <div className="wash-scan pointer-events-none absolute left-10 right-10 top-12 h-16 rounded-full bg-gradient-to-b from-white/60 via-cyan-200/55 to-transparent blur-xl" />
             <div className="absolute bottom-10 left-10 max-w-xl text-white">
               <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
-                Clean mobility interface
+                AutoWash
               </p>
               <h2 className="mt-3 text-4xl font-black leading-tight">
-                Niềm tin được giữ trọn từ lúc đặt lịch đến khi bàn giao xe.
+                Đặt lịch, rửa xe, nhận xe.
               </h2>
             </div>
           </div>
@@ -383,8 +384,7 @@ export default function LoginPage() {
                 Flow rõ vai trò
               </p>
               <h2 className="mt-3 max-w-3xl text-4xl font-black leading-tight">
-                Từ lúc khách đặt lịch đến khi xe rời khoang, mọi bước đều có chỗ
-                đứng rõ ràng.
+                Quy trình rửa xe rõ từng bước.
               </h2>
             </div>
             <div className="grid gap-6 md:grid-cols-4">

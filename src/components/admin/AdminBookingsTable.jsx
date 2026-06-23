@@ -138,7 +138,7 @@ export default function AdminBookingsTable({
                   className="flex flex-1 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit</span>
-                  Edit
+                  Sửa
                 </button>
                 {canDeleteBooking(booking) && (
                   <button
@@ -152,7 +152,7 @@ export default function AdminBookingsTable({
                     <span className="material-symbols-outlined text-[16px]">
                       delete
                     </span>
-                    Delete
+                    Xóa
                   </button>
                 )}
               </div>
@@ -188,7 +188,7 @@ export default function AdminBookingsTable({
                 TỔNG TIỀN
               </th>
               <th className="w-24 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                ACT
+                THAO TÁC
               </th>
             </tr>
           </thead>

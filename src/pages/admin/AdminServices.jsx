@@ -181,11 +181,11 @@ export default function AdminServices() {
                 </span>
                 <span className="border border-zinc-800 bg-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
                   <span className="admin-pulse mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                  PRICE MATRIX
+                  BẢNG GIÁ
                 </span>
               </div>
               <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
-                Service Control
+                Quản lý dịch vụ
               </h1>
               <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
                 Thiết lập gói rửa, giá tiền, thời lượng và trạng thái vận hành.
@@ -196,7 +196,7 @@ export default function AdminServices() {
               className="flex h-11 items-center gap-2 border border-cyan-400/60 bg-cyan-400/10 px-4 font-mono text-xs font-black uppercase tracking-[0.18em] text-cyan-200 transition hover:bg-cyan-400/20"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>{" "}
-              New Service
+              Thêm dịch vụ
             </button>
           </div>
         </div>
@@ -225,10 +225,10 @@ export default function AdminServices() {
               Tất cả trạng thái
             </option>
             <option className="bg-black text-zinc-100" value="ACTIVE">
-              ACTIVE
+              Đang hoạt động
             </option>
             <option className="bg-black text-zinc-100" value="INACTIVE">
-              INACTIVE
+              Đã tắt
             </option>
           </select>
         </div>
@@ -242,25 +242,25 @@ export default function AdminServices() {
             <thead>
               <tr className="border-b border-zinc-800 bg-black">
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Service Name
+                  Tên dịch vụ
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Price Range
+                  Khoảng giá
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Duration
+                  Thời lượng
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Rating
+                  Đánh giá
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Total Revenue
+                  Tổng doanh thu
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Status
+                  Trạng thái
                 </th>
                 <th className="px-6 py-4 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Actions
+                  Thao tác
                 </th>
               </tr>
             </thead>
@@ -333,8 +333,8 @@ export default function AdminServices() {
                             />
                             <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
                               {service.status === "ACTIVE"
-                                ? "ACTIVE"
-                                : "INACTIVE"}
+                                ? "ĐANG BẬT"
+                                : "ĐÃ TẮT"}
                             </span>
                           </div>
                         </td>
@@ -485,7 +485,7 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
       <div className="flex items-center justify-between border-b border-zinc-800 bg-black px-6 py-4">
         <div className="flex flex-col gap-1">
           <p className="font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
-            {mode === "add" ? "NEW SERVICE" : "EDIT SERVICE"}
+            {mode === "add" ? "THÊM DỊCH VỤ" : "SỬA DỊCH VỤ"}
           </p>
           <h2 className="text-headline-md text-zinc-100">
             {mode === "add" ? "Thêm Gói Dịch Vụ" : "Chỉnh sửa Gói Dịch Vụ"}
@@ -511,7 +511,7 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
           </label>
           <input
             className="h-10 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
-            placeholder="Ví dụ: Standard Wash"
+            placeholder="Ví dụ: Rửa tiêu chuẩn"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
@@ -556,7 +556,7 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
                       }
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[12px] text-zinc-500">
-                      MIN
+                      PHÚT
                     </span>
                   </div>
                 </div>

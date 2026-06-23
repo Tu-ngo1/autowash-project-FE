@@ -1,4 +1,10 @@
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 
 // Public Pages
 import LoginPage from "./pages/LoginPage";
@@ -26,10 +32,12 @@ import StaffCustomers from "./pages/staff/StaffCustomers";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
-function App() {
+function AnimatedRoutes() {
+  const location = useLocation();
+
   return (
-    <BrowserRouter>
-      <Routes>
+    <div key={location.pathname} className="route-transition-shell">
+      <Routes location={location}>
         {/* ================= PUBLIC ROUTES ================= */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
@@ -63,6 +71,14 @@ function App() {
           <Route path="/staff/customers" element={<StaffCustomers />} />
         </Route>
       </Routes>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AnimatedRoutes />
     </BrowserRouter>
   );
 }

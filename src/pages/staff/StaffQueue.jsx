@@ -10,6 +10,63 @@ const TIER_BADGE = {
   Late: "border-[#ffb4ab]/50 text-[#ffb4ab] bg-[#93000a]/20",
 };
 
+const unwrapStaffPayload = (payload, keys = []) => {
+  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+  return [];
+};
+
+const formatStaffTime = (value) => {
+  if (!value) return "";
+  const text = String(value);
+  if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
+  return text.slice(0, 5);
+};
+
+const normalizeQueueBooking = (booking = {}) => ({
+  ...booking,
+  id: booking.id ?? booking.bookingId,
+  plate:
+    booking.plate ||
+    booking.vehicleLicensePlate ||
+    booking.licensePlate ||
+    booking.vehicle?.licensePlate ||
+    "",
+  checkinTime:
+    booking.checkinTime ||
+    booking.arrivedAt ||
+    formatStaffTime(booking.scheduledStartTime || booking.time),
+  time:
+    booking.time ||
+    formatStaffTime(booking.scheduledStartTime || booking.startTime),
+  tier: booking.tier || booking.tierLevel || booking.status || "Member",
+});
+
+const normalizeBay = (bay = {}) => {
+  const booking = bay.booking ? normalizeQueueBooking(bay.booking) : null;
+  const isBusy =
+    String(bay.status || "").toUpperCase() === "BUSY" ||
+    String(bay.status || "").toUpperCase() === "ACTIVE" ||
+    Boolean(booking);
+
+  return {
+    ...bay,
+    id: bay.id ?? bay.bayId,
+    name: bay.name || `Bay ${bay.id ?? bay.bayId ?? ""}`.trim(),
+    type: bay.type || "Khoang rửa",
+    status: isBusy ? "active" : "available",
+    currentCar: booking
+      ? {
+          ...booking,
+          progress: booking.progress ?? 50,
+        }
+      : null,
+  };
+};
+
 function QueueCard({ item, onAssign, isSelected }) {
   const badgeClass =
     TIER_BADGE[item.tier] || "border-[#4f7883] text-[#b8d8de] bg-[#123746]";
@@ -167,12 +224,12 @@ export default function StaffQueue() {
       ]);
 
       setQueue(
-        Array.isArray(queueRes.data)
-          ? queueRes.data
-          : queueRes.data?.data || [],
+        unwrapStaffPayload(queueRes, ["items", "queue", "bookings"]).map(
+          normalizeQueueBooking,
+        ),
       );
       setBays(
-        Array.isArray(baysRes.data) ? baysRes.data : baysRes.data?.data || [],
+        unwrapStaffPayload(baysRes, ["items", "bays"]).map(normalizeBay),
       );
     } catch (err) {
       setError(
@@ -195,6 +252,7 @@ export default function StaffQueue() {
     setSubmitLoading(true);
     try {
       await assignBay(bayId, {
+        bookingId: selectedCar.id || selectedCar._id,
         queueId: selectedCar.id || selectedCar._id,
         plate: selectedCar.plate,
       });
