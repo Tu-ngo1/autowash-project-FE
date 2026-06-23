@@ -138,6 +138,28 @@ const isVoucherSelectable = (voucher) => getVoucherStatus(voucher) === "AVAILABL
 
 const unwrapObject = (payload) => payload?.data?.data ?? payload?.data ?? payload ?? {};
 
+const isMainServiceItem = (service) =>
+  Boolean(service?.isMainService ?? service?.isMain ?? service?.mainService);
+
+const getServiceId = (service) =>
+  service?.serviceId || service?.id || service?.servicePriceId;
+
+const getServiceName = (service) =>
+  service?.serviceName || service?.name || service?.label || "Dịch vụ";
+
+const normalizeServiceOption = (service = {}) => ({
+  ...service,
+  id: getServiceId(service),
+  serviceId: getServiceId(service),
+  servicePriceId: service.servicePriceId || service.priceId,
+  name: getServiceName(service),
+  label: getServiceName(service),
+  durationMinutes: Number(service.durationMinutes ?? service.duration ?? 0),
+  duration: Number(service.duration ?? service.durationMinutes ?? 0),
+  isMain: isMainServiceItem(service),
+  isMainService: isMainServiceItem(service),
+});
+
 const getTierRule = (tierRules, tier) =>
   tierRules.find(
     (rule) =>
@@ -207,9 +229,14 @@ export default function CustomerBooking() {
 
       const businessHours =
         payload.businessHours || payload.businessWindow || config.businessHours || {};
-      const fetchedServices = Array.isArray(payload.services)
-        ? payload.services
-        : [];
+      const fetchedServices = unwrapList(payload, [
+        "washServices",
+        "washservices",
+        "availableServices",
+        "services",
+        "items",
+        "data",
+      ]).map(normalizeServiceOption);
       const fetchedSlots = normalizeHourlySlots(payload.timeSlots, businessHours);
 
       setBookingConfig({
@@ -228,7 +255,7 @@ export default function CustomerBooking() {
 
       if (fetchedServices.length > 0) {
         const nextMainServices = fetchedServices.filter(
-          (item) => item.isMain === true,
+          (item) => item.isMainService === true,
         );
         const defaultMainService = nextMainServices.length > 0 ? nextMainServices[0] : fetchedServices[0];
         if (defaultMainService) {
@@ -301,12 +328,12 @@ export default function CustomerBooking() {
   }, [vehicleIdOrPlate]);
 
   const mainServices = useMemo(() => {
-    const filtered = services.filter((item) => item.isMain === true);
+    const filtered = services.filter((item) => item.isMainService === true);
     return filtered.length > 0 ? filtered : services;
   }, [services]);
 
   const addonServices = useMemo(() => {
-    return services.filter((item) => item.isMain === false);
+    return services.filter((item) => item.isMainService === false);
   }, [services]);
 
   const serviceInfo = mainServices.find((item) => item.id === service) || {
