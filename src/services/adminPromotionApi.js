@@ -1,9 +1,11 @@
 import api, { apiPath } from "./apiClient";
 
-export const getTiers = () => api.get(apiPath("/admin/tiers"));
+export const getTiers = () =>
+  api.get(apiPath("/admin/tiers"));
 export const updateTier = (id, data) =>
   api.put(apiPath(`/admin/tiers/${id}`), data);
-export const getVouchers = () => api.get(apiPath("/admin/vouchers"));
+export const getVouchers = () =>
+  api.get(apiPath("/admin/vouchers"));
 export const createVoucher = (data) =>
   api.post(apiPath("/admin/vouchers"), data);
 export const updateVoucher = (id, data) =>

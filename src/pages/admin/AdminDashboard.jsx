@@ -95,7 +95,7 @@ function RevenueChart({ points }) {
       <div className="relative ml-20 h-full">
         {points.length === 0 ? (
           <div className="flex h-full items-center justify-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600">
-            NO DATA
+            CHƯA CÓ DỮ LIỆU
           </div>
         ) : (
           <>
@@ -217,14 +217,14 @@ function ServiceRatio({ items }) {
             {total ? "100%" : "0%"}
           </span>
           <span className="font-mono text-[8px] font-black tracking-[0.2em] text-zinc-500">
-            TOTAL
+            TỔNG
           </span>
         </div>
       </div>
 
       {items.length === 0 ? (
         <div className="font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600">
-          NO DATA
+          CHƯA CÓ DỮ LIỆU
         </div>
       ) : (
         <div className="w-full space-y-2">
@@ -243,7 +243,7 @@ function ServiceRatio({ items }) {
                     style={{ backgroundColor: color }}
                   />
                   <span className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">
-                    {item.name || item.label || "SERVICE"}
+                    {item.name || item.label || "DỊCH VỤ"}
                   </span>
                 </div>
                 <span className="font-mono font-black text-zinc-100">
@@ -416,7 +416,7 @@ export default function AdminDashboard() {
               System Analytics
             </h2>
             <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
-              Revenue, operations, payment split and recent booking telemetry.
+              Doanh thu, vận hành, phân bổ thanh toán và dữ liệu đơn đặt lịch gần đây.
             </p>
           </div>
           <button

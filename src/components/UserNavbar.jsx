@@ -2,11 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { clearAuth } from "../utils/auth";
 
 const CUSTOMER_LINKS = [
-  { label: "Home", to: "/dashboard" },
-  { label: "Booking", to: "/booking" },
-  { label: "History", to: "/history" },
-  { label: "Profile", to: "/profile" },
-  { label: "Rewards", to: "/rewards" },
+  { label: "Trang chủ", activeKey: "Home", to: "/dashboard" },
+  { label: "Đặt lịch", activeKey: "Booking", to: "/booking" },
+  { label: "Lịch sử", activeKey: "History", to: "/history" },
+  { label: "Hồ sơ", activeKey: "Profile", to: "/profile" },
+  { label: "Ưu đãi", activeKey: "Rewards", to: "/rewards" },
 ];
 
 export default function UserNavbar({ active }) {
@@ -19,7 +19,7 @@ export default function UserNavbar({ active }) {
 
   return (
     <nav className="fixed left-1/2 top-5 z-50 w-[calc(100%-24px)] max-w-[1520px] -translate-x-1/2 font-body-md md:w-[82vw]">
-      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-3 rounded-[24px] border border-white/75 bg-white/72 px-4 py-3 shadow-[0_22px_70px_rgba(2,40,70,0.18)] backdrop-blur-2xl lg:grid lg:h-[76px] lg:grid-cols-[1fr_auto_1fr] lg:px-6 lg:py-0">
+      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-3 rounded-[24px] border border-cyan-100/80 bg-[#e9fbff]/82 px-4 py-3 shadow-[0_22px_70px_rgba(0,90,130,0.2)] backdrop-blur-2xl lg:grid lg:h-[76px] lg:grid-cols-[1fr_auto_1fr] lg:px-6 lg:py-0">
         <button
           type="button"
           onClick={() => navigate("/dashboard")}
@@ -40,16 +40,16 @@ export default function UserNavbar({ active }) {
           </span>
         </button>
 
-        <div className="hidden min-w-0 items-center justify-center gap-2 rounded-2xl bg-slate-950/5 p-1 lg:flex">
+        <div className="hidden min-w-0 items-center justify-center gap-2 rounded-2xl bg-[#003c5f]/8 p-1 lg:flex">
           {CUSTOMER_LINKS.map((item) => (
             <button
               key={item.to}
               type="button"
               onClick={() => navigate(item.to)}
               className={`h-10 whitespace-nowrap rounded-xl px-4 text-center text-sm leading-10 transition-all ${
-                active === item.label
-                  ? "bg-white font-black text-[#0061a5] shadow-sm"
-                  : "font-black text-[#3f4753] hover:bg-white/70 hover:text-[#0061a5]"
+                active === item.label || active === item.activeKey
+                  ? "bg-white font-black text-[#005c91] shadow-sm"
+                  : "font-black text-[#314c5f] hover:bg-white/70 hover:text-[#005c91]"
               }`}
             >
               {item.label}
