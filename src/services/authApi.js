@@ -80,7 +80,7 @@ export async function register({
     role,
   });
 
-  return response.data;
+  return normalizeAuthResponse(response.data);
 }
 
 export const sendRegistrationOtp = (email) =>

@@ -332,26 +332,42 @@ export default function AdminPromotions() {
             {tiers.map((tier, idx) => (
               <div
                 key={tier.name}
-                className={`admin-reveal grid grid-cols-1 items-center gap-4 bg-zinc-950 p-4 transition hover:bg-cyan-400/[0.04] md:grid-cols-12 ${idx < tiers.length - 1 ? "border-b border-zinc-900" : ""}`}
+                className={`admin-reveal grid grid-cols-1 items-center gap-4 bg-zinc-950 p-4 transition hover:bg-cyan-400/[0.04] md:grid-cols-12 ${
+                  idx < tiers.length - 1 ? "border-b border-zinc-900" : ""
+                }`}
                 style={{ animationDelay: `${170 + idx * 55}ms` }}
               >
                 <div className="md:col-span-3 flex items-center gap-3">
                   <div
-                    className={`flex h-10 w-10 items-center justify-center border ${tier.name === "Gold" ? "border-yellow-300/60 bg-yellow-300/10" : "border-cyan-400/40 bg-cyan-400/10"}`}
+                    className={`flex h-10 w-10 items-center justify-center border ${
+                      tier.name === "Gold"
+                        ? "border-yellow-300/60 bg-yellow-300/10"
+                        : "border-cyan-400/40 bg-cyan-400/10"
+                    }`}
                   >
                     <span
-                      className={`material-symbols-outlined ${tier.name === "Gold" ? "text-yellow-200" : "text-cyan-300"}`}
+                      className={`material-symbols-outlined ${
+                        tier.name === "Gold"
+                          ? "text-yellow-200"
+                          : "text-cyan-300"
+                      }`}
                     >
                       {tier.name === "Platinum"
                         ? "diamond"
                         : tier.name === "Gold"
-                          ? "workspace_premium"
-                          : "star"}
+                        ? "workspace_premium"
+                        : "star"}
                     </span>
                   </div>
                   <div>
                     <div
-                      className={`font-mono text-sm font-black uppercase tracking-[0.12em] ${tier.name === "Gold" ? "text-yellow-200" : tier.name === "Platinum" ? "text-cyan-200" : "text-zinc-100"}`}
+                      className={`font-mono text-sm font-black uppercase tracking-[0.12em] ${
+                        tier.name === "Gold"
+                          ? "text-yellow-200"
+                          : tier.name === "Platinum"
+                          ? "text-cyan-200"
+                          : "text-zinc-100"
+                      }`}
                     >
                       Hạng {tier.name}
                     </div>
@@ -382,7 +398,7 @@ export default function AdminPromotions() {
                       if (isMemberTier(tier)) return;
                       updateTier(tier.id, {
                         pointsRequired: parseInt(
-                          e.target.value.replace(/,/g, ""),
+                          e.target.value.replace(/,/g, "")
                         ),
                       });
                     }}
@@ -530,7 +546,9 @@ export default function AdminPromotions() {
                       </td>
                       <td className="px-4 py-4">
                         <span
-                          className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${getTierBadge(voucher.tier)}`}
+                          className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${getTierBadge(
+                            voucher.tier
+                          )}`}
                         >
                           {String(voucher.tier).toLowerCase() === "all"
                             ? "Tất cả hạng"
@@ -743,12 +761,12 @@ export default function AdminPromotions() {
                             tier: tier === "TẤT CẢ" ? "all" : tier,
                           })
                         }
-                            className={`flex cursor-pointer items-center justify-center border px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.12em] ${
-                              (tier === "TẤT CẢ" && selectedVoucher.tier === "all") ||
-                              selectedVoucher.tier === tier
-                                ? "border-cyan-400 bg-cyan-400/10 text-cyan-300"
-                                : "border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:text-cyan-300"
-                            }`}
+                        className={`flex cursor-pointer items-center justify-center border px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.12em] ${
+                          selectedVoucher.tier ===
+                          (tier === "TẤT CẢ" ? "all" : tier)
+                            ? "border-cyan-400 bg-cyan-400/10 text-cyan-300"
+                            : "border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:text-cyan-300"
+                        }`}
                       >
                         {tier}
                       </button>
@@ -992,7 +1010,11 @@ function AddVoucherDrawer({ onClose, onCreate }) {
                   key={tier}
                   type="button"
                   onClick={() => setFormData({ ...formData, tier })}
-                  className={`border py-2 font-mono text-[10px] font-black uppercase tracking-[0.12em] ${formData.tier === tier ? "border-cyan-400 bg-cyan-400/10 text-cyan-300" : "border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:text-cyan-300"}`}
+                  className={`border py-2 font-mono text-[10px] font-black uppercase tracking-[0.12em] ${
+                    formData.tier === tier
+                      ? "border-cyan-400 bg-cyan-400/10 text-cyan-300"
+                      : "border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:text-cyan-300"
+                  }`}
                 >
                   {tier}
                 </button>

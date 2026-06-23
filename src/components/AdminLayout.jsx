@@ -74,6 +74,7 @@ export default function AdminLayout() {
         </nav>
 
         <div className="border-t border-zinc-800 p-4">
+          {/* Profile Card */}
           <div className="flex items-center gap-3 border border-zinc-800 bg-zinc-950 p-3">
             <div className="flex h-10 w-10 items-center justify-center border border-zinc-700 bg-black">
               <span className="material-symbols-outlined">person</span>
@@ -96,36 +97,6 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex min-h-16 items-center justify-between gap-4 border-b border-zinc-800 bg-black px-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-cyan-400/50 bg-cyan-400/10 lg:hidden">
-              <span className="material-symbols-outlined text-cyan-300">
-                water_drop
-              </span>
-            </div>
-            <div className="min-w-0">
-              <h2 className="truncate font-mono text-sm font-black uppercase tracking-[0.16em] text-zinc-100">
-                {NAV_ITEMS.find((item) => location.pathname.startsWith(item.path))
-                  ?.label || "Admin"}
-              </h2>
-              <p className="truncate font-mono text-xs text-zinc-500 lg:hidden">
-                {userName}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex h-10 w-10 shrink-0 items-center justify-center border border-zinc-800 text-zinc-500 hover:text-red-300 lg:hidden"
-            title="Đăng xuất"
-          >
-            <span className="material-symbols-outlined">logout</span>
-          </button>
-          <h2 className="hidden font-mono text-sm font-black uppercase tracking-[0.16em] text-zinc-500 lg:block">
-            {NAV_ITEMS.find((item) => location.pathname.startsWith(item.path))
-              ?.label || "Admin"}
-          </h2>
-        </header>
 
         <main className="admin-motion-root flex-1 overflow-auto bg-[#05070a] p-0 pb-24 lg:pb-0">
           <Outlet />
