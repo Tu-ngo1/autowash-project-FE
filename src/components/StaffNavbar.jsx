@@ -2,9 +2,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { clearAuth, getUserName } from "../utils/auth";
 
 const NAV_LINKS = [
-  { label: "Dashboard", to: "/staff/dashboard", icon: "dashboard" },
-  { label: "Queue", to: "/staff/queue", icon: "queue_play_next" },
-  { label: "Customers", to: "/staff/customers", icon: "person" },
+  { label: "Tổng quan", to: "/staff/dashboard", icon: "dashboard" },
+  { label: "Hàng chờ", to: "/staff/queue", icon: "queue_play_next" },
+  { label: "Customer", to: "/staff/customers", icon: "person" },
 ];
 
 export default function StaffNavbar() {
@@ -31,7 +31,7 @@ export default function StaffNavbar() {
             {userName}
           </p>
           <p className="truncate text-[10px] uppercase tracking-widest text-[#b8d8de]">
-            Staff Console
+            Bảng Staff
           </p>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function StaffNavbar() {
             className="text-[10px] text-[#b8d8de] tracking-widest uppercase"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
-            Staff Console
+            Bảng Staff
           </p>
         </div>
       </div>
@@ -108,7 +108,7 @@ export default function StaffNavbar() {
             className="text-[12px] tracking-widest uppercase font-bold"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
-            Sign Out
+            Đăng xuất
           </span>
         </button>
       </div>

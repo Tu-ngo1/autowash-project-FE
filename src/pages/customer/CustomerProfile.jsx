@@ -57,20 +57,43 @@ const mergeVehicles = (...groups) => {
     .filter(Boolean)
     .map(normalizeCustomerCar)
     .filter((vehicle) => {
-      const key = String(vehicle.licensePlate || vehicle.plate || vehicle.id || "").toUpperCase();
+      const key = String(
+        vehicle.licensePlate || vehicle.plate || vehicle.id || "",
+      ).toUpperCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 };
 
-const unwrapPayload = (payload) => payload?.data?.data ?? payload?.data ?? payload ?? {};
+const unwrapPayload = (payload) =>
+  payload?.data?.data ?? payload?.data ?? payload ?? {};
 
 const VEHICLE_SIZE_OPTIONS = [
-  { value: "SMALL", label: "SMALL", description: "4-5 chỗ", icon: "directions_car" },
-  { value: "MEDIUM", label: "MEDIUM", description: "CUV/SUV 5 chỗ", icon: "commute" },
-  { value: "LARGE", label: "LARGE", description: "7 chỗ", icon: "airport_shuttle" },
-  { value: "XLARGE", label: "XLARGE", description: "Bán tải, Van", icon: "local_shipping" },
+  {
+    value: "SMALL",
+    label: "SMALL",
+    description: "4-5 chỗ",
+    icon: "directions_car",
+  },
+  {
+    value: "MEDIUM",
+    label: "MEDIUM",
+    description: "CUV/SUV 5 chỗ",
+    icon: "commute",
+  },
+  {
+    value: "LARGE",
+    label: "LARGE",
+    description: "7 chỗ",
+    icon: "airport_shuttle",
+  },
+  {
+    value: "XLARGE",
+    label: "XLARGE",
+    description: "Bán tải, Van",
+    icon: "local_shipping",
+  },
 ];
 
 const getVehicleSizeOption = (value) =>
@@ -103,12 +126,60 @@ const normalizeVehicleSize = (vehicle) => {
   ).toUpperCase();
   if (["SMALL", "MEDIUM", "LARGE", "XLARGE"].includes(rawSize)) return rawSize;
   if (String(vehicle?.type || "").includes("7")) return "LARGE";
-  if (String(vehicle?.type || "").toLowerCase().includes("suv")) return "MEDIUM";
+  if (
+    String(vehicle?.type || "")
+      .toLowerCase()
+      .includes("suv")
+  )
+    return "MEDIUM";
   return "SMALL";
 };
 
 const isActiveVehicleModel = (model) =>
   model?.isActive ?? model?.is_active ?? model?.active ?? true;
+
+const compactLicensePlate = (value = "") =>
+  String(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+const formatVietnamLicensePlate = (value = "") => {
+  const raw = compactLicensePlate(value);
+  let province = "";
+  let series = "";
+  let serial = "";
+
+  for (const char of raw) {
+    if (province.length < 2) {
+      if (/\d/.test(char)) province += char;
+      continue;
+    }
+    if (series.length < 2 && serial.length === 0) {
+      if (/[A-Z]/.test(char)) {
+        series += char;
+        continue;
+      }
+      if (series.length > 0 && /\d/.test(char)) {
+        serial += char;
+        continue;
+      }
+      continue;
+    }
+    if (serial.length < 5 && /\d/.test(char)) serial += char;
+  }
+
+  if (!province) return "";
+  if (province.length < 2) return province;
+  if (!series) return province;
+
+  const plateHead = `${province}${series}`;
+  if (!serial) return plateHead;
+
+  const formattedSerial =
+    serial.length > 3 ? `${serial.slice(0, 3)}.${serial.slice(3)}` : serial;
+  return `${plateHead} - ${formattedSerial}`;
+};
+
+const isValidVietnamLicensePlate = (value = "") =>
+  /^\d{2}[A-Z]{1,2}\s-\s\d{3}\.\d{2}$/.test(formatVietnamLicensePlate(value));
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
@@ -158,12 +229,13 @@ export default function CustomerProfile() {
 
     const loadProfile = async () => {
       try {
-        const [profileRes, bookingsRes, loyaltyRes, carsRes] = await Promise.all([
-          getCustomerProfile().catch(() => null),
-          getCustomerProfileBookings().catch(() => null),
-          getCustomerProfileLoyalty().catch(() => null),
-          getMyCars().catch(() => []),
-        ]);
+        const [profileRes, bookingsRes, loyaltyRes, carsRes] =
+          await Promise.all([
+            getCustomerProfile().catch(() => null),
+            getCustomerProfileBookings().catch(() => null),
+            getCustomerProfileLoyalty().catch(() => null),
+            getMyCars().catch(() => []),
+          ]);
 
         if (!isMounted) return;
 
@@ -244,11 +316,18 @@ export default function CustomerProfile() {
             id: model.id,
             brand: model.brand,
             modelName: model.modelName || model.model_name || model.name,
-            vehicleSize: String(model.vehicleSize || model.vehicle_size || "").toUpperCase(),
+            vehicleSize: String(
+              model.vehicleSize || model.vehicle_size || "",
+            ).toUpperCase(),
             model_name: model.model_name || model.modelName || model.name,
-            vehicle_size: String(model.vehicle_size || model.vehicleSize || "").toUpperCase(),
+            vehicle_size: String(
+              model.vehicle_size || model.vehicleSize || "",
+            ).toUpperCase(),
           }))
-          .filter((model) => model.id && model.brand && model.modelName && model.vehicleSize);
+          .filter(
+            (model) =>
+              model.id && model.brand && model.modelName && model.vehicleSize,
+          );
 
         if (!isMounted) return;
         setVehicleModels(activeModels);
@@ -319,6 +398,9 @@ export default function CustomerProfile() {
           size: selectedModel?.vehicleSize || prev.size,
         };
       }
+      if (key === "plate") {
+        return { ...prev, plate: formatVietnamLicensePlate(value) };
+      }
       return { ...prev, [key]: value };
     });
   };
@@ -341,13 +423,22 @@ export default function CustomerProfile() {
     setEditingVehicleId(vehicle.id || vehicle.plate);
     setVehicleReturnTo("");
     const vehicleModel =
-      getVehicleModelById(vehicleModels, vehicle.modelId || vehicle.vehicleModelId) ||
-      getVehicleModelByName(vehicleModels, vehicle.brand, vehicle.modelName || vehicle.model);
+      getVehicleModelById(
+        vehicleModels,
+        vehicle.modelId || vehicle.vehicleModelId,
+      ) ||
+      getVehicleModelByName(
+        vehicleModels,
+        vehicle.brand,
+        vehicle.modelName || vehicle.model,
+      );
     setVehicleForm({
-      plate: vehicle.plate || "",
+      plate: formatVietnamLicensePlate(vehicle.plate || vehicle.licensePlate || ""),
       brand: vehicleModel?.brand || vehicle.brand || "",
-      modelId: vehicleModel?.id || vehicle.modelId || vehicle.vehicleModelId || "",
-      modelName: vehicleModel?.modelName || vehicle.modelName || vehicle.model || "",
+      modelId:
+        vehicleModel?.id || vehicle.modelId || vehicle.vehicleModelId || "",
+      modelName:
+        vehicleModel?.modelName || vehicle.modelName || vehicle.model || "",
       size: vehicleModel?.vehicleSize || normalizeVehicleSize(vehicle),
     });
     setVehicleError("");
@@ -385,7 +476,10 @@ export default function CustomerProfile() {
       return;
     }
 
-    const selectedModel = getVehicleModelById(vehicleModels, vehicleForm.modelId);
+    const selectedModel = getVehicleModelById(
+      vehicleModels,
+      vehicleForm.modelId,
+    );
     if (!selectedModel) {
       setVehicleError("Vui lòng chọn dòng xe.");
       return;
@@ -395,10 +489,16 @@ export default function CustomerProfile() {
       vehicleForm.size || selectedModel.vehicleSize,
     );
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
-    const normalizedPlate = vehicleForm.plate.trim().toUpperCase();
+    const normalizedPlate = formatVietnamLicensePlate(vehicleForm.plate);
+    if (!isValidVietnamLicensePlate(normalizedPlate)) {
+      setVehicleError("Biển số xe phải đúng dạng 59A - 123.45.");
+      return;
+    }
+
+    const normalizedPlateKey = compactLicensePlate(normalizedPlate);
     const duplicate = profile.vehicles.some(
       (vehicle) =>
-        String(vehicle.plate || "").toUpperCase() === normalizedPlate &&
+        compactLicensePlate(vehicle.plate || vehicle.licensePlate) === normalizedPlateKey &&
         (vehicle.id || vehicle.plate) !== editingVehicleId,
     );
 
@@ -472,351 +572,322 @@ export default function CustomerProfile() {
   const avatarUrl = getAvatarUrl(user);
 
   return (
-    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#eefbff] font-body-md text-slate-950">
+    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] font-body-md text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-16"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.98),rgba(235,252,255,0.9)_46%,rgba(178,232,255,0.66))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:74px_74px]" />
-        <div className="absolute left-[-140px] top-[-120px] h-[520px] w-[520px] rounded-full bg-cyan-200/40 blur-3xl" />
-        <div className="wash-foam-drift absolute bottom-[-120px] right-[-120px] h-72 w-[66vw] rounded-full bg-white/55 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
       </div>
 
       <div className="relative z-10">
         <UserNavbar active="Profile" />
 
-      <main className="mx-auto w-full max-w-[1520px] px-4 pb-14 pt-32 sm:px-6 lg:px-10">
-        <section className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="relative overflow-hidden rounded-[34px] border border-white/75 bg-white/58 p-7 shadow-[0_32px_90px_rgba(2,74,138,0.12)] backdrop-blur-2xl sm:p-10">
+        <main className="mx-auto w-full max-w-[1520px] px-4 pb-14 pt-32 sm:px-6 lg:px-10">
+          <section className="relative mb-8 overflow-hidden rounded-[34px] border border-white/75 bg-white/58 p-7 shadow-[0_32px_90px_rgba(2,74,138,0.12)] backdrop-blur-2xl sm:p-10">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(34,211,238,0.24),transparent_30%),radial-gradient(circle_at_82%_20%,rgba(14,165,233,0.18),transparent_28%)]" />
-            <div className="relative flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+            <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:items-end">
               <div>
-                <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700 backdrop-blur-md">
-                  <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
-                  Hồ sơ khách hàng
-                </p>
-                <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal sm:text-6xl">
-                  Trung tâm tài khoản của {profile.name || "bạn"}.
-                </h1>
-                <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-                  Quản lý xe, điểm thưởng, voucher và mã QR lịch rửa trong một hồ
-                  sơ xanh trắng gọn gàng.
-                </p>
+                <div className="flex flex-col gap-7">
+                  <div>
+                    <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700 backdrop-blur-md">
+                      <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
+                      Hồ sơ khách hàng
+                    </p>
+                    <h1 className="mt-7 max-w-4xl whitespace-nowrap text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl xl:text-6xl">
+                      Hồ sơ của {profile.name || "bạn"}
+                    </h1>
+                    <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
+                      Thông tin, xe và ưu đãi
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/booking")}
+                    className="w-fit shrink-0 rounded-2xl bg-cyan-400 px-6 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300"
+                  >
+                    Đặt lịch rửa xe
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate("/booking")}
-                className="rounded-2xl bg-cyan-400 px-6 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300"
-              >
-                Đặt lịch rửa xe
-              </button>
-            </div>
-          </div>
 
-          <aside className="rounded-[34px] border border-white/75 bg-slate-950 p-7 text-white shadow-[0_28px_80px_rgba(2,20,38,0.2)]">
-            <div className="flex items-center gap-5">
-              <div className="relative">
-                <img
-                  src={
-                    avatarUrl ||
-                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      profile.name || "Khách hàng",
-                    )}&background=0D4F92&color=ffffff&bold=true`
-                  }
-                  alt={`${profile.name || "Khách hàng"} avatar`}
-                  className="h-20 w-20 rounded-3xl border border-white/20 object-cover shadow-md"
-                />
-                <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-slate-950 bg-emerald-400"></div>
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-2xl font-black">
-                  {profile.name || "Khách hàng"}
-                </p>
-                <p className="truncate text-sm font-semibold text-slate-300">
-                  {profile.email || profile.phone || "Chưa cập nhật liên hệ"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-7 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
-                  Hạng
-                </p>
-                <p className="mt-2 text-xl font-black">
-                  {profile.membership || "Member"}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
-                  Lượt rửa
-                </p>
-                <p className="mt-2 text-xl font-black">{profile.washes || 0}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
-                  Điểm đổi
-                </p>
-                <p className="mt-2 text-xl font-black">
-                  {(profile.points || 0).toLocaleString("vi-VN")}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
-                  Điểm hạng
-                </p>
-                <p className="mt-2 text-xl font-black">
-                  {(profile.rankPoints || 0).toLocaleString("vi-VN")}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-7">
-              <div className="flex justify-between text-xs font-black uppercase tracking-[0.16em] text-slate-300">
-                <span>Tiến trình nâng hạng</span>
-                <span>{profile.progress}%</span>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/12">
-                <div
-                  className="h-full rounded-full bg-cyan-300"
-                  style={{ width: `${profile.progress}%` }}
-                />
-              </div>
-              <p className="mt-3 text-xs font-semibold text-slate-400">
-                {profile.nextTierTarget > profile.rankPoints
-                  ? `Còn ${(
-                      profile.nextTierTarget - profile.rankPoints
-                    ).toLocaleString("vi-VN")} điểm để lên hạng tiếp theo`
-                  : "Chưa có dữ liệu mục tiêu nâng hạng"}
-              </p>
-            </div>
-          </aside>
-        </section>
-
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="space-y-6">
-            <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                    Garage
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-3xl border border-white/75 bg-white/62 p-5 shadow-sm backdrop-blur-md">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
+                    Hạng
                   </p>
-                  <h2 className="mt-2 text-3xl font-black text-slate-950">
-                    Phương tiện của bạn
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Quản lý danh sách xe cá nhân đã đăng ký.
+                  <p className="mt-3 text-2xl font-black text-slate-950">
+                    {profile.membership || "Member"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={openAddVehicleForm}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-300"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    add_circle
-                  </span>
-                  Thêm xe mới
-                </button>
+                <div className="rounded-3xl border border-white/75 bg-white/62 p-5 shadow-sm backdrop-blur-md">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
+                    Lượt rửa
+                  </p>
+                  <p className="mt-3 text-2xl font-black text-slate-950">
+                    {profile.washes || 0}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-white/75 bg-white/62 p-5 shadow-sm backdrop-blur-md">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
+                    Điểm đổi
+                  </p>
+                  <p className="mt-3 text-2xl font-black text-slate-950">
+                    {(profile.points || 0).toLocaleString("vi-VN")}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-white/75 bg-white/62 p-5 shadow-sm backdrop-blur-md">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
+                    Điểm hạng
+                  </p>
+                  <p className="mt-3 text-2xl font-black text-slate-950">
+                    {(profile.rankPoints || 0).toLocaleString("vi-VN")}
+                  </p>
+                </div>
               </div>
+            </div>
+          </section>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {profile.vehicles.length === 0 ? (
-                  <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
-                    Chưa có phương tiện nào.
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="space-y-6">
+              <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                      Xe
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black text-slate-950">
+                      Phương tiện
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Quản lý xe của bạn.
+                    </p>
                   </div>
-                ) : (
-                  profile.vehicles.map((vehicle) => (
-                  <div
-                    key={vehicle.id || vehicle.plate}
-                    className="group relative flex items-center gap-4 overflow-hidden rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
+                  <button
+                    type="button"
+                    onClick={openAddVehicleForm}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-300"
                   >
-                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-50">
-                      <span className="material-symbols-outlined text-[32px] text-cyan-700">
-                        {getVehicleSizeOption(normalizeVehicleSize(vehicle)).icon}
-                      </span>
+                    <span className="material-symbols-outlined text-[20px]">
+                      add_circle
+                    </span>
+                    Thêm xe mới
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {profile.vehicles.length === 0 ? (
+                    <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
+                      Chưa có phương tiện nào.
                     </div>
-                    <div className="min-w-0 flex-grow">
-                      <h3 className="truncate font-black text-slate-950">
-                        {vehicle.label || vehicle.name || getVehicleSizeOption(normalizeVehicleSize(vehicle)).label}
-                      </h3>
-                      <p className="text-xs font-semibold text-slate-500">
-                        Biển số: {vehicle.plate}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-800">
-                          {getVehicleSizeOption(normalizeVehicleSize(vehicle)).description}
-                        </span>
-                        {vehicle.default && (
-                          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">
-                            Mặc định
+                  ) : (
+                    profile.vehicles.map((vehicle) => (
+                      <div
+                        key={vehicle.id || vehicle.plate}
+                        className="group relative flex items-center gap-4 overflow-hidden rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
+                      >
+                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-50">
+                          <span className="material-symbols-outlined text-[32px] text-cyan-700">
+                            {
+                              getVehicleSizeOption(
+                                normalizeVehicleSize(vehicle),
+                              ).icon
+                            }
                           </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openEditVehicleForm(vehicle)}
-                      className="rounded-2xl bg-slate-950/5 p-3 text-slate-500 transition hover:bg-cyan-50 hover:text-cyan-700"
-                      aria-label="Sửa xe"
-                    >
-                      <span className="material-symbols-outlined">edit</span>
-                    </button>
-                  </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-6">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                    Rewards
-                  </p>
-                  <h2 className="mt-2 text-3xl font-black text-slate-950">
-                    Voucher của bạn
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Đổi điểm để nhận ưu đãi chăm sóc xe
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate("/rewards")}
-                  className="rounded-2xl border border-cyan-200 bg-white/70 px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
-                >
-                  Xem tất cả
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {vouchers.length === 0 ? (
-                  <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
-                    Chưa có voucher nào.
-                  </div>
-                ) : (
-                  vouchers.map((voucher) => (
-                  <div
-                    key={voucher.id || voucher.voucherId || voucher.code || voucher.name}
-                    className="group flex items-center gap-4 rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
-                  >
-                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-3xl bg-cyan-50">
-                      <span className="material-symbols-outlined text-[32px] text-cyan-700">
-                        {voucher.icon || "redeem"}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-black text-slate-950">
-                        {voucher.name || voucher.title || "Voucher"}
-                      </h3>
-                      <p className="mt-2 text-xs font-semibold text-slate-500">
-                        {voucher.description || voucher.desc || ""}
-                      </p>
-                      <p className="mt-2 text-xs font-black text-cyan-700">
-                        {(
-                          voucher.pointCost ??
-                          voucher.pointsCost ??
-                          voucher.points ??
-                          0
-                        ).toLocaleString("vi-VN")}{" "}
-                        điểm
-                      </p>
-                    </div>
-                    <button className="rounded-2xl bg-slate-950 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                      <span className="material-symbols-outlined">redeem</span>
-                    </button>
-                  </div>
-                  ))
-                )}
-              </div>
-            </section>
-          </div>
-
-          <aside className="space-y-6">
-            <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-              <div className="mb-6">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                    Recent wash
-                  </p>
-                  <h2 className="mt-2 text-3xl font-black text-slate-950">
-                    Lịch sử gần đây
-                  </h2>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {recentBookings.length === 0 ? (
-                  <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
-                    Chưa có lịch sử rửa xe.
-                  </div>
-                ) : (
-                  recentBookings.map((item, index) => (
-                    <div
-                      key={item.id || index}
-                      className="rounded-[24px] border border-white/75 bg-white/70 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-black text-slate-950">
-                            {item.service || item.serviceName || "-"}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-slate-500">
-                            {item.date || "--/--/----"}
-                          </p>
                         </div>
-                              <span
-                                className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${statusStyles[item.status] || "bg-[#0061a5]/10 text-[#0061a5]"}`}
-                              >
-                                {item.status || "Chờ thực hiện"}
+                        <div className="min-w-0 flex-grow">
+                          <h3 className="truncate font-black text-slate-950">
+                            {vehicle.label ||
+                              vehicle.name ||
+                              getVehicleSizeOption(
+                                normalizeVehicleSize(vehicle),
+                              ).label}
+                          </h3>
+                          <p className="text-xs font-semibold text-slate-500">
+                            Biển số: {vehicle.plate}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-800">
+                              {
+                                getVehicleSizeOption(
+                                  normalizeVehicleSize(vehicle),
+                                ).description
+                              }
+                            </span>
+                            {vehicle.default && (
+                              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">
+                                Mặc định
                               </span>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <p className="font-black text-cyan-700">
-                          {formatCurrency(item.price)}
-                        </p>
+                            )}
+                          </div>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => setSelectedQrBooking(item)}
-                          className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                          onClick={() => openEditVehicleForm(vehicle)}
+                          className="rounded-2xl bg-slate-950/5 p-3 text-slate-500 transition hover:bg-cyan-50 hover:text-cyan-700"
+                          aria-label="Sửa xe"
                         >
-                          QR
+                          <span className="material-symbols-outlined">
+                            edit
+                          </span>
                         </button>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
+                    ))
+                  )}
+                </div>
+              </section>
 
-            <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                Quick actions
-              </p>
-              <div className="mt-5 grid gap-3">
-                {[
-                  ["Đặt lịch mới", "/booking", "local_car_wash"],
-                  ["Đổi voucher", "/rewards", "redeem"],
-                ].map(([label, path, icon]) => (
+              <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-6">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                      Ưu đãi
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black text-slate-950">
+                      Voucher của bạn
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Đổi điểm lấy voucher.
+                    </p>
+                  </div>
                   <button
-                    key={label}
                     type="button"
-                    onClick={() => navigate(path)}
-                    className="flex items-center justify-between rounded-2xl border border-white/75 bg-white/70 px-4 py-4 text-left font-black text-slate-950 transition hover:-translate-y-0.5 hover:border-cyan-200"
+                    onClick={() => navigate("/rewards")}
+                    className="rounded-2xl border border-cyan-200 bg-white/70 px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
                   >
-                    <span>{label}</span>
-                    <span className="material-symbols-outlined text-cyan-700">
-                      {icon}
-                    </span>
+                    Xem tất cả
                   </button>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </section>
-      </main>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {vouchers.length === 0 ? (
+                    <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
+                      Chưa có voucher nào.
+                    </div>
+                  ) : (
+                    vouchers.map((voucher) => (
+                      <div
+                        key={
+                          voucher.id ||
+                          voucher.voucherId ||
+                          voucher.code ||
+                          voucher.name
+                        }
+                        className="group flex items-center gap-4 rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
+                      >
+                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-3xl bg-cyan-50">
+                          <span className="material-symbols-outlined text-[32px] text-cyan-700">
+                            {voucher.icon || "redeem"}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-black text-slate-950">
+                            {voucher.name || voucher.title || "Voucher"}
+                          </h3>
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            {voucher.description || voucher.desc || ""}
+                          </p>
+                          <p className="mt-2 text-xs font-black text-cyan-700">
+                            {(
+                              voucher.pointCost ??
+                              voucher.pointsCost ??
+                              voucher.points ??
+                              0
+                            ).toLocaleString("vi-VN")}{" "}
+                            điểm
+                          </p>
+                        </div>
+                        <button className="rounded-2xl bg-slate-950 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                          <span className="material-symbols-outlined">
+                            redeem
+                          </span>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <aside className="space-y-6">
+              <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                <div className="mb-6">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                      Gần đây
+                    </p>
+                    <h2 className="mt-2 text-3xl font-black text-slate-950">
+                      Lịch sử gần đây
+                    </h2>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {recentBookings.length === 0 ? (
+                    <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
+                      Chưa có lịch sử rửa xe.
+                    </div>
+                  ) : (
+                    recentBookings.map((item, index) => (
+                      <div
+                        key={item.id || index}
+                        className="rounded-[24px] border border-white/75 bg-white/70 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-black text-slate-950">
+                              {item.service || item.serviceName || "-"}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              {item.date || "--/--/----"}
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${statusStyles[item.status] || "bg-[#0061a5]/10 text-[#0061a5]"}`}
+                          >
+                            {item.status || "Chờ thực hiện"}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <p className="font-black text-cyan-700">
+                            {formatCurrency(item.price)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedQrBooking(item)}
+                            className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                          >
+                            QR
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                  Quick actions
+                </p>
+                <div className="mt-5 grid gap-3">
+                  {[
+                    ["Đặt lịch mới", "/booking", "local_car_wash"],
+                    ["Đổi voucher", "/rewards", "redeem"],
+                  ].map(([label, path, icon]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => navigate(path)}
+                      className="flex items-center justify-between rounded-2xl border border-white/75 bg-white/70 px-4 py-4 text-left font-black text-slate-950 transition hover:-translate-y-0.5 hover:border-cyan-200"
+                    >
+                      <span>{label}</span>
+                      <span className="material-symbols-outlined text-cyan-700">
+                        {icon}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </section>
+        </main>
       </div>
 
       {showVehicleForm && !editingVehicleId && (
@@ -845,16 +916,19 @@ export default function CustomerProfile() {
             <div className="overflow-hidden rounded-[34px] border border-white/75 bg-white/72 p-7 shadow-[0_32px_90px_rgba(2,74,138,0.18)] backdrop-blur-2xl sm:p-8">
               <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
                 <span className="h-2 w-2 rounded-full bg-cyan-300" />
-                Garage profile
+                Xe
               </p>
-              <h1 className="mt-6 text-4xl font-black leading-tight text-slate-950">
-                Thêm phương tiện mới
+              <h1 className="mt-6 text-4xl font-black leading-[1.02] text-slate-950">
+                Thêm xe
               </h1>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
-                Thêm biển số để đặt lịch nhanh hơn và theo dõi lịch sử rửa xe theo từng phương tiện.
+                Thêm xe để đặt lịch nhanh hơn.
               </p>
 
-              <form className="mt-8 flex flex-col gap-8" onSubmit={handleSaveVehicle}>
+              <form
+                className="mt-8 flex flex-col gap-8"
+                onSubmit={handleSaveVehicle}
+              >
                 <div className="flex flex-col gap-2">
                   <label
                     className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700"
@@ -873,7 +947,8 @@ export default function CustomerProfile() {
                         handleVehicleFieldChange("plate", event.target.value)
                       }
                       type="text"
-                      className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 pl-12 pr-4 text-base font-black uppercase text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                      placeholder="59A - 123.45"
+                      className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 pl-12 pr-4 text-base font-black uppercase text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     />
                   </div>
                   {vehicleError && (
@@ -897,11 +972,15 @@ export default function CustomerProfile() {
                         onChange={(event) =>
                           handleVehicleFieldChange("brand", event.target.value)
                         }
-                        disabled={vehicleModelsLoading || vehicleBrands.length === 0}
+                        disabled={
+                          vehicleModelsLoading || vehicleBrands.length === 0
+                        }
                         className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                       >
                         <option value="">
-                          {vehicleModelsLoading ? "Đang tải..." : "Chọn hãng xe"}
+                          {vehicleModelsLoading
+                            ? "Đang tải..."
+                            : "Chọn hãng xe"}
                         </option>
                         {vehicleBrands.map((brand) => (
                           <option key={brand} value={brand}>
@@ -918,9 +997,14 @@ export default function CustomerProfile() {
                       <select
                         value={vehicleForm.modelId}
                         onChange={(event) =>
-                          handleVehicleFieldChange("modelId", event.target.value)
+                          handleVehicleFieldChange(
+                            "modelId",
+                            event.target.value,
+                          )
                         }
-                        disabled={!vehicleForm.brand || currentBrandModels.length === 0}
+                        disabled={
+                          !vehicleForm.brand || currentBrandModels.length === 0
+                        }
                         className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                       >
                         <option value="">Chọn mẫu xe</option>
@@ -949,7 +1033,7 @@ export default function CustomerProfile() {
                   </div>
                   <div className="absolute bottom-5 left-24 right-5 text-slate-950">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">
-                      Wash bay ready
+                      Sẵn sàng
                     </p>
                     <p className="mt-2 text-xl font-black">
                       Xe đã sẵn sàng để đặt lịch
@@ -970,7 +1054,9 @@ export default function CustomerProfile() {
               <span className="material-symbols-outlined text-sm">
                 verified_user
               </span>
-              <span>Thông tin xe được bảo mật và chỉ dùng để lên lịch hẹn.</span>
+              <span>
+                Thông tin xe được bảo mật và chỉ dùng để lên lịch hẹn.
+              </span>
             </div>
           </div>
         </div>
@@ -982,10 +1068,12 @@ export default function CustomerProfile() {
             <div className="flex items-start justify-between gap-4 border-b border-cyan-100 px-6 py-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
-                  Garage
+                  Xe
                 </p>
                 <h2 className="mt-1 text-2xl font-black text-slate-950">
-                  {editingVehicleId ? "Chỉnh sửa phương tiện" : "Thêm phương tiện"}
+                  {editingVehicleId
+                    ? "Chỉnh sửa phương tiện"
+                    : "Thêm phương tiện"}
                 </h2>
               </div>
               <button
@@ -999,7 +1087,10 @@ export default function CustomerProfile() {
             </div>
 
             <div className="max-h-[80vh] overflow-y-auto px-6 py-5">
-              <form className="flex flex-col gap-5" onSubmit={handleSaveVehicle}>
+              <form
+                className="flex flex-col gap-5"
+                onSubmit={handleSaveVehicle}
+              >
                 <label className="flex flex-col gap-2" htmlFor="vehicle-plate">
                   <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
                     Biển số xe
@@ -1011,7 +1102,8 @@ export default function CustomerProfile() {
                       handleVehicleFieldChange("plate", event.target.value)
                     }
                     type="text"
-                    className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black uppercase text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                    placeholder="59A - 123.45"
+                    className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black uppercase text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                   />
                 </label>
                 {vehicleError && (
@@ -1030,7 +1122,9 @@ export default function CustomerProfile() {
                       onChange={(event) =>
                         handleVehicleFieldChange("brand", event.target.value)
                       }
-                      disabled={vehicleModelsLoading || vehicleBrands.length === 0}
+                      disabled={
+                        vehicleModelsLoading || vehicleBrands.length === 0
+                      }
                       className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     >
                       <option value="">
@@ -1053,7 +1147,9 @@ export default function CustomerProfile() {
                       onChange={(event) =>
                         handleVehicleFieldChange("modelId", event.target.value)
                       }
-                      disabled={!vehicleForm.brand || currentBrandModels.length === 0}
+                      disabled={
+                        !vehicleForm.brand || currentBrandModels.length === 0
+                      }
                       className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     >
                       <option value="">Chọn tên xe</option>

@@ -127,9 +127,7 @@ export default function CustomerDashboard() {
   ];
 
   const getReviewByBookingId = (bookingId) =>
-    reviews.find(
-      (review) => String(review.bookingId) === String(bookingId),
-    );
+    reviews.find((review) => String(review.bookingId) === String(bookingId));
 
   const pendingReviewBooking = bookings.find(
     (booking) =>
@@ -160,17 +158,10 @@ export default function CustomerDashboard() {
   };
 
   return (
-    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#eefbff] text-slate-950">
+    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-[0.18]"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.98),rgba(235,252,255,0.9)_46%,rgba(178,232,255,0.66))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:74px_74px]" />
-        <div className="absolute left-[-120px] top-[-140px] h-[520px] w-[520px] rounded-full bg-cyan-200/40 blur-3xl" />
-        <div className="wash-foam-drift absolute bottom-[-120px] right-[-120px] h-72 w-[66vw] rounded-full bg-white/55 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
       </div>
 
       <div className="relative z-10">
@@ -192,14 +183,13 @@ export default function CustomerDashboard() {
                 <div>
                   <p className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-slate-950/44 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-100 shadow-[0_14px_34px_rgba(2,6,23,0.24)] backdrop-blur-md">
                     <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
-                    Customer wash dashboard
+                    Customer
                   </p>
                   <h1 className="mt-8 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal text-white drop-shadow-[0_8px_28px_rgba(2,6,23,0.72)] sm:text-6xl">
-                    Chào mừng {user.name || "khách hàng"}.
+                    Xin chào, {user.name || "khách hàng"}
                   </h1>
                   <p className="mt-6 max-w-2xl text-lg font-bold leading-8 text-white drop-shadow-[0_4px_18px_rgba(2,6,23,0.72)]">
-                    Xe của bạn được theo dõi theo từng công đoạn: phủ bọt, xịt
-                    áp lực, lau chi tiết và sấy khô trước khi bàn giao.
+                    Theo dõi lịch rửa và ưu đãi của bạn.
                   </p>
                 </div>
 
@@ -226,10 +216,10 @@ export default function CustomerDashboard() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                      Live bay
+                      Đang xử lý
                     </p>
-                    <h2 className="mt-3 text-3xl font-black text-slate-950">
-                      {latestBooking?.plate || "Chưa có xe trong khoang"}
+                    <h2 className="mt-3 whitespace-nowrap text-3xl font-black text-slate-950">
+                      {latestBooking?.plate || "Chưa có xe"}
                     </h2>
                     <p className="mt-2 text-sm font-semibold text-slate-500">
                       {latestBooking?.service ||
@@ -237,63 +227,9 @@ export default function CustomerDashboard() {
                         "Đặt lịch để bắt đầu theo dõi rửa xe"}
                     </p>
                   </div>
-                  <span className="rounded-full bg-cyan-400 px-4 py-2 text-xs font-black text-slate-950">
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-cyan-400 px-4 py-2 text-xs font-black text-slate-950">
                     {statusLabels[currentStatus] || "Chờ tiếp nhận"}
                   </span>
-                </div>
-
-                <div className="mt-7 space-y-4">
-                  {[
-                    ["PENDING", "Tiếp nhận", "schedule"],
-                    ["WASHING", "Xịt bọt & nước", "water_drop"],
-                    ["DRYING", "Sấy khô", "air"],
-                    ["COMPLETED", "Hoàn tất", "verified"],
-                  ].map(([key, label, icon], index) => {
-                    const currentIndex = [
-                      "PENDING",
-                      "WASHING",
-                      "DRYING",
-                      "COMPLETED",
-                    ].indexOf(currentStatus);
-                    const isActive =
-                      key === currentStatus ||
-                      (currentIndex === -1 && index === 0);
-                    const isDone = currentIndex > index;
-                    return (
-                      <div
-                        key={key}
-                        className={`flex items-center gap-4 rounded-2xl p-3 transition ${
-                          isActive
-                            ? "bg-cyan-50 ring-1 ring-cyan-200"
-                            : isDone
-                              ? "bg-emerald-50"
-                              : "bg-slate-50"
-                        }`}
-                      >
-                        <span
-                          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                            isActive
-                              ? "bg-cyan-400 text-slate-950"
-                              : isDone
-                                ? "bg-emerald-400 text-white"
-                                : "bg-white text-slate-400"
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[22px]">
-                            {icon}
-                          </span>
-                        </span>
-                        <div>
-                          <p className="font-black text-slate-950">{label}</p>
-                          <p className="text-sm text-slate-500">
-                            {isActive
-                              ? "Đang cập nhật tại khoang rửa"
-                              : "Theo dõi tự động"}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
 
                 <div className="mt-7 grid grid-cols-2 gap-3 text-sm font-bold text-slate-600">
@@ -426,37 +362,46 @@ export default function CustomerDashboard() {
               </button>
             </div>
 
-            <div className="rounded-[34px] border border-white/75 bg-white/72 p-7 shadow-sm backdrop-blur-2xl">
-              <div>
+            <div className="relative min-h-[300px] overflow-hidden rounded-[34px] border border-white/75 bg-white/72 shadow-sm backdrop-blur-2xl">
+              <div className="relative flex min-h-[300px] flex-col justify-center gap-9 p-7 text-slate-950 sm:p-9">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                    Quy trình chăm sóc
+                    Quy trình
                   </p>
-                  <h2 className="mt-3 text-3xl font-black text-slate-950">
-                    Một lượt rửa xe rõ từng công đoạn.
+                  <h2 className="mt-3 text-4xl font-black leading-none text-slate-950">
+                    Các bước rửa xe.
                   </h2>
                 </div>
-              </div>
 
-              <div className="mt-7 grid gap-4 md:grid-cols-4">
-                {[
-                  ["01", "Phủ bọt", "Làm mềm bụi bẩn"],
-                  ["02", "Xịt áp lực", "Rửa mâm, gầm, thân xe"],
-                  ["03", "Lau chi tiết", "Kính và khoang cabin"],
-                  ["04", "Sấy khô", "Kiểm tra bàn giao"],
-                ].map(([step, title, description]) => (
-                  <article key={step} className="rounded-2xl bg-cyan-50/70 p-5">
-                    <p className="font-mono text-sm font-black text-cyan-700">
-                      {step}
-                    </p>
-                    <h3 className="mt-4 text-lg font-black text-slate-950">
-                      {title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {description}
-                    </p>
-                  </article>
-                ))}
+                <div className="grid gap-6 md:grid-cols-4">
+                  {[
+                    ["1", "Đặt lịch hẹn", "event_available"],
+                    ["2", "Kiểm tra", "manage_search"],
+                    ["3", "Rửa và chăm sóc xe", "cleaning_services"],
+                    ["4", "Kiểm tra và giao xe", "person_check"],
+                  ].map(([step, title, icon], index, list) => (
+                    <div
+                      key={step}
+                      className="relative flex flex-col items-center gap-4 text-center md:items-start md:text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 text-cyan-700">
+                          <span className="material-symbols-outlined text-[38px]">
+                            {icon}
+                          </span>
+                        </div>
+                        {index < list.length - 1 && (
+                          <span className="material-symbols-outlined hidden text-[34px] text-cyan-600 md:block">
+                            chevron_right
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-base font-black text-slate-950">
+                        {step}. {title}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </section>

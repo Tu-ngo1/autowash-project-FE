@@ -2,15 +2,15 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { clearAuth, getUserName } from "../utils/auth";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", icon: "dashboard", path: "/admin/dashboard" },
-  { label: "Bookings", icon: "calendar_month", path: "/admin/bookings" },
+  { label: "Tổng quan", icon: "dashboard", path: "/admin/dashboard" },
+  { label: "Đơn đặt lịch", icon: "calendar_month", path: "/admin/bookings" },
   {
-    label: "Promotions & Tiers",
+    label: "Ưu đãi & hạng",
     icon: "local_activity",
     path: "/admin/promotions",
   },
-  { label: "Services", icon: "build", path: "/admin/services" },
-  { label: "Users", icon: "group", path: "/admin/users" },
+  { label: "Dịch vụ", icon: "build", path: "/admin/services" },
+  { label: "Người dùng", icon: "group", path: "/admin/users" },
 ];
 
 export default function AdminLayout() {
@@ -40,7 +40,7 @@ export default function AdminLayout() {
                 AutoWash Pro
               </h1>
               <p className="-mt-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
-                ADMIN CONSOLE
+                BẢNG ĐIỀU KHIỂN ADMIN
               </p>
             </div>
           </div>
@@ -82,7 +82,7 @@ export default function AdminLayout() {
               <p className="truncate font-mono text-sm font-black text-zinc-100">
                 {userName}
               </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">Administrator</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">Admin</p>
             </div>
             <button
               onClick={handleLogout}

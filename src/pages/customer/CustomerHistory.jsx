@@ -133,18 +133,18 @@ export default function CustomerHistory() {
 
   const summary = useMemo(() => {
     const completed = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "COMPLETED"
+      (item) => String(item.status || "").toUpperCase() === "COMPLETED",
     ).length;
     const pending = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "PENDING"
+      (item) => String(item.status || "").toUpperCase() === "PENDING",
     ).length;
     const cancelled = history.filter(
-      (item) => String(item.status || "").toUpperCase() === "CANCELLED"
+      (item) => String(item.status || "").toUpperCase() === "CANCELLED",
     ).length;
     const total = history.length;
     const spent = history.reduce(
       (sum, item) => sum + (Number(item.price) || 0),
-      0
+      0,
     );
     return { completed, pending, cancelled, total, spent };
   }, [history]);
@@ -165,8 +165,8 @@ export default function CustomerHistory() {
       setReviewMessage(
         getFriendlyErrorMessage(
           err,
-          "Chưa gửi được đánh giá. Vui lòng thử lại sau."
-        )
+          "Chưa gửi được đánh giá. Vui lòng thử lại sau.",
+        ),
       );
     } finally {
       setReviewLoading(false);
@@ -174,17 +174,10 @@ export default function CustomerHistory() {
   };
 
   return (
-    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#eefbff] text-slate-950">
+    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-16"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.98),rgba(235,252,255,0.9)_46%,rgba(178,232,255,0.66))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:74px_74px]" />
-        <div className="absolute left-[-140px] top-[-120px] h-[520px] w-[520px] rounded-full bg-cyan-200/40 blur-3xl" />
-        <div className="wash-foam-drift absolute bottom-[-120px] right-[-120px] h-72 w-[66vw] rounded-full bg-white/55 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
       </div>
 
       <div className="relative z-10">
@@ -197,14 +190,13 @@ export default function CustomerHistory() {
               <div>
                 <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700 backdrop-blur-md">
                   <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
-                  Lịch sử rửa xe
+                  Lịch sử
                 </p>
-                <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal sm:text-6xl">
-                  Nhật ký chăm sóc xe của bạn.
+                <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.96] tracking-normal text-slate-950 sm:text-6xl">
+                  Lịch sử rửa xe
                 </h1>
                 <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-                  Xem lại từng lượt phủ bọt, xịt áp lực, sấy khô và chi phí đã
-                  sử dụng. Mọi lịch sử được gom lại để bạn theo dõi dễ hơn.
+                  Xem lại đơn, chi phí và đánh giá.
                 </p>
               </div>
 

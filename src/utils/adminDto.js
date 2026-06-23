@@ -31,13 +31,46 @@ export const normalizeAdminBooking = (booking = {}) => {
   const scheduled = booking.scheduledStartTime ?? booking.dateTime;
   const { date, time } = splitDateTime(scheduled);
   const services = Array.isArray(booking.services)
-    ? booking.services.filter(Boolean)
+    ? booking.services
+        .map((service) =>
+          typeof service === "string"
+            ? service
+            : service?.name || service?.serviceName || service?.label,
+        )
+        .filter(Boolean)
     : booking.service
       ? [booking.service]
       : [];
 
   const rawTotalPrice = booking.totalPrice ?? booking.total ?? booking.price ?? booking.amount ?? 0;
-  const rawFinalPrice = booking.finalPrice ?? rawTotalPrice;
+  const rawFinalPrice = booking.finalPrice ?? booking.final_price ?? rawTotalPrice;
+  const rawCustomerPhone =
+    booking.customerPhone ?? booking.phone ?? booking.customer?.phone ?? "";
+  const rawCustomerName =
+    booking.customerName ??
+    booking.customer?.fullName ??
+    booking.customer?.name ??
+    booking.user?.fullName ??
+    booking.user?.name ??
+    "";
+  const rawCustomerEmail =
+    booking.customerEmail ??
+    booking.customer?.email ??
+    booking.user?.email ??
+    "";
+  const rawPlate =
+    booking.vehicleLicensePlate ??
+    booking.plate ??
+    booking.licensePlate ??
+    booking.vehicle?.licensePlate ??
+    booking.vehicle?.plate ??
+    "";
+  const rawVehicleModel =
+    booking.vehicleModel ??
+    booking.vehicle?.modelName ??
+    booking.vehicle?.model ??
+    [booking.vehicle?.brand, booking.vehicle?.modelName].filter(Boolean).join(" ");
+  const rawTier = booking.tierLevel ?? booking.tier ?? booking.customer?.tier ?? "MEMBER";
 
   return {
     ...booking,
@@ -45,8 +78,13 @@ export const normalizeAdminBooking = (booking = {}) => {
     bookingId: booking.bookingId ?? booking.id,
     code: booking.bookingCode ?? booking.code,
     bookingCode: booking.bookingCode ?? booking.code,
-    plate: booking.vehicleLicensePlate ?? booking.plate,
-    vehicleLicensePlate: booking.vehicleLicensePlate ?? booking.plate,
+    customerName: rawCustomerName,
+    customerPhone: rawCustomerPhone,
+    customerEmail: rawCustomerEmail,
+    phone: rawCustomerPhone,
+    plate: rawPlate,
+    vehicleLicensePlate: rawPlate,
+    vehicleModel: rawVehicleModel || "-",
     date: booking.date ?? date,
     time: booking.time ?? time,
     service: booking.service ?? services.join(", "),
@@ -55,7 +93,8 @@ export const normalizeAdminBooking = (booking = {}) => {
     totalPrice: rawTotalPrice,
     finalPrice: rawFinalPrice,
     discount: booking.discount ?? 0,
-    tier: booking.tierLevel ?? booking.tier ?? "MEMBER",
+    tier: rawTier,
+    tierLevel: rawTier,
     paymentMethod: booking.paymentMethod ?? booking.method,
     paymentStatus: booking.paymentStatus ?? booking.payStatus,
     scheduledStartTime: scheduled,
