@@ -1,6 +1,7 @@
 import api, { apiPath } from "./apiClient";
 
-export const getAdminServices = () => api.get(apiPath("/admin/services"));
+export const getAdminServices = () =>
+  api.get(apiPath("/admin/services"));
 export const createService = (data) =>
   api.post(apiPath("/admin/services"), data);
 export const updateService = (id, data) =>

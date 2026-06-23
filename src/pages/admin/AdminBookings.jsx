@@ -208,9 +208,9 @@ export default function AdminBookings() {
     setActionMessage("");
     try {
       await deleteAdminBooking(id);
-      setActionMessage("BOOKING DELETED");
+      setActionMessage("ĐÃ XÓA ĐƠN ĐẶT LỊCH");
     } catch {
-      setActionMessage("DELETE REQUEST FAILED, REMOVED FROM LOCAL VIEW");
+      setActionMessage("XÓA TRÊN API THẤT BẠI, ĐÃ ẨN KHỎI DANH SÁCH CỤC BỘ");
     }
     setAllBookings((current) =>
       current.filter((item) => (item.id || item.bookingId) !== id)
@@ -220,16 +220,16 @@ export default function AdminBookings() {
   const exportBookings = () => {
     downloadCsv("admin-bookings.csv", [
       [
-        "Booking Code",
+        "Mã đơn",
         "Customer",
-        "Phone",
-        "Plate",
-        "Services",
-        "Status",
-        "Payment Method",
-        "Payment Status",
-        "Date",
-        "Total",
+        "Số điện thoại",
+        "Biển số",
+        "Dịch vụ",
+        "Trạng thái",
+        "Phương thức thanh toán",
+        "Trạng thái thanh toán",
+        "Ngày",
+        "Tổng tiền",
       ],
       ...filteredBookings.map((booking) => [
         booking.bookingCode || booking.code,
@@ -244,7 +244,7 @@ export default function AdminBookings() {
         booking.finalPrice ?? booking.totalPrice ?? booking.total,
       ]),
     ]);
-    setActionMessage("CSV EXPORTED");
+    setActionMessage("ĐÃ XUẤT CSV");
   };
 
   const handleStatusChange = async (status) => {
@@ -258,9 +258,9 @@ export default function AdminBookings() {
     );
     try {
       await updateAdminBookingStatus(id, status);
-      setActionMessage("STATUS UPDATED");
+      setActionMessage("ĐÃ CẬP NHẬT TRẠNG THÁI");
     } catch {
-      setActionMessage("STATUS UPDATED LOCALLY, API REQUEST FAILED");
+      setActionMessage("ĐÃ CẬP NHẬT CỤC BỘ, API CHƯA NHẬN");
     }
   };
 
@@ -283,15 +283,15 @@ export default function AdminBookings() {
                 </span>
                 <span className="border border-zinc-800 bg-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
                   <span className="admin-pulse mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                  SECURE MODE
+                  CHẾ ĐỘ BẢO MẬT
                 </span>
               </div>
               <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
-                Booking Control
+                Quản lý đơn đặt lịch
               </h1>
               <p className="mt-3 font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
                 SYS_TIME: <span className="text-cyan-300">{systemTime}</span> |
-                Orders, schedules, status override and deletion console
+                Đơn đặt lịch, lịch hẹn, cập nhật trạng thái và thao tác xóa
               </p>
             </div>
             <button
@@ -302,7 +302,7 @@ export default function AdminBookings() {
               <span className="material-symbols-outlined text-[18px]">
                 download
               </span>{" "}
-              EXPORT CSV
+              Xuất CSV
             </button>
           </div>
         </div>
@@ -314,7 +314,7 @@ export default function AdminBookings() {
         >
           <div className="w-full lg:max-w-sm lg:flex-1">
             <label className="mb-2 block font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              QUICK FIND
+              TÌM NHANH
             </label>
             <div className="relative flex h-11 w-full items-center border border-zinc-800 bg-black transition-colors focus-within:border-cyan-400">
               <span className="material-symbols-outlined absolute left-3 text-zinc-500">
@@ -335,7 +335,7 @@ export default function AdminBookings() {
 
           <div>
             <label className="mb-2 block font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              DATE RANGE
+              KHOẢNG NGÀY
             </label>
             <div className="relative flex h-11 w-full items-center border border-zinc-800 bg-black transition-colors focus-within:border-cyan-400 lg:w-72">
               <span className="material-symbols-outlined absolute left-3 text-zinc-500">
@@ -356,7 +356,7 @@ export default function AdminBookings() {
 
           <div>
             <label className="mb-2 block font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              STATUS
+              TRẠNG THÁI
             </label>
             <div className="relative flex h-11 w-full items-center border border-zinc-800 bg-black transition-colors focus-within:border-cyan-400 lg:w-52">
               <select
@@ -368,7 +368,7 @@ export default function AdminBookings() {
                 className="h-full w-full cursor-pointer appearance-none border-none bg-black pl-3 pr-10 font-mono text-sm text-zinc-100 focus:ring-0"
               >
                 <option className="bg-black text-zinc-100" value="all">
-                  ALL STATUS
+                  TẤT CẢ TRẠNG THÁI
                 </option>
                 <option className="bg-black text-zinc-100" value="PENDING">
                   PENDING
@@ -419,7 +419,7 @@ export default function AdminBookings() {
           style={{ animationDelay: "260ms" }}
         >
           <p className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-            SHOWING{" "}
+            ĐANG HIỂN THỊ{" "}
             <span className="text-zinc-100">
               {bookings.length > 0
                 ? (pagination.page - 1) * pagination.limit + 1
@@ -431,11 +431,11 @@ export default function AdminBookings() {
             </span>{" "}
             {pagination.total !== -1 ? (
               <>
-                OF <span className="text-zinc-100">{pagination.total}</span>{" "}
-                RESULTS
+                TRONG <span className="text-zinc-100">{pagination.total}</span>{" "}
+                KẾT QUẢ
               </>
             ) : (
-              "RESULTS"
+              "KẾT QUẢ"
             )}
           </p>
           <div className="flex gap-1">
@@ -446,7 +446,7 @@ export default function AdminBookings() {
               }
               className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              PREV
+              TRƯỚC
             </button>
             <span className="flex h-9 min-w-9 items-center justify-center border border-cyan-400/60 bg-cyan-400/10 px-3 font-mono font-black text-cyan-300">
               {pagination.page}
@@ -463,7 +463,7 @@ export default function AdminBookings() {
               }
               className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              NEXT
+              SAU
             </button>
           </div>
         </div>
@@ -483,8 +483,8 @@ export default function AdminBookings() {
                   <div>
                     <p className="mb-2 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
                       {drawerMode === "edit"
-                        ? "EDIT BOOKING"
-                        : "BOOKING DETAIL"}
+                        ? "SỬA ĐƠN"
+                        : "CHI TIẾT ĐƠN"}
                     </p>
                     <h2 className="font-headline-md text-headline-md text-zinc-100">
                       Chi tiết Đơn{" "}
@@ -581,7 +581,7 @@ export default function AdminBookings() {
                 <div className="p-4 bg-surface-container-low border border-outline-variant flex items-center justify-between gap-4">
                   <div className="flex flex-col">
                     <div className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">
-                      License Plate
+                      Biển số xe
                     </div>
                     <div className="border border-outline-variant px-1.5 py-0.5">
                       <span className="font-data-display text-[12px] text-on-surface tracking-tight font-bold">
@@ -596,14 +596,14 @@ export default function AdminBookings() {
               <div className="bg-surface-container-low border border-outline-variant">
                 <div className="px-5 py-3 border-b border-outline-variant bg-surface-container-highest">
                   <h3 className="font-label-caps text-label-caps text-on-surface-variant">
-                    INVOICE BREAKDOWN
+                    CHI TIẾT THANH TOÁN
                   </h3>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex justify-between items-center text-on-surface">
                     <span>{selectedBooking.service || "-"}</span>
                     <span className="font-data-display">
-                      {selectedBooking.totalPrice?.toLocaleString()}đ
+                        {(selectedBooking.totalPrice ?? 0).toLocaleString()}đ
                     </span>
                   </div>
                   {selectedBooking.discount > 0 && (
@@ -619,7 +619,11 @@ export default function AdminBookings() {
                       Tổng thanh toán
                     </span>
                     <span className="font-headline-sm text-secondary">
-                      {selectedBooking.finalPrice?.toLocaleString()}đ
+                      {(
+                        selectedBooking.finalPrice ??
+                        selectedBooking.totalPrice ??
+                        0
+                      ).toLocaleString()}đ
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
@@ -632,8 +636,8 @@ export default function AdminBookings() {
                       </span>
                       <span className="text-[10px] font-bold text-secondary tracking-widest uppercase">
                         {selectedBooking.paymentMethod === "PAYOS"
-                          ? `PAID VIA PAYOS`
-                          : selectedBooking.paymentStatus || "CASH PAYMENT"}
+                          ? `ĐÃ THANH TOÁN QUA PAYOS`
+                          : selectedBooking.paymentStatus || "THANH TOÁN TIỀN MẶT"}
                       </span>
                     </div>
                   </div>
@@ -644,7 +648,7 @@ export default function AdminBookings() {
               <div className="bg-surface-container-low border border-outline-variant">
                 <div className="px-5 py-3 border-b border-outline-variant bg-surface-container-highest">
                   <h3 className="font-label-caps text-label-caps text-on-surface-variant">
-                    AUDIT TRAIL
+                    NHẬT KÝ XỬ LÝ
                   </h3>
                 </div>
                 <div className="p-5">

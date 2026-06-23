@@ -13,10 +13,12 @@ const getVoucherPoints = (voucher) =>
   Number(voucher.pointCost ?? voucher.pointsCost ?? voucher.points ?? 0);
 
 const getVoucherName = (voucher) => voucher.name || voucher.title || "Voucher";
-const getVoucherDescription = (voucher) => voucher.description || voucher.desc || "";
+const getVoucherDescription = (voucher) =>
+  voucher.description || voucher.desc || "";
 
 const getTierName = (tier) => tier?.tierLevel || tier?.tier || tier?.name || "";
-const getTierLabel = (tier) => tier?.label || tier?.displayName || getTierName(tier);
+const getTierLabel = (tier) =>
+  tier?.label || tier?.displayName || getTierName(tier);
 const getTierMinPoints = (tier) =>
   Number(tier?.minPoints ?? tier?.thresholdPoints ?? tier?.requiredPoints ?? 0);
 const unwrapList = (payload, keys = []) => {
@@ -29,17 +31,10 @@ const unwrapList = (payload, keys = []) => {
 
 function PageShell({ active = "Rewards", children }) {
   return (
-    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#eefbff] text-slate-950">
+    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-16"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.98),rgba(235,252,255,0.9)_46%,rgba(178,232,255,0.66))]" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.07)_1px,transparent_1px)] bg-[size:74px_74px]" />
-        <div className="absolute right-[-140px] top-[-120px] h-[520px] w-[520px] rounded-full bg-cyan-200/40 blur-3xl" />
-        <div className="wash-foam-drift absolute bottom-[-120px] left-[-120px] h-72 w-[66vw] rounded-full bg-white/55 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
       </div>
       <div className="relative z-10">
         <UserNavbar active={active} />
@@ -123,11 +118,14 @@ export function VoucherPage() {
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
-        const tiers = unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]);
+        const tiers = unwrapList(tierRes, [
+          "tiers",
+          "tierConfigs",
+          "items",
+          "data",
+        ]);
         setTierConfigs(
-          tiers.sort(
-            (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
-          ),
+          tiers.sort((a, b) => getTierMinPoints(a) - getTierMinPoints(b)),
         );
       } finally {
         setLoading(false);
@@ -140,7 +138,9 @@ export function VoucherPage() {
   const filtered = useMemo(() => {
     let list = allVouchers || [];
     if (filter === "redeemable") {
-      list = list.filter((voucher) => getVoucherPoints(voucher) <= redeemablePoints);
+      list = list.filter(
+        (voucher) => getVoucherPoints(voucher) <= redeemablePoints,
+      );
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -182,7 +182,9 @@ export function VoucherPage() {
           onClick={() => navigate("/rewards")}
           className="mb-7 inline-flex items-center gap-2 rounded-2xl border border-cyan-200 bg-white/70 px-4 py-2 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
         >
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          <span className="material-symbols-outlined text-[18px]">
+            arrow_back
+          </span>
           Quay lại
         </button>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
@@ -256,19 +258,29 @@ export function VoucherPage() {
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-48 animate-pulse rounded-[28px] bg-white/60" />
+            <div
+              key={index}
+              className="h-48 animate-pulse rounded-[28px] bg-white/60"
+            />
           ))
         ) : filtered.length === 0 ? (
           <div className="col-span-full rounded-[34px] border border-white/75 bg-white/70 p-12 text-center shadow-sm backdrop-blur-2xl">
             <span className="material-symbols-outlined text-[56px] text-cyan-200">
               redeem
             </span>
-            <p className="mt-4 font-black text-slate-700">Chưa có voucher nào.</p>
+            <p className="mt-4 font-black text-slate-700">
+              Chưa có voucher nào.
+            </p>
           </div>
         ) : (
           filtered.map((voucher) => (
             <VoucherCard
-              key={voucher.id || voucher.voucherId || voucher.code || getVoucherName(voucher)}
+              key={
+                voucher.id ||
+                voucher.voucherId ||
+                voucher.code ||
+                getVoucherName(voucher)
+              }
               voucher={voucher}
               redeemablePoints={redeemablePoints}
               onRedeem={handleRedeem}
@@ -294,11 +306,14 @@ export default function CustomerLoyalty() {
           getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
-        const tiers = unwrapList(tierRes, ["tiers", "tierConfigs", "items", "data"]);
+        const tiers = unwrapList(tierRes, [
+          "tiers",
+          "tierConfigs",
+          "items",
+          "data",
+        ]);
         setTierConfigs(
-          tiers.sort(
-            (a, b) => getTierMinPoints(a) - getTierMinPoints(b),
-          ),
+          tiers.sort((a, b) => getTierMinPoints(a) - getTierMinPoints(b)),
         );
       } finally {
         setLoading(false);
@@ -310,8 +325,7 @@ export default function CustomerLoyalty() {
   const tier = profile?.tier || profile?.tierLevel || "";
   const nextTier = useMemo(() => {
     const idx = tierConfigs.findIndex(
-      (item) =>
-        getTierName(item).toUpperCase() === String(tier).toUpperCase(),
+      (item) => getTierName(item).toUpperCase() === String(tier).toUpperCase(),
     );
     return idx >= 0 ? tierConfigs[idx + 1] || null : null;
   }, [tierConfigs, tier]);
@@ -320,13 +334,15 @@ export default function CustomerLoyalty() {
     if (!tierConfigs.length) return Number(profile.progress ?? 0);
     if (!nextTier) return 100;
     const currentTier = tierConfigs.find(
-      (item) =>
-        getTierName(item).toUpperCase() === String(tier).toUpperCase(),
+      (item) => getTierName(item).toUpperCase() === String(tier).toUpperCase(),
     );
     const cur = getTierMinPoints(currentTier);
     const nxt = getTierMinPoints(nextTier);
     if (nxt === cur) return 100;
-    return Math.max(0, Math.min(100, ((profile.points - cur) / (nxt - cur)) * 100));
+    return Math.max(
+      0,
+      Math.min(100, ((profile.points - cur) / (nxt - cur)) * 100),
+    );
   }, [profile, nextTier, tierConfigs, tier]);
 
   const myVouchers = profile?.vouchers || [];
@@ -339,15 +355,11 @@ export default function CustomerLoyalty() {
           <div className="relative">
             <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
               <span className="h-2 w-2 rounded-full bg-cyan-300" />
-              Rewards & loyalty
+              Ưu đãi
             </p>
-            <h1 className="mt-7 max-w-4xl text-4xl font-black leading-[1.08] tracking-normal sm:text-5xl xl:text-6xl">
-              Điểm thưởng cho mỗi lần xe sạch hơn.
+            <h1 className="mt-7 max-w-4xl text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl xl:text-6xl">
+              Tích điểm, đổi voucher
             </h1>
-            <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-              Theo dõi điểm đổi voucher, điểm xét hạng và các ưu đãi chăm sóc xe
-              dành riêng cho tài khoản của bạn.
-            </p>
           </div>
         </div>
 
@@ -379,7 +391,9 @@ export default function CustomerLoyalty() {
               {`Còn ${Math.max(
                 getTierMinPoints(nextTier) - (profile?.points ?? 0),
                 0,
-              ).toLocaleString("vi-VN")} điểm để lên hạng ${getTierLabel(nextTier)}.`}
+              ).toLocaleString(
+                "vi-VN",
+              )} điểm để lên hạng ${getTierLabel(nextTier)}.`}
             </p>
           )}
         </aside>
@@ -405,7 +419,9 @@ export default function CustomerLoyalty() {
                 className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl transition hover:-translate-y-0.5 hover:border-cyan-200"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700">
-                  <span className="material-symbols-outlined text-[26px]">{icon}</span>
+                  <span className="material-symbols-outlined text-[26px]">
+                    {icon}
+                  </span>
                 </div>
                 <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
                   {label}
@@ -450,7 +466,12 @@ export default function CustomerLoyalty() {
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {myVouchers.map((voucher) => (
                   <VoucherCard
-                    key={voucher.id || voucher.voucherId || voucher.code || getVoucherName(voucher)}
+                    key={
+                      voucher.id ||
+                      voucher.voucherId ||
+                      voucher.code ||
+                      getVoucherName(voucher)
+                    }
                     voucher={voucher}
                     redeemablePoints={profile?.redeemablePoints ?? 0}
                     onRedeem={() => {}}
@@ -459,7 +480,6 @@ export default function CustomerLoyalty() {
               </div>
             )}
           </section>
-
         </>
       )}
     </PageShell>

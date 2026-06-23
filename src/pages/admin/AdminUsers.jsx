@@ -22,6 +22,13 @@ const TIER_STYLES = {
     "border border-zinc-700 bg-zinc-900 text-zinc-300",
 };
 
+const TIER_ORDER = {
+  MEMBER: 0,
+  SILVER: 1,
+  GOLD: 2,
+  PLATINUM: 3,
+};
+
 const STATUS_STYLES = {
   ACTIVE: "border border-emerald-400/50 bg-emerald-400/10 text-emerald-300",
   INACTIVE: "border border-red-400/50 bg-red-400/10 text-red-300",
@@ -38,6 +45,9 @@ const formatDate = (value) => {
 
 const getTierStyle = (tier) =>
   TIER_STYLES[String(tier || "MEMBER").toUpperCase()] || TIER_STYLES.MEMBER;
+
+const getTierRank = (tier) =>
+  TIER_ORDER[String(tier || "MEMBER").toUpperCase()] ?? 99;
 
 export default function AdminUsers() {
   const [customers, setCustomers] = useState([]);
@@ -82,7 +92,16 @@ export default function AdminUsers() {
   };
 
   const applyCustomers = (items) => {
-    const normalizedCustomers = items.map(normalizeAdminCustomer);
+    const normalizedCustomers = items
+      .map(normalizeAdminCustomer)
+      .sort((a, b) => {
+        const tierDiff = getTierRank(a.tier) - getTierRank(b.tier);
+        if (tierDiff !== 0) return tierDiff;
+        return String(a.name || a.fullName || "").localeCompare(
+          String(b.name || b.fullName || ""),
+          "vi",
+        );
+      });
     setCustomers(normalizedCustomers);
 
     const customerCount = normalizedCustomers.filter(
@@ -239,11 +258,11 @@ export default function AdminUsers() {
                 </span>
                 <span className="border border-zinc-800 bg-black px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500">
                   <span className="admin-pulse mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                  IDENTITY LEDGER
+                  HỒ SƠ TÀI KHOẢN
                 </span>
               </div>
             <h1 className="font-mono text-3xl font-black uppercase tracking-tight text-zinc-50 md:text-5xl">
-              User Control
+              Quản lý User
             </h1>
             <p className="mt-3 max-w-3xl font-mono text-xs font-bold uppercase leading-6 tracking-[0.14em] text-zinc-500">
               Quản lý customer, staff, trạng thái tài khoản và quyền vận hành.
@@ -272,7 +291,7 @@ export default function AdminUsers() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="admin-reveal border border-zinc-800 bg-zinc-950 p-5">
             <p className="mb-2 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              Tổng Users
+              Tổng User
             </p>
             <p className="font-mono text-[28px] font-black text-cyan-300">
               {stats.total}
@@ -280,7 +299,7 @@ export default function AdminUsers() {
           </div>
           <div className="admin-reveal border border-zinc-800 bg-zinc-950 p-5" style={{ animationDelay: "80ms" }}>
             <p className="mb-2 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              Customers
+              Customer
             </p>
             <p className="font-mono text-[28px] font-black text-emerald-300">
               {stats.customers}
@@ -479,7 +498,7 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLES[customer.status] || STATUS_STYLES.ACTIVE}`}
+                        className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1 text-[11px] font-bold ${STATUS_STYLES[customer.status] || STATUS_STYLES.ACTIVE}`}
                       >
                         {customer.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
                       </span>
@@ -560,7 +579,7 @@ export default function AdminUsers() {
                 </div>
                 <div>
                   <p className="font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
-                    EDIT CUSTOMER
+                    SỬA CUSTOMER
                   </p>
                   <h1 className="font-headline-sm text-headline-sm text-zinc-100">
                     Chỉnh sửa Hồ Sơ Khách Hàng

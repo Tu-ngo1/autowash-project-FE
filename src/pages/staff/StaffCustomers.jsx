@@ -3,6 +3,29 @@ import StaffNavbar from "../../components/StaffNavbar";
 import { createStaffCustomer, getStaffCustomers } from "../../services/staffCustomerApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
+const unwrapStaffPayload = (payload, keys = []) => {
+  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+  return [];
+};
+
+const normalizeStaffCustomer = (customer = {}) => ({
+  ...customer,
+  id: customer.id ?? customer.userId,
+  name: customer.name || customer.fullName || customer.username || "",
+  plate:
+    customer.plate ||
+    customer.licensePlate ||
+    customer.vehicleLicensePlate ||
+    customer.vehicles?.[0]?.licensePlate ||
+    "-",
+  tier: customer.tier || customer.tierLevel || "Member",
+  points: customer.points ?? customer.rewardPoints ?? customer.tierPoints ?? 0,
+});
+
 function AddCustomerDrawer({ onClose, onAdd, loading }) {
   const [form, setForm] = useState({ name: "", phone: "", plate: "" });
 
@@ -106,13 +129,11 @@ export default function StaffCustomers() {
     try {
       const response = await getStaffCustomers(currentPage);
 
-      if (Array.isArray(response.data)) {
-        setCustomers(response.data);
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        setCustomers(response.data.data);
-      } else {
-        setCustomers([]);
-      }
+      setCustomers(
+        unwrapStaffPayload(response, ["customers", "users", "items"]).map(
+          normalizeStaffCustomer,
+        ),
+      );
     } catch (err) {
       setError(
         getFriendlyErrorMessage(
