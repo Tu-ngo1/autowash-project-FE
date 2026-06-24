@@ -14,6 +14,8 @@ import {
   updateMyCar,
 } from "../../services/customerCarApi";
 import { getVehicleModels } from "../../services/vehicleModelApi";
+import { depositWallet, getWalletTransactions } from "../../services/customerWalletApi";
+import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const statusStyles = {
   PENDING: "bg-[#0061a5]/10 text-[#0061a5]",
@@ -185,6 +187,17 @@ export default function CustomerProfile() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const user = getUser() || {};
+
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") === "wallet" ? "wallet" : "profile"
+  );
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositError, setDepositError] = useState("");
+  const [depositSuccess, setDepositSuccess] = useState("");
+  const [transactions, setTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState(null);
   const [profileReturnTo, setProfileReturnTo] = useState("");
@@ -214,6 +227,7 @@ export default function CustomerProfile() {
     progress: 0,
     washes: 0,
     vehicles: [],
+    walletBalance: user.walletBalance || 0,
   });
 
   const [recentBookings, setRecentBookings] = useState([]);
@@ -276,7 +290,13 @@ export default function CustomerProfile() {
             Array.isArray(carsRes) ? carsRes : [],
             Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],
           ),
+          walletBalance: apiProfile.walletBalance ?? apiProfile.balance ?? rawProfile.walletBalance ?? rawProfile.balance ?? 0,
         }));
+        
+        updateUser({
+          walletBalance: apiProfile.walletBalance ?? apiProfile.balance ?? rawProfile.walletBalance ?? rawProfile.balance ?? 0
+        });
+        
         setRecentBookings(bookings.slice(-3).reverse());
         setVouchers(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []);
       } catch {
@@ -355,6 +375,24 @@ export default function CustomerProfile() {
       setProfileReturnTo(safeReturnTo);
     }
 
+    const tab = searchParams.get("tab");
+    if (tab === "wallet") {
+      setActiveTab("wallet");
+    } else {
+      setActiveTab("profile");
+    }
+
+    const paymentStatus = searchParams.get("status");
+    const code = searchParams.get("code");
+    const cancel = searchParams.get("cancel");
+    if (paymentStatus === "PAID" || code === "00") {
+      setDepositSuccess("Nạp tiền thành công! Số dư mới đã được cập nhật.");
+      setSearchParams({ tab: "wallet" }, { replace: true });
+    } else if (paymentStatus === "CANCELLED" || cancel === "true") {
+      setDepositError("Giao dịch nạp tiền đã bị hủy.");
+      setSearchParams({ tab: "wallet" }, { replace: true });
+    }
+
     if (
       searchParams.get("vehicleForm") === "add" ||
       searchParams.get("addVehicle") === "1"
@@ -372,10 +410,63 @@ export default function CustomerProfile() {
       setShowVehicleForm(true);
     }
 
-    if (searchParams.toString()) {
-      setSearchParams({}, { replace: true });
+    if (searchParams.toString() && !paymentStatus && !code && !cancel) {
+      const tabVal = searchParams.get("tab");
+      if (tabVal) {
+        setSearchParams({ tab: tabVal }, { replace: true });
+      } else {
+        setSearchParams({}, { replace: true });
+      }
     }
   }, [searchParams, setSearchParams]);
+
+  const fetchTransactions = async () => {
+    setTransactionsLoading(true);
+    try {
+      const txs = await getWalletTransactions();
+      setTransactions(txs || []);
+    } catch {
+      setTransactions([]);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "wallet") {
+      fetchTransactions();
+    }
+  }, [activeTab]);
+
+  const handleDepositSubmit = async (event) => {
+    event.preventDefault();
+    setDepositError("");
+    setDepositSuccess("");
+    
+    const amountVal = Number(depositAmount);
+    if (!depositAmount || isNaN(amountVal) || amountVal < 10000) {
+      setDepositError("Số tiền nạp tối thiểu là 10.000đ.");
+      return;
+    }
+
+    setDepositLoading(true);
+    try {
+      const response = await depositWallet(amountVal);
+      const paymentUrl = response?.checkoutUrl || response?.paymentUrl || response?.url;
+      if (paymentUrl) {
+        setDepositSuccess("Đang chuyển hướng đến trang thanh toán PayOS...");
+        window.location.href = paymentUrl;
+      } else {
+        setDepositError("Không tạo được liên kết thanh toán. Vui lòng thử lại.");
+      }
+    } catch (err) {
+      setDepositError(
+        getFriendlyErrorMessage(err, "Không thể kết nối đến cổng thanh toán. Vui lòng thử lại sau.")
+      );
+    } finally {
+      setDepositLoading(false);
+    }
+  };
 
   const handleVehicleFieldChange = (key, value) => {
     setVehicleForm((prev) => {
@@ -648,162 +739,352 @@ export default function CustomerProfile() {
 
           <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
             <div className="space-y-6">
-              <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                      Xe
-                    </p>
-                    <h2 className="mt-2 text-3xl font-black text-slate-950">
-                      Phương tiện
-                    </h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      Quản lý xe của bạn.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openAddVehicleForm}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-300"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      add_circle
-                    </span>
-                    Thêm xe mới
-                  </button>
-                </div>
+              {/* Tab Bar */}
+              <div className="flex gap-2 rounded-2xl bg-[#003c5f]/8 p-1.5 w-fit">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("profile");
+                    setSearchParams((prev) => {
+                      prev.delete("tab");
+                      return prev;
+                    });
+                  }}
+                  className={`flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-black transition-all ${
+                    activeTab === "profile"
+                      ? "bg-white text-[#005c91] shadow-sm"
+                      : "text-[#314c5f] hover:bg-white/50"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  Thông tin xe & Ưu đãi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("wallet");
+                    setSearchParams((prev) => {
+                      prev.set("tab", "wallet");
+                      return prev;
+                    });
+                  }}
+                  className={`flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-black transition-all ${
+                    activeTab === "wallet"
+                      ? "bg-white text-[#005c91] shadow-sm"
+                      : "text-[#314c5f] hover:bg-white/50"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                  Ví của tôi
+                </button>
+              </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {profile.vehicles.length === 0 ? (
-                    <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
-                      Chưa có phương tiện nào.
+              {activeTab === "wallet" ? (
+                <div className="space-y-6">
+                  {/* Card hiển thị số dư ví */}
+                  <section className="relative overflow-hidden rounded-[34px] border border-cyan-200/50 bg-[#003c5f]/95 p-6 text-white shadow-xl sm:p-8">
+                    <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
+                    <div className="relative">
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+                        Ví điện tử autoWash
+                      </p>
+                      <h3 className="mt-3 text-sm font-semibold text-cyan-100/80">Số dư hiện tại</h3>
+                      <p className="mt-2 text-4xl font-black tracking-wider sm:text-5xl" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {(profile.walletBalance || 0).toLocaleString("vi-VN")}đ
+                      </p>
                     </div>
-                  ) : (
-                    profile.vehicles.map((vehicle) => (
-                      <div
-                        key={vehicle.id || vehicle.plate}
-                        className="group relative flex items-center gap-4 overflow-hidden rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
-                      >
-                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-50">
-                          <span className="material-symbols-outlined text-[32px] text-cyan-700">
-                            {
-                              getVehicleSizeOption(
-                                normalizeVehicleSize(vehicle),
-                              ).icon
-                            }
-                          </span>
+                  </section>
+
+                  {/* Form nạp tiền */}
+                  <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                    <div className="mb-6">
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                        Nạp tiền
+                      </p>
+                      <h2 className="mt-2 text-3xl font-black text-slate-950">
+                        Nạp tiền vào ví
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        Nạp tiền nhanh qua PayOS (VietQR). Hỗ trợ tất cả ngân hàng.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleDepositSubmit} className="space-y-5">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700" htmlFor="deposit-amount">
+                          Số tiền muốn nạp (đ)
+                        </label>
+                        <input
+                          id="deposit-amount"
+                          type="number"
+                          min="10000"
+                          step="1000"
+                          placeholder="Nhập số tiền nạp (tối thiểu 10,000đ)..."
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                        />
+                      </div>
+
+                      {/* Nút nạp nhanh */}
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 mb-2.5">Số tiền gợi ý</p>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {[50000, 100000, 200000, 500000].map((amount) => (
+                            <button
+                              key={amount}
+                              type="button"
+                              onClick={() => setDepositAmount(String(amount))}
+                              className={`h-11 rounded-xl border font-black text-xs transition-all ${
+                                Number(depositAmount) === amount
+                                  ? "border-cyan-400 bg-cyan-400 text-slate-950 shadow-md"
+                                  : "border-cyan-100 bg-white/60 text-[#005c91] hover:-translate-y-0.5 hover:bg-cyan-50"
+                              }`}
+                            >
+                              {amount.toLocaleString("vi-VN")}đ
+                            </button>
+                          ))}
                         </div>
-                        <div className="min-w-0 flex-grow">
-                          <h3 className="truncate font-black text-slate-950">
-                            {vehicle.label ||
-                              vehicle.name ||
-                              getVehicleSizeOption(
-                                normalizeVehicleSize(vehicle),
-                              ).label}
-                          </h3>
-                          <p className="text-xs font-semibold text-slate-500">
-                            Biển số: {vehicle.plate}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-800">
-                              {
-                                getVehicleSizeOption(
-                                  normalizeVehicleSize(vehicle),
-                                ).description
-                              }
-                            </span>
-                            {vehicle.default && (
-                              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">
-                                Mặc định
+                      </div>
+
+                      {depositError && (
+                        <p className="text-sm font-semibold text-rose-600">{depositError}</p>
+                      )}
+                      {depositSuccess && (
+                        <p className="text-sm font-semibold text-emerald-600">{depositSuccess}</p>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={depositLoading}
+                        className="w-full h-13 rounded-2xl bg-cyan-400 font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {depositLoading ? "Đang xử lý..." : "Nạp tiền ngay"}
+                      </button>
+                    </form>
+                  </section>
+
+                  {/* Lịch sử giao dịch */}
+                  <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                    <div className="mb-6">
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                        Lịch sử
+                      </p>
+                      <h2 className="mt-2 text-3xl font-black text-slate-950">
+                        Lịch sử giao dịch
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        Lịch sử nạp, nhận hoàn và thanh toán của ví.
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-[24px] border border-cyan-100 bg-white/50">
+                      {transactionsLoading ? (
+                        <div className="p-8 text-center text-sm font-semibold text-slate-500">
+                          Đang tải lịch sử giao dịch...
+                        </div>
+                      ) : transactions.length === 0 ? (
+                        <div className="p-8 text-center text-sm font-semibold text-slate-500">
+                          Chưa có giao dịch nào được thực hiện.
+                        </div>
+                      ) : (
+                        <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                          <thead>
+                            <tr className="border-b border-cyan-100 bg-cyan-50/50 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-700">
+                              <th className="px-4 py-3">Mã GD</th>
+                              <th className="px-4 py-3">Loại</th>
+                              <th className="px-4 py-3">Số tiền</th>
+                              <th className="px-4 py-3">Nội dung</th>
+                              <th className="px-4 py-3">Thời gian</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-cyan-100/50">
+                            {transactions.map((tx) => {
+                              const isAdd = tx.type === "DEPOSIT" || tx.type === "REFUND";
+                              const sign = isAdd ? "+" : "-";
+                              const colorClass = isAdd ? "text-emerald-600 font-bold" : "text-rose-600 font-bold";
+                              const typeLabel = tx.type === "DEPOSIT" ? "Nạp tiền" : tx.type === "REFUND" ? "Hoàn tiền" : "Thanh toán";
+                              
+                              return (
+                                <tr key={tx.id} className="hover:bg-cyan-50/30">
+                                  <td className="px-4 py-3 font-mono font-bold text-slate-900">{tx.id}</td>
+                                  <td className="px-4 py-3 font-black text-slate-700">{typeLabel}</td>
+                                  <td className={`px-4 py-3 ${colorClass}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                                    {sign}{Math.abs(tx.amount).toLocaleString("vi-VN")}đ
+                                  </td>
+                                  <td className="px-4 py-3 font-semibold text-slate-600">{tx.description}</td>
+                                  <td className="px-4 py-3 font-semibold text-slate-500">
+                                    {new Date(tx.createdAt).toLocaleString("vi-VN")}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <>
+                  <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                          Xe
+                        </p>
+                        <h2 className="mt-2 text-3xl font-black text-slate-950">
+                          Phương tiện
+                        </h2>
+                        <p className="mt-1 text-sm font-semibold text-slate-500">
+                          Quản lý xe của bạn.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openAddVehicleForm}
+                        className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-300"
+                      >
+                        <span className="material-symbols-outlined text-[20px]">
+                          add_circle
+                        </span>
+                        Thêm xe mới
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {profile.vehicles.length === 0 ? (
+                        <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
+                          Chưa có phương tiện nào.
+                        </div>
+                      ) : (
+                        profile.vehicles.map((vehicle) => (
+                          <div
+                            key={vehicle.id || vehicle.plate}
+                            className="group relative flex items-center gap-4 overflow-hidden rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
+                          >
+                            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-50">
+                              <span className="material-symbols-outlined text-[32px] text-cyan-700">
+                                {
+                                  getVehicleSizeOption(
+                                    normalizeVehicleSize(vehicle),
+                                  ).icon
+                                }
                               </span>
-                            )}
+                            </div>
+                            <div className="min-w-0 flex-grow">
+                              <h3 className="truncate font-black text-slate-950">
+                                {vehicle.label ||
+                                  vehicle.name ||
+                                  getVehicleSizeOption(
+                                    normalizeVehicleSize(vehicle),
+                                  ).label}
+                              </h3>
+                              <p className="text-xs font-semibold text-slate-500">
+                                Biển số: {vehicle.plate}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <span className="rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-800">
+                                  {
+                                    getVehicleSizeOption(
+                                      normalizeVehicleSize(vehicle),
+                                    ).description
+                                  }
+                                </span>
+                                {vehicle.default && (
+                                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">
+                                    Mặc định
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openEditVehicleForm(vehicle)}
+                              className="rounded-2xl bg-slate-950/5 p-3 text-slate-500 transition hover:bg-cyan-50 hover:text-cyan-700"
+                              aria-label="Sửa xe"
+                            >
+                              <span className="material-symbols-outlined">
+                                edit
+                              </span>
+                            </button>
                           </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openEditVehicleForm(vehicle)}
-                          className="rounded-2xl bg-slate-950/5 p-3 text-slate-500 transition hover:bg-cyan-50 hover:text-cyan-700"
-                          aria-label="Sửa xe"
-                        >
-                          <span className="material-symbols-outlined">
-                            edit
-                          </span>
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
-                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-6">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                      Ưu đãi
-                    </p>
-                    <h2 className="mt-2 text-3xl font-black text-slate-950">
-                      Voucher của bạn
-                    </h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      Đổi điểm lấy voucher.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/rewards")}
-                    className="rounded-2xl border border-cyan-200 bg-white/70 px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
-                  >
-                    Xem tất cả
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {vouchers.length === 0 ? (
-                    <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
-                      Chưa có voucher nào.
+                        ))
+                      )}
                     </div>
-                  ) : (
-                    vouchers.map((voucher) => (
-                      <div
-                        key={
-                          voucher.id ||
-                          voucher.voucherId ||
-                          voucher.code ||
-                          voucher.name
-                        }
-                        className="group flex items-center gap-4 rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
-                      >
-                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-3xl bg-cyan-50">
-                          <span className="material-symbols-outlined text-[32px] text-cyan-700">
-                            {voucher.icon || "redeem"}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-black text-slate-950">
-                            {voucher.name || voucher.title || "Voucher"}
-                          </h3>
-                          <p className="mt-2 text-xs font-semibold text-slate-500">
-                            {voucher.description || voucher.desc || ""}
-                          </p>
-                          <p className="mt-2 text-xs font-black text-cyan-700">
-                            {(
-                              voucher.pointCost ??
-                              voucher.pointsCost ??
-                              voucher.points ??
-                              0
-                            ).toLocaleString("vi-VN")}{" "}
-                            điểm
-                          </p>
-                        </div>
-                        <button className="rounded-2xl bg-slate-950 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                          <span className="material-symbols-outlined">
-                            redeem
-                          </span>
-                        </button>
+                  </section>
+
+                  <section className="rounded-[34px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl sm:p-7">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-6">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                          Ưu đãi
+                        </p>
+                        <h2 className="mt-2 text-3xl font-black text-slate-950">
+                          Voucher của bạn
+                        </h2>
+                        <p className="mt-1 text-sm font-semibold text-slate-500">
+                          Đổi điểm lấy voucher.
+                        </p>
                       </div>
-                    ))
-                  )}
-                </div>
-              </section>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/rewards")}
+                        className="rounded-2xl border border-cyan-200 bg-white/70 px-5 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-50"
+                      >
+                        Xem tất cả
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {vouchers.length === 0 ? (
+                        <div className="col-span-full rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
+                          Chưa có voucher nào.
+                        </div>
+                      ) : (
+                        vouchers.map((voucher) => (
+                          <div
+                            key={
+                              voucher.id ||
+                              voucher.voucherId ||
+                              voucher.code ||
+                              voucher.name
+                            }
+                            className="group flex items-center gap-4 rounded-[24px] border border-white/75 bg-white/70 p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_20px_60px_rgba(2,74,138,0.12)]"
+                          >
+                            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-3xl bg-cyan-50">
+                              <span className="material-symbols-outlined text-[32px] text-cyan-700">
+                                {voucher.icon || "redeem"}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-black text-slate-950">
+                                {voucher.name || voucher.title || "Voucher"}
+                              </h3>
+                              <p className="mt-2 text-xs font-semibold text-slate-500">
+                                {voucher.description || voucher.desc || ""}
+                              </p>
+                              <p className="mt-2 text-xs font-black text-cyan-700">
+                                {(
+                                  voucher.pointCost ??
+                                  voucher.pointsCost ??
+                                  voucher.points ??
+                                  0
+                                ).toLocaleString("vi-VN")}{" "}
+                                điểm
+                              </p>
+                            </div>
+                            <button className="rounded-2xl bg-slate-950 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                              <span className="material-symbols-outlined">
+                                redeem
+                              </span>
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
             </div>
 
             <aside className="space-y-6">

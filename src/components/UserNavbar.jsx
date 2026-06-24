@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearAuth } from "../utils/auth";
+import { clearAuth, getUser, isAuthenticated, updateUser } from "../utils/auth";
+import { getProfile } from "../services/customerUserApi";
 
 const CUSTOMER_LINKS = [
   { label: "Trang chủ", activeKey: "Home", to: "/dashboard" },
@@ -11,6 +13,32 @@ const CUSTOMER_LINKS = [
 
 export default function UserNavbar({ active }) {
   const navigate = useNavigate();
+  const [balance, setBalance] = useState(null);
+  const [userName, setUserName] = useState("Khách hàng");
+  const authenticated = isAuthenticated();
+
+  useEffect(() => {
+    if (!authenticated) return;
+
+    // Cache-first: load immediately from local storage
+    const localUser = getUser();
+    if (localUser) {
+      setBalance(localUser.walletBalance ?? 0);
+      setUserName(localUser.name || localUser.fullName || "Khách hàng");
+    }
+
+    // Fresh fetch from API
+    getProfile()
+      .then((res) => {
+        const data = res.data?.data ?? res.data ?? {};
+        const walletBalance = data.walletBalance ?? data.balance ?? 0;
+        const name = data.fullName || data.name || "Khách hàng";
+        setBalance(walletBalance);
+        setUserName(name);
+        updateUser({ walletBalance, name });
+      })
+      .catch(() => {});
+  }, [authenticated]);
 
   const handleLogout = () => {
     clearAuth();
@@ -19,11 +47,11 @@ export default function UserNavbar({ active }) {
 
   return (
     <nav className="fixed left-1/2 top-5 z-50 w-[calc(100%-24px)] max-w-[1520px] -translate-x-1/2 font-body-md md:w-[82vw]">
-      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-3 rounded-[24px] border border-cyan-100/80 bg-[#e9fbff]/82 px-4 py-3 shadow-[0_22px_70px_rgba(0,90,130,0.2)] backdrop-blur-2xl lg:grid lg:h-[76px] lg:grid-cols-[1fr_auto_1fr] lg:px-6 lg:py-0">
+      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-4 rounded-[24px] border border-cyan-100/80 bg-[#e9fbff]/82 px-4 py-3 shadow-[0_22px_70px_rgba(0,90,130,0.2)] backdrop-blur-2xl lg:h-[76px] lg:px-6 lg:py-0">
         <button
           type="button"
           onClick={() => navigate("/dashboard")}
-          className="flex shrink-0 items-center gap-3 justify-self-start text-left"
+          className="flex shrink-0 items-center gap-3 text-left"
         >
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-cyan-200">
             <span className="material-symbols-outlined text-[23px]">
@@ -40,7 +68,7 @@ export default function UserNavbar({ active }) {
           </span>
         </button>
 
-        <div className="hidden min-w-0 items-center justify-center gap-2 rounded-2xl bg-[#003c5f]/8 p-1 lg:flex">
+        <div className="hidden items-center justify-center gap-1.5 rounded-2xl bg-[#003c5f]/8 p-1 lg:flex">
           {CUSTOMER_LINKS.map((item) => (
             <button
               key={item.to}
@@ -57,7 +85,27 @@ export default function UserNavbar({ active }) {
           ))}
         </div>
 
-        <div className="flex min-w-0 shrink-0 items-center gap-2 justify-self-end sm:gap-3 lg:gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-4">
+          {authenticated && balance !== null && (
+            <div
+              onClick={() => navigate("/profile?tab=wallet")}
+              className="hidden items-center gap-1.5 rounded-xl border border-cyan-200 bg-white/70 px-3 py-2 text-xs font-black text-[#005c91] cursor-pointer hover:bg-white transition-colors sm:flex"
+            >
+              <span className="material-symbols-outlined text-[16px] text-cyan-600">account_balance_wallet</span>
+              <span>{balance.toLocaleString("vi-VN")}đ</span>
+            </div>
+          )}
+          {authenticated && (
+            <div
+              onClick={() => navigate("/profile")}
+              className="hidden items-center gap-2 cursor-pointer hover:opacity-80 sm:flex"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-600 text-white font-black text-xs uppercase">
+                {userName.charAt(0)}
+              </div>
+              <span className="hidden text-xs font-black text-[#314c5f] xl:inline">{userName}</span>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => navigate("/booking")}

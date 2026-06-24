@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import UserNavbar from "../../components/UserNavbar";
 import BookingSummary from "../../components/booking/BookingSummary";
-import { getUser, getUserTier, getUserWalletBalance } from "../../utils/auth";
+import { getUser, getUserTier, getUserWalletBalance, updateUser } from "../../utils/auth";
+import { getProfile } from "../../services/customerUserApi";
 import {
   createBooking,
   getBookingData,
@@ -315,13 +316,21 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [carsPayload, voucherPayload, configPayload] = await Promise.all([
+        const [carsPayload, voucherPayload, configPayload, profileRes] = await Promise.all([
           getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
+          getProfile().catch(() => null),
         ]);
+
+        if (profileRes) {
+          const profileData = profileRes.data?.data ?? profileRes.data ?? {};
+          const freshBalance = Number(profileData.walletBalance ?? profileData.balance ?? balance) || 0;
+          setWalletBalance(freshBalance);
+          updateUser({ walletBalance: freshBalance, name: profileData.fullName || profileData.name });
+        }
 
         const config = unwrapObject(configPayload);
         const fetchedVehicles = Array.isArray(carsPayload) ? carsPayload : [];
@@ -397,6 +406,12 @@ export default function CustomerBooking() {
   const voucherAmount = voucherApplied ? voucherValue : 0;
   const subtotal = serviceInfo.price + addonCost;
   const totalPrice = Math.max(subtotal - discountAmount - voucherAmount, 0);
+
+  useEffect(() => {
+    if (paymentMethod === "WALLET" && walletBalance < totalPrice) {
+      setPaymentMethod("PAYOS");
+    }
+  }, [totalPrice, walletBalance, paymentMethod]);
 
   const selectedAddonLabels = selectedAddons
     .map((addonId) => addonServices.find((item) => item.id === addonId)?.name)
@@ -475,9 +490,21 @@ export default function CustomerBooking() {
 
     setLoading(true);
     try {
-      await createBooking(booking);
-      setSuccess("Đặt lịch thành công!");
+      const res = await createBooking(booking);
+      const raw = res?.data?.data ?? res?.data ?? {};
+      const checkoutUrl = raw.checkoutUrl || raw.paymentUrl || raw.url;
+      
+      if (paymentMethod === "PAYOS" && checkoutUrl) {
+        setSuccess("Đặt lịch thành công! Đang chuyển hướng đến trang thanh toán PayOS...");
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      setSuccess("Đặt lịch thành công! Đang chuyển hướng đến trang lịch sử...");
       setError("");
+      setTimeout(() => {
+        navigate("/history");
+      }, 1500);
     } catch (err) {
       setError(
         getFriendlyErrorMessage(
@@ -937,7 +964,7 @@ export default function CustomerBooking() {
                   Thanh toán
                 </h2>
 
-                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                   <label
                     className={`relative flex cursor-pointer flex-col rounded-[24px] border p-5 transition-all ${
                       paymentMethod === "PAYOS"
@@ -956,14 +983,14 @@ export default function CustomerBooking() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-cyan-700">
-                            qr_code_2
+                            credit_card
                           </span>
                           <span className="font-black text-slate-950">
-                            Trả trước qua PayOS (VietQR)
+                            Cổng thanh toán PayOS
                           </span>
                         </div>
                         <span className="mt-1 block text-xs font-semibold text-slate-500">
-                          Hoàn bằng Điểm thưởng nếu hủy lịch
+                          Thanh toán trực tuyến qua cổng PayOS
                         </span>
                       </div>
                     </div>
@@ -991,6 +1018,55 @@ export default function CustomerBooking() {
                         <span className="font-black text-slate-950">
                           Tiền mặt tại quầy
                         </span>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`relative flex flex-col rounded-[24px] border p-5 transition-all ${
+                      walletBalance < totalPrice
+                        ? "border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed"
+                        : paymentMethod === "WALLET"
+                        ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)] cursor-pointer"
+                        : "border-white/80 bg-white/72 hover:-translate-y-0.5 hover:bg-cyan-50 cursor-pointer"
+                    }`}
+                  >
+                    <div className="mb-2 flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="payment"
+                        disabled={walletBalance < totalPrice}
+                        checked={paymentMethod === "WALLET"}
+                        onChange={() => setPaymentMethod("WALLET")}
+                        className="mt-1 text-cyan-600 focus:ring-cyan-500 disabled:opacity-50"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-cyan-700">
+                            account_balance_wallet
+                          </span>
+                          <span className="font-black text-slate-950">
+                            Ví Website
+                          </span>
+                        </div>
+                        <span className="mt-1 block text-xs font-semibold text-slate-500">
+                          Số dư ví: {formatPrice(walletBalance)}
+                        </span>
+                        {walletBalance < totalPrice && (
+                          <span className="mt-2 block text-xs font-bold text-rose-600">
+                            Số dư ví không đủ để thanh toán.{" "}
+                            <span
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigate("/profile?tab=wallet");
+                              }}
+                              className="underline cursor-pointer text-cyan-700 hover:text-cyan-900"
+                            >
+                              [Nạp thêm tiền vào ví]
+                            </span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </label>
