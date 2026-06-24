@@ -50,6 +50,9 @@ export const createBooking = (data) =>
     scheduledStartTime: data.scheduledStartTime,
     serviceIds: data.serviceIds || [data.serviceId].filter(Boolean),
     customerNote: data.customerNote || "",
+    paymentMethod: data.paymentMethod,
+    voucherCode: data.voucherCode,
+    price: data.price,
   });
 export const updateBooking = (id, data) =>
   api.put(customerBookingsPath(id), data);

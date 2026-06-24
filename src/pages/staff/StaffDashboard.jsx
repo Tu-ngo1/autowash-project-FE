@@ -191,80 +191,102 @@ function AppointmentSnapshot({ appointment, scannedCode }) {
     );
   }
 
-  const fields = [
-    {
-      label: "Khách hàng",
-      value: getAppointmentValue(appointment, [
-        "customerName",
-        "fullName",
-        "name",
-        "customer",
-        "user",
-      ]),
-    },
-    {
-      label: "Số điện thoại",
-      value: getAppointmentValue(appointment, ["phone", "customerPhone", "phoneNumber"]),
-    },
-    {
-      label: "Dịch vụ",
-      value: getAppointmentValue(appointment, [
-        "serviceName",
-        "service",
-        "packageName",
-        "washPackage",
-      ]),
-    },
-    {
-      label: "Giờ hẹn",
-      value: getAppointmentValue(appointment, ["time", "appointmentTime", "slot", "bookingTime"]),
-    },
-  ];
+  const plate = appointment.plate || "Chưa có biển số";
+  const tier = appointment.tier || "Member";
+  const tierStyle = TIER_STYLES[tier] || TIER_STYLES.Member;
+
+  const bookingCode = appointment.bookingCode || appointment.id || "";
+  const customerName = getAppointmentValue(appointment, [
+    "customerName",
+    "fullName",
+    "name",
+    "customer",
+    "user",
+  ]);
+  const customerPhone = getAppointmentValue(appointment, ["phone", "customerPhone", "phoneNumber"]);
+  const appointmentTime = getAppointmentValue(appointment, ["time", "appointmentTime", "slot", "bookingTime"]);
+
+  const isUnpaid = String(appointment.paymentStatus || "").toUpperCase() === "UNPAID";
+  const paymentMethodText = String(appointment.paymentMethod || "").toUpperCase() === "CASH" ? "Tiền mặt" : appointment.paymentMethod || "Chưa rõ";
+  const finalPrice = appointment.finalPrice ?? appointment.totalPrice ?? 0;
+  const bayNumber = appointment.bayNumber;
+
+  const services = Array.isArray(appointment.services) && appointment.services.length > 0
+    ? appointment.services
+    : appointment.service
+      ? [appointment.service]
+      : [];
 
   return (
     <div className="rounded-3xl border border-teal-100/30 bg-[#123746]/90 p-5 shadow-[inset_0_1px_0_rgba(236,254,255,0.1)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      {/* Header: Biển số & Hạng thành viên */}
+      <div className="flex items-center justify-between border-b border-[#244653] pb-4">
         <div>
-          <p
-            className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#6ff6df]"
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Thông tin đặt lịch
-          </p>
-          {scannedCode ? (
+          {bookingCode && (
             <p
-              className="mt-1 break-all text-[12px] font-bold text-[#a9f7ef]"
+              className="text-[10px] font-bold text-teal-400 uppercase tracking-widest"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
-              Mã vừa quét: {scannedCode}
+              {bookingCode}
             </p>
-          ) : null}
-          <p
-            className="mt-1 text-2xl font-black tracking-wider text-[#ecfeff]"
+          )}
+          <h2
+            className="text-3xl font-black tracking-wider text-white mt-1"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
-            {appointment.plate || "Chưa có biển số"}
-          </p>
+            {plate}
+          </h2>
         </div>
-        <span className="rounded-2xl border border-[#6ff6df]/30 bg-[#6ff6df]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#e5fbff]">
-          {appointment.tier || appointment.status || "Đã quét"}
+        <span
+          className={`border px-3 py-1 text-[11px] font-bold rounded-2xl tracking-widest uppercase ${tierStyle}`}
+          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        >
+          {tier}
         </span>
       </div>
 
-      <div className="grid gap-3">
-        {fields.map((field) => (
-          <div
-            key={field.label}
-            className="flex items-center justify-between gap-4 rounded-2xl bg-white/[0.075] px-4 py-3"
-          >
-            <span className="text-[12px] font-bold text-[#b9f5ef]">
-              {field.label}
-            </span>
-            <span className="text-right text-sm font-bold text-[#ecfeff]">
-              {field.value}
-            </span>
+      {/* Cảnh báo thanh toán & Chỉ định khoang */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {isUnpaid ? (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3.5 text-red-200">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-400">Yêu cầu thu tiền</p>
+            <p className="text-lg font-black mt-1">THU {finalPrice.toLocaleString('vi-VN')}đ</p>
+            <p className="text-xs text-[#fca5a5] mt-0.5">PT: {paymentMethodText}</p>
           </div>
-        ))}
+        ) : (
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-emerald-200">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Thanh toán</p>
+            <p className="text-lg font-black mt-1">ĐÃ THANH TOÁN</p>
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-cyan-500/40 bg-cyan-500/10 p-3.5 text-cyan-200">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Khoang rửa</p>
+          <p className="text-lg font-black mt-1">KHOANG SỐ {bayNumber || "Chưa chọn"}</p>
+        </div>
+      </div>
+
+      {/* Danh sách Dịch vụ */}
+      {services.length > 0 && (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1.5">Dịch vụ ({services.length})</p>
+          <div className="flex flex-wrap gap-2">
+            {services.map((svc, i) => (
+              <span
+                key={i}
+                className="bg-white/10 border border-white/5 px-2.5 py-1 rounded-xl text-xs font-semibold text-[#ecfeff]"
+              >
+                {svc}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Thông tin khách hàng & Giờ hẹn ở dưới cùng */}
+      <div className="mt-4 pt-3 border-t border-[#244653] flex flex-col sm:flex-row sm:justify-between gap-1 text-xs text-[#b8d8de] font-semibold">
+        <span>KH: {customerName} {customerPhone ? `(${customerPhone})` : ""}</span>
+        <span>Hẹn: {appointmentTime}</span>
       </div>
     </div>
   );
