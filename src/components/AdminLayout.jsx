@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   },
   { label: "Dịch vụ", icon: "build", path: "/admin/services" },
   { label: "Người dùng", icon: "group", path: "/admin/users" },
+  { label: "Cấu hình ngày mai", icon: "pending_actions", path: "/admin/operations" },
 ];
 
 export default function AdminLayout() {
