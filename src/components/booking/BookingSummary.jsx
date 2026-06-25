@@ -14,6 +14,7 @@ export default function BookingSummary({
   totalPrice,
   userTier,
   voucherAmount,
+  totalDuration = 0,
 }) {
   return (
     <aside className="lg:sticky lg:top-28 lg:col-span-4 lg:self-start">
@@ -46,6 +47,12 @@ export default function BookingSummary({
               {serviceInfo.label || "Chưa chọn"}
             </span>
           </div>
+          {totalDuration > 0 && (
+            <div className="flex items-center justify-between gap-4 border-b border-[#bfc7d5]/30 pb-2">
+              <span className="text-[#3f4753]">Tổng thời lượng:</span>
+              <span className="font-bold">{totalDuration} phút</span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4 border-b border-[#bfc7d5]/30 pb-2">
             <span className="text-[#3f4753]">Thời gian:</span>
             <span className="text-right font-bold">

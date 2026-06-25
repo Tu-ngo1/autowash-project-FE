@@ -40,8 +40,16 @@ const normalizeBookingResponse = (response) => {
   };
 };
 
-export const getBookingData = (carSize) =>
-  api.get(customerBookingsPath(`data${carSize ? `?carSize=${carSize}` : ""}`));
+export const getBookingData = (carSize, date = "", totalDuration = "") => {
+  const params = new URLSearchParams();
+  if (carSize) params.append("carSize", carSize);
+  if (date) params.append("date", date);
+  if (totalDuration !== undefined && totalDuration !== null && totalDuration !== "") {
+    params.append("totalDuration", totalDuration);
+  }
+  const queryString = params.toString();
+  return api.get(customerBookingsPath(`data${queryString ? `?${queryString}` : ""}`));
+};
 export const getMyBookings = () =>
   api.get(customerBookingsPath("my")).then(normalizeBookingResponse);
 export const createBooking = (data) =>

@@ -22,4 +22,5 @@ export * as staffQueueApi from "./staffQueueApi";
 export * as staffCustomerApi from "./staffCustomerApi";
 export * as customerReviewApi from "./customerReviewApi";
 export * as customerWalletApi from "./customerWalletApi";
+export * as adminOperationsApi from "./adminOperationsApi";
 
