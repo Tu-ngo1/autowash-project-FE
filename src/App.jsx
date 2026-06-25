@@ -24,6 +24,7 @@ import AdminPromotionTier from "./pages/admin/AdminPromotionTier";
 import AdminServices from "./pages/admin/AdminServices";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminBookings from "./pages/admin/AdminBookings";
+import AdminOperations from "./pages/admin/AdminOperations";
 
 // Staff Pages
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -61,6 +62,7 @@ function AnimatedRoutes() {
             <Route path="/admin/promotions" element={<AdminPromotionTier />} />
             <Route path="/admin/services" element={<AdminServices />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/operations" element={<AdminOperations />} />
           </Route>
         </Route>
 

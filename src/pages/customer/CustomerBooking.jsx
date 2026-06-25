@@ -21,9 +21,21 @@ const formatPrice = (price) => price.toLocaleString("vi-VN") + "đ";
 const padHour = (hour) => String(hour).padStart(2, "0");
 
 const getHourFromTime = (value) => {
-  const [hourText] = String(value || "").split(":");
+  const str = String(value || "");
+  const timePart = str.includes("T") ? str.split("T")[1] : str;
+  const [hourText] = timePart.split(":");
   const hour = Number(hourText);
   return Number.isInteger(hour) ? hour : null;
+};
+
+const formatTimeFromDateTimeString = (value) => {
+  const str = String(value || "");
+  const timePart = str.includes("T") ? str.split("T")[1] : str;
+  const parts = timePart.split(":");
+  if (parts.length >= 2) {
+    return `${parts[0]}:${parts[1]}`;
+  }
+  return "00:00";
 };
 
 const normalizeHourlySlots = (slots = [], businessHours = {}) => {
@@ -31,19 +43,23 @@ const normalizeHourlySlots = (slots = [], businessHours = {}) => {
   const endHour = getHourFromTime(businessHours.endTime);
   const normalized = slots
     .map((slot) => {
-      const value =
-        typeof slot === "object"
-          ? slot.time || slot.slot || slot.startTime
-          : slot;
-      const hour = getHourFromTime(value);
+      const startTimeVal = slot.startTime || slot.time || slot.slot || slot;
+      const endTimeVal = slot.endTime;
+
+      if (!startTimeVal) return null;
+
+      const hour = getHourFromTime(startTimeVal);
       if (hour === null) return null;
       if (startHour !== null && hour < startHour) return null;
       if (endHour !== null && hour >= endHour) return null;
-      const start = `${padHour(hour)}:00`;
+
+      const start = formatTimeFromDateTimeString(startTimeVal);
+      const end = endTimeVal ? formatTimeFromDateTimeString(endTimeVal) : getSlotEndTime(start);
+
       return {
         slot: start,
-        endTime: getSlotEndTime(start),
-        label: slot?.label || `${start} - ${getSlotEndTime(start)}`,
+        endTime: end,
+        label: slot?.label || `${start} - ${end}`,
         available:
           typeof slot === "object" && slot.available !== undefined
             ? Boolean(slot.available)
@@ -61,8 +77,16 @@ const normalizeHourlySlots = (slots = [], businessHours = {}) => {
 const getSlotEndTime = (slot, durationMinutes = 60) => {
   const hour = getHourFromTime(slot);
   if (hour === null) return "";
-  return `${padHour(hour + Math.ceil(durationMinutes / 60))}:00`;
+  const parts = String(slot).split(":");
+  const minute = parts.length >= 2 ? Number(parts[1]) : 0;
+  
+  const totalMinutes = hour * 60 + minute + durationMinutes;
+  const endHour = Math.floor(totalMinutes / 60) % 24;
+  const endMinute = totalMinutes % 60;
+  
+  return `${padHour(endHour)}:${padHour(endMinute)}`;
 };
+
 
 const VEHICLE_SIZE_OPTIONS = {
   SMALL: { label: "SMALL", icon: "directions_car" },
@@ -217,6 +241,7 @@ export default function CustomerBooking() {
   const [loadingServices, setLoadingServices] = useState(false);
   const [bookingDataError, setBookingDataError] = useState("");
   const bookingDataKeyRef = useRef("");
+  const lastCarSizeRef = useRef("");
 
   const [userTier, setUserTier] = useState("Member");
   const [walletBalance, setWalletBalance] = useState(0);
@@ -236,15 +261,23 @@ export default function CustomerBooking() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const fetchBookingData = async (carSize, initialConfig = null) => {
-    const bookingDataKey = carSize || "ALL";
+  const fetchBookingData = async (carSize, dateParam = "", totalDurationParam = 0, initialConfig = null) => {
+    const bookingDataKey = `${carSize || "ALL"}_${dateParam || ""}_${totalDurationParam || 0}`;
     if (bookingDataKeyRef.current === bookingDataKey) return;
     bookingDataKeyRef.current = bookingDataKey;
+    
     setLoadingServices(true);
-    setSelectedAddons([]); // Reset selected addons on vehicle change
+    
+    // Reset selected addons ONLY when vehicle carSize changes
+    const carSizeChanged = lastCarSizeRef.current !== (carSize || "ALL");
+    if (carSizeChanged) {
+      lastCarSizeRef.current = carSize || "ALL";
+      setSelectedAddons([]);
+    }
+    
     try {
-      const response = await getBookingData(carSize);
-      const payload = response.data || {};
+      const response = await getBookingData(carSize, dateParam, totalDurationParam);
+      const payload = response.data?.data ?? response.data ?? {};
       const config =
         initialConfig ||
         unwrapObject(await getCustomerBookingConfig().catch(() => ({})));
@@ -281,19 +314,21 @@ export default function CustomerBooking() {
       setServices(fetchedServices);
       setTimeSlots(fetchedSlots);
 
-      if (fetchedServices.length > 0) {
-        const nextMainServices = fetchedServices.filter(
-          (item) => item.isMainService === true,
-        );
-        const defaultMainService =
-          nextMainServices.length > 0
-            ? nextMainServices[0]
-            : fetchedServices[0];
-        if (defaultMainService) {
-          setService(defaultMainService.id);
+      if (carSizeChanged) {
+        if (fetchedServices.length > 0) {
+          const nextMainServices = fetchedServices.filter(
+            (item) => item.isMainService === true,
+          );
+          const defaultMainService =
+            nextMainServices.length > 0
+              ? nextMainServices[0]
+              : fetchedServices[0];
+          if (defaultMainService) {
+            setService(defaultMainService.id);
+          }
+        } else {
+          setService("");
         }
-      } else {
-        setService("");
       }
       setBookingDataError("");
     } catch {
@@ -306,6 +341,37 @@ export default function CustomerBooking() {
       setLoadingData(false);
     }
   };
+
+  const carSize = selectedVehicle ? normalizeVehicleSize(selectedVehicle) : null;
+
+  const mainServices = useMemo(() => {
+    const filtered = services.filter((item) => item.isMainService === true);
+    return filtered.length > 0 ? filtered : services;
+  }, [services]);
+
+  const addonServices = useMemo(() => {
+    return services.filter((item) => item.isMainService === false);
+  }, [services]);
+
+  const serviceInfo = mainServices.find((item) => item.id === service) || {
+    price: 0,
+    name: "",
+    description: "",
+  };
+
+  const addonCost = selectedAddons.reduce((sum, addonId) => {
+    const addon = addonServices.find((item) => item.id === addonId);
+    return sum + (addon?.price || 0);
+  }, 0);
+
+  const totalDuration = useMemo(() => {
+    const mainServiceDuration = Number(serviceInfo.durationMinutes ?? serviceInfo.duration ?? 0);
+    const addonsDuration = selectedAddons.reduce((sum, addonId) => {
+      const addon = addonServices.find((item) => item.id === addonId);
+      return sum + Number(addon?.durationMinutes ?? addon?.duration ?? 0);
+    }, 0);
+    return mainServiceDuration + addonsDuration;
+  }, [serviceInfo, selectedAddons, addonServices]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -354,7 +420,7 @@ export default function CustomerBooking() {
           setPlate(nextVehicles[0].plate || "");
         } else {
           // If no vehicles, trigger fetching with default car size (null)
-          fetchBookingData(null, config);
+          fetchBookingData(null, date, totalDuration, config);
         }
       } catch {
         setBookingDataError(
@@ -367,34 +433,9 @@ export default function CustomerBooking() {
     fetchInitialData();
   }, []);
 
-  const vehicleIdOrPlate = selectedVehicle?.id || selectedVehicle?.plate;
-
   useEffect(() => {
-    if (vehicleIdOrPlate) {
-      const carSize = normalizeVehicleSize(selectedVehicle);
-      fetchBookingData(carSize);
-    }
-  }, [vehicleIdOrPlate]);
-
-  const mainServices = useMemo(() => {
-    const filtered = services.filter((item) => item.isMainService === true);
-    return filtered.length > 0 ? filtered : services;
-  }, [services]);
-
-  const addonServices = useMemo(() => {
-    return services.filter((item) => item.isMainService === false);
-  }, [services]);
-
-  const serviceInfo = mainServices.find((item) => item.id === service) || {
-    price: 0,
-    name: "",
-    description: "",
-  };
-
-  const addonCost = selectedAddons.reduce((sum, addonId) => {
-    const addon = addonServices.find((item) => item.id === addonId);
-    return sum + (addon?.price || 0);
-  }, 0);
+    fetchBookingData(carSize, date, totalDuration);
+  }, [carSize, date, totalDuration]);
 
   const tierRule = getTierRule(bookingConfig.tierRules || [], userTier);
   const discountPercent = Number(
@@ -1212,6 +1253,7 @@ export default function CustomerBooking() {
               totalPrice={totalPrice}
               userTier={userTier}
               voucherAmount={voucherAmount}
+              totalDuration={totalDuration}
             />
           </div>
         </main>
