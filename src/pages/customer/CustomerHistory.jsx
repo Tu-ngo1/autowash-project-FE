@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCustomerBookingHistory } from "../../services/customerHistoryApi";
+import { cancelBooking } from "../../services/customerBookingApi";
 import ReviewModal from "../../components/customer/ReviewModal";
 import UserNavbar from "../../components/UserNavbar";
 import { createReview, getMyReviews } from "../../services/customerReviewApi";
@@ -52,6 +53,8 @@ export default function CustomerHistory() {
   const [reviewBooking, setReviewBooking] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
+  const [cancelBookingItem, setCancelBookingItem] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -420,6 +423,15 @@ export default function CustomerHistory() {
                                 Đánh giá
                               </button>
                             ))}
+                          {statusKey === "PENDING" && (
+                            <button
+                              type="button"
+                              onClick={() => setCancelBookingItem(item)}
+                              className="rounded-xl bg-rose-500 px-4 py-2 text-xs font-black text-white transition hover:bg-rose-600"
+                            >
+                              Hủy lịch
+                            </button>
+                          )}
                           {(statusKey === "COMPLETED" ||
                             statusKey === "PENDING") && (
                             <button
@@ -455,6 +467,73 @@ export default function CustomerHistory() {
         onClose={() => setReviewBooking(null)}
         onSubmit={handleSubmitReview}
       />
+      {cancelBookingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/75 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-rose-600">
+              <span className="material-symbols-outlined text-4xl">warning</span>
+              <h3 className="text-2xl font-black text-slate-950">Xác nhận hủy lịch</h3>
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-relaxed text-slate-600">
+              {(() => {
+                const scheduledTime = new Date(cancelBookingItem.scheduledStartTime);
+                const now = new Date();
+                const diffInMs = scheduledTime.getTime() - now.getTime();
+                const diffInMinutes = diffInMs / (1000 * 60);
+                if (diffInMinutes < 60) {
+                  return "Bạn đang hủy lịch sát giờ hẹn (dưới 60 phút). Bạn sẽ không được hoàn trả lại tiền cọc. Bạn có chắc chắn muốn hủy không?";
+                }
+                return "Bạn có chắc chắn muốn hủy lịch hẹn này không? Tiền đặt cọc (100%) sẽ được hoàn lại vào ví của bạn.";
+              })()}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={cancelLoading}
+                onClick={() => setCancelBookingItem(null)}
+                className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={cancelLoading}
+                onClick={async () => {
+                  setCancelLoading(true);
+                  try {
+                    const scheduledTime = new Date(cancelBookingItem.scheduledStartTime);
+                    const now = new Date();
+                    const diffInMs = scheduledTime.getTime() - now.getTime();
+                    const diffInMinutes = diffInMs / (1000 * 60);
+                    
+                    await cancelBooking(cancelBookingItem.id);
+                    
+                    const historyRes = await getCustomerBookingHistory();
+                    const bookings = Array.isArray(historyRes.data)
+                      ? historyRes.data
+                      : historyRes.data?.bookings || [];
+                    setHistory(bookings);
+
+                    if (diffInMinutes >= 60) {
+                      setReviewMessage("Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn.");
+                    } else {
+                      setReviewMessage("Hủy lịch thành công. Bạn không được hoàn lại tiền đặt cọc do hủy dưới 60 phút.");
+                    }
+                  } catch (err) {
+                    setReviewMessage(getFriendlyErrorMessage(err, "Không thể hủy lịch. Vui lòng thử lại sau."));
+                  } finally {
+                    setCancelLoading(false);
+                    setCancelBookingItem(null);
+                  }
+                }}
+                className="rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white transition hover:bg-rose-600 disabled:opacity-50"
+              >
+                {cancelLoading ? "Đang xử lý..." : "Xác nhận hủy"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,8 @@ import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import CustomerHistory from "./pages/customer/CustomerHistory";
 import CustomerProfile from "./pages/customer/CustomerProfile";
 import CustomerLoyalty, { VoucherPage } from "./pages/customer/CustomerLoyalty";
+import PaymentSuccess from "./pages/customer/PaymentSuccess";
+import PaymentFailed from "./pages/customer/PaymentFailed";
 
 // Admin Pages
 import AdminLayout from "./components/AdminLayout";
@@ -52,6 +54,8 @@ function AnimatedRoutes() {
           <Route path="/profile" element={<CustomerProfile />} />
           <Route path="/rewards" element={<CustomerLoyalty />} />
           <Route path="/rewards/vouchers" element={<VoucherPage />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-failed" element={<PaymentFailed />} />
         </Route>
 
         {/* ================= ADMIN ROUTES (Nested Layout) ================= */}

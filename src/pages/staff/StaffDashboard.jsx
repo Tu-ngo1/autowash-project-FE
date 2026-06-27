@@ -395,7 +395,9 @@ export default function StaffDashboard() {
       fetchPendingAppointments();
     } catch (err) {
       setScanStatus("Đã đọc mã, backend chưa nhận.");
+      const backendMessage = err.response?.data?.message;
       setScanWarning(
+        backendMessage ||
         getFriendlyErrorMessage(
           err,
           "Đã đọc được mã, nhưng backend chưa check-in được mã này.",
