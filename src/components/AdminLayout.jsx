@@ -11,7 +11,11 @@ const NAV_ITEMS = [
   },
   { label: "Dịch vụ", icon: "build", path: "/admin/services" },
   { label: "Người dùng", icon: "group", path: "/admin/users" },
-  { label: "Cấu hình ngày mai", icon: "pending_actions", path: "/admin/operations" },
+  {
+    label: "Cấu hình thời gian",
+    icon: "pending_actions",
+    path: "/admin/operations",
+  },
 ];
 
 export default function AdminLayout() {
@@ -84,7 +88,9 @@ export default function AdminLayout() {
               <p className="truncate font-mono text-sm font-black text-zinc-100">
                 {userName}
               </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">Admin</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                Admin
+              </p>
             </div>
             <button
               onClick={handleLogout}
@@ -98,7 +104,6 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-
         <main className="admin-motion-root flex-1 overflow-auto bg-[#05070a] p-0 pb-24 lg:pb-0">
           <Outlet />
         </main>

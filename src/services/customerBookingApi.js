@@ -70,6 +70,8 @@ export const cancelBooking = (id) =>
   api.post(customerBookingsPath(`${id}/cancel`));
 export const getBookingQr = (id) =>
   api.get(customerBookingsPath(`${id}/qr`));
+export const verifyPayment = (id) =>
+  api.post(customerBookingsPath(`${id}/verify-payment`));
 
 export default {
   getBookingData,
@@ -79,4 +81,5 @@ export default {
   updateBookingStatus,
   cancelBooking,
   getBookingQr,
+  verifyPayment,
 };

@@ -7,6 +7,7 @@ import {
   getCustomerProfileBookings,
   getCustomerProfileLoyalty,
 } from "../../services/customerProfileApi";
+import { cancelBooking } from "../../services/customerBookingApi";
 import {
   addMyCar,
   getMyCars,
@@ -14,7 +15,10 @@ import {
   updateMyCar,
 } from "../../services/customerCarApi";
 import { getVehicleModels } from "../../services/vehicleModelApi";
-import { depositWallet, getWalletTransactions } from "../../services/customerWalletApi";
+import {
+  depositWallet,
+  getWalletTransactions,
+} from "../../services/customerWalletApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const statusStyles = {
@@ -38,20 +42,6 @@ const getBookingQrValue = (booking) => {
   return encodeURIComponent(JSON.stringify(payload));
 };
 
-const getAvatarUrl = (user) => {
-  if (!user) return null;
-  return (
-    user.photoURL ||
-    user.picture ||
-    user.avatar ||
-    (user.email
-      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          user.name || user.email.split("@")[0],
-        )}&background=0D4F92&color=ffffff&bold=true`
-      : null)
-  );
-};
-
 const mergeVehicles = (...groups) => {
   const seen = new Set();
   return groups
@@ -60,7 +50,7 @@ const mergeVehicles = (...groups) => {
     .map(normalizeCustomerCar)
     .filter((vehicle) => {
       const key = String(
-        vehicle.licensePlate || vehicle.plate || vehicle.id || "",
+        vehicle.licensePlate || vehicle.plate || vehicle.id || ""
       ).toUpperCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
@@ -104,7 +94,7 @@ const getVehicleSizeOption = (value) =>
 
 const getVehicleBrands = (vehicleModels) =>
   Array.from(new Set(vehicleModels.map((model) => model.brand))).sort((a, b) =>
-    a.localeCompare(b),
+    a.localeCompare(b)
   );
 
 const getVehicleModelById = (vehicleModels, id) =>
@@ -115,7 +105,7 @@ const getVehicleModelByName = (vehicleModels, brand, modelName) =>
     (model) =>
       model.brand === brand &&
       String(model.modelName || "").toLowerCase() ===
-        String(modelName || "").toLowerCase(),
+        String(modelName || "").toLowerCase()
   );
 
 const normalizeVehicleSize = (vehicle) => {
@@ -124,7 +114,7 @@ const normalizeVehicleSize = (vehicle) => {
       vehicle?.vehicleSize ||
       vehicle?.vehicle_size ||
       vehicle?.type ||
-      "",
+      ""
   ).toUpperCase();
   if (["SMALL", "MEDIUM", "LARGE", "XLARGE"].includes(rawSize)) return rawSize;
   if (String(vehicle?.type || "").includes("7")) return "LARGE";
@@ -141,7 +131,9 @@ const isActiveVehicleModel = (model) =>
   model?.isActive ?? model?.is_active ?? model?.active ?? true;
 
 const compactLicensePlate = (value = "") =>
-  String(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  String(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 
 const formatVietnamLicensePlate = (value = "") => {
   const raw = compactLicensePlate(value);
@@ -232,10 +224,14 @@ export default function CustomerProfile() {
 
   const [recentBookings, setRecentBookings] = useState([]);
   const [vouchers, setVouchers] = useState([]);
+  const [cancelBookingItem, setCancelBookingItem] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccessMsg, setCancelSuccessMsg] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   const vehicleBrands = getVehicleBrands(vehicleModels);
   const currentBrandModels = vehicleModels.filter(
-    (model) => model.brand === vehicleForm.brand,
+    (model) => model.brand === vehicleForm.brand
   );
 
   useEffect(() => {
@@ -288,15 +284,25 @@ export default function CustomerProfile() {
           washes: apiProfile.washes ?? prev.washes,
           vehicles: mergeVehicles(
             Array.isArray(carsRes) ? carsRes : [],
-            Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],
+            Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : []
           ),
-          walletBalance: apiProfile.walletBalance ?? apiProfile.balance ?? rawProfile.walletBalance ?? rawProfile.balance ?? 0,
+          walletBalance:
+            apiProfile.walletBalance ??
+            apiProfile.balance ??
+            rawProfile.walletBalance ??
+            rawProfile.balance ??
+            0,
         }));
-        
+
         updateUser({
-          walletBalance: apiProfile.walletBalance ?? apiProfile.balance ?? rawProfile.walletBalance ?? rawProfile.balance ?? 0
+          walletBalance:
+            apiProfile.walletBalance ??
+            apiProfile.balance ??
+            rawProfile.walletBalance ??
+            rawProfile.balance ??
+            0,
         });
-        
+
         setRecentBookings(bookings.slice(-3).reverse());
         setVouchers(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []);
       } catch {
@@ -337,16 +343,16 @@ export default function CustomerProfile() {
             brand: model.brand,
             modelName: model.modelName || model.model_name || model.name,
             vehicleSize: String(
-              model.vehicleSize || model.vehicle_size || "",
+              model.vehicleSize || model.vehicle_size || ""
             ).toUpperCase(),
             model_name: model.model_name || model.modelName || model.name,
             vehicle_size: String(
-              model.vehicle_size || model.vehicleSize || "",
+              model.vehicle_size || model.vehicleSize || ""
             ).toUpperCase(),
           }))
           .filter(
             (model) =>
-              model.id && model.brand && model.modelName && model.vehicleSize,
+              model.id && model.brand && model.modelName && model.vehicleSize
           );
 
         if (!isMounted) return;
@@ -442,7 +448,7 @@ export default function CustomerProfile() {
     event.preventDefault();
     setDepositError("");
     setDepositSuccess("");
-    
+
     const amountVal = Number(depositAmount);
     if (!depositAmount || isNaN(amountVal) || amountVal < 10000) {
       setDepositError("Số tiền nạp tối thiểu là 10.000đ.");
@@ -452,16 +458,22 @@ export default function CustomerProfile() {
     setDepositLoading(true);
     try {
       const response = await depositWallet(amountVal);
-      const paymentUrl = response?.checkoutUrl || response?.paymentUrl || response?.url;
+      const paymentUrl =
+        response?.checkoutUrl || response?.paymentUrl || response?.url;
       if (paymentUrl) {
         setDepositSuccess("Đang chuyển hướng đến trang thanh toán PayOS...");
         window.location.href = paymentUrl;
       } else {
-        setDepositError("Không tạo được liên kết thanh toán. Vui lòng thử lại.");
+        setDepositError(
+          "Không tạo được liên kết thanh toán. Vui lòng thử lại."
+        );
       }
     } catch (err) {
       setDepositError(
-        getFriendlyErrorMessage(err, "Không thể kết nối đến cổng thanh toán. Vui lòng thử lại sau.")
+        getFriendlyErrorMessage(
+          err,
+          "Không thể kết nối đến cổng thanh toán. Vui lòng thử lại sau."
+        )
       );
     } finally {
       setDepositLoading(false);
@@ -516,15 +528,17 @@ export default function CustomerProfile() {
     const vehicleModel =
       getVehicleModelById(
         vehicleModels,
-        vehicle.modelId || vehicle.vehicleModelId,
+        vehicle.modelId || vehicle.vehicleModelId
       ) ||
       getVehicleModelByName(
         vehicleModels,
         vehicle.brand,
-        vehicle.modelName || vehicle.model,
+        vehicle.modelName || vehicle.model
       );
     setVehicleForm({
-      plate: formatVietnamLicensePlate(vehicle.plate || vehicle.licensePlate || ""),
+      plate: formatVietnamLicensePlate(
+        vehicle.plate || vehicle.licensePlate || ""
+      ),
       brand: vehicleModel?.brand || vehicle.brand || "",
       modelId:
         vehicleModel?.id || vehicle.modelId || vehicle.vehicleModelId || "",
@@ -569,7 +583,7 @@ export default function CustomerProfile() {
 
     const selectedModel = getVehicleModelById(
       vehicleModels,
-      vehicleForm.modelId,
+      vehicleForm.modelId
     );
     if (!selectedModel) {
       setVehicleError("Vui lòng chọn dòng xe.");
@@ -577,7 +591,7 @@ export default function CustomerProfile() {
     }
 
     const sizeOption = getVehicleSizeOption(
-      vehicleForm.size || selectedModel.vehicleSize,
+      vehicleForm.size || selectedModel.vehicleSize
     );
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
     const normalizedPlate = formatVietnamLicensePlate(vehicleForm.plate);
@@ -589,8 +603,9 @@ export default function CustomerProfile() {
     const normalizedPlateKey = compactLicensePlate(normalizedPlate);
     const duplicate = profile.vehicles.some(
       (vehicle) =>
-        compactLicensePlate(vehicle.plate || vehicle.licensePlate) === normalizedPlateKey &&
-        (vehicle.id || vehicle.plate) !== editingVehicleId,
+        compactLicensePlate(vehicle.plate || vehicle.licensePlate) ===
+          normalizedPlateKey &&
+        (vehicle.id || vehicle.plate) !== editingVehicleId
     );
 
     if (duplicate) {
@@ -644,7 +659,7 @@ export default function CustomerProfile() {
       ? profile.vehicles.map((vehicle) =>
           (vehicle.id || vehicle.plate) === editingVehicleId
             ? { ...vehicle, ...nextVehicle }
-            : vehicle,
+            : vehicle
         )
       : [...profile.vehicles, nextVehicle];
 
@@ -659,9 +674,6 @@ export default function CustomerProfile() {
       navigate(vehicleReturnTo, { replace: true });
     }
   };
-
-  const avatarUrl = getAvatarUrl(user);
-
   return (
     <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] font-body-md text-slate-950">
       <div className="pointer-events-none fixed inset-0">
@@ -756,7 +768,9 @@ export default function CustomerProfile() {
                       : "text-[#314c5f] hover:bg-white/50"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    person
+                  </span>
                   Thông tin xe & Ưu đãi
                 </button>
                 <button
@@ -774,7 +788,9 @@ export default function CustomerProfile() {
                       : "text-[#314c5f] hover:bg-white/50"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    account_balance_wallet
+                  </span>
                   Ví của tôi
                 </button>
               </div>
@@ -788,8 +804,13 @@ export default function CustomerProfile() {
                       <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
                         Ví điện tử autoWash
                       </p>
-                      <h3 className="mt-3 text-sm font-semibold text-cyan-100/80">Số dư hiện tại</h3>
-                      <p className="mt-2 text-4xl font-black tracking-wider sm:text-5xl" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      <h3 className="mt-3 text-sm font-semibold text-cyan-100/80">
+                        Số dư hiện tại
+                      </h3>
+                      <p
+                        className="mt-2 text-4xl font-black tracking-wider sm:text-5xl"
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      >
                         {(profile.walletBalance || 0).toLocaleString("vi-VN")}đ
                       </p>
                     </div>
@@ -805,13 +826,17 @@ export default function CustomerProfile() {
                         Nạp tiền vào ví
                       </h2>
                       <p className="mt-1 text-sm font-semibold text-slate-500">
-                        Nạp tiền nhanh qua PayOS (VietQR). Hỗ trợ tất cả ngân hàng.
+                        Nạp tiền nhanh qua PayOS (VietQR). Hỗ trợ tất cả ngân
+                        hàng.
                       </p>
                     </div>
 
                     <form onSubmit={handleDepositSubmit} className="space-y-5">
                       <div className="flex flex-col gap-2">
-                        <label className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700" htmlFor="deposit-amount">
+                        <label
+                          className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700"
+                          htmlFor="deposit-amount"
+                        >
                           Số tiền muốn nạp (đ)
                         </label>
                         <input
@@ -828,7 +853,9 @@ export default function CustomerProfile() {
 
                       {/* Nút nạp nhanh */}
                       <div>
-                        <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 mb-2.5">Số tiền gợi ý</p>
+                        <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700 mb-2.5">
+                          Số tiền gợi ý
+                        </p>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                           {[50000, 100000, 200000, 500000].map((amount) => (
                             <button
@@ -848,10 +875,14 @@ export default function CustomerProfile() {
                       </div>
 
                       {depositError && (
-                        <p className="text-sm font-semibold text-rose-600">{depositError}</p>
+                        <p className="text-sm font-semibold text-rose-600">
+                          {depositError}
+                        </p>
                       )}
                       {depositSuccess && (
-                        <p className="text-sm font-semibold text-emerald-600">{depositSuccess}</p>
+                        <p className="text-sm font-semibold text-emerald-600">
+                          {depositSuccess}
+                        </p>
                       )}
 
                       <button
@@ -900,21 +931,46 @@ export default function CustomerProfile() {
                           </thead>
                           <tbody className="divide-y divide-cyan-100/50">
                             {transactions.map((tx) => {
-                              const isAdd = tx.type === "DEPOSIT" || tx.type === "REFUND";
+                              const isAdd =
+                                tx.type === "DEPOSIT" || tx.type === "REFUND";
                               const sign = isAdd ? "+" : "-";
-                              const colorClass = isAdd ? "text-emerald-600 font-bold" : "text-rose-600 font-bold";
-                              const typeLabel = tx.type === "DEPOSIT" ? "Nạp tiền" : tx.type === "REFUND" ? "Hoàn tiền" : "Thanh toán";
-                              
+                              const colorClass = isAdd
+                                ? "text-emerald-600 font-bold"
+                                : "text-rose-600 font-bold";
+                              const typeLabel =
+                                tx.type === "DEPOSIT"
+                                  ? "Nạp tiền"
+                                  : tx.type === "REFUND"
+                                  ? "Hoàn tiền"
+                                  : "Thanh toán";
+
                               return (
                                 <tr key={tx.id} className="hover:bg-cyan-50/30">
-                                  <td className="px-4 py-3 font-mono font-bold text-slate-900">{tx.id}</td>
-                                  <td className="px-4 py-3 font-black text-slate-700">{typeLabel}</td>
-                                  <td className={`px-4 py-3 ${colorClass}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                                    {sign}{Math.abs(tx.amount).toLocaleString("vi-VN")}đ
+                                  <td className="px-4 py-3 font-mono font-bold text-slate-900">
+                                    {tx.id}
                                   </td>
-                                  <td className="px-4 py-3 font-semibold text-slate-600">{tx.description}</td>
+                                  <td className="px-4 py-3 font-black text-slate-700">
+                                    {typeLabel}
+                                  </td>
+                                  <td
+                                    className={`px-4 py-3 ${colorClass}`}
+                                    style={{
+                                      fontFamily: "'JetBrains Mono', monospace",
+                                    }}
+                                  >
+                                    {sign}
+                                    {Math.abs(tx.amount).toLocaleString(
+                                      "vi-VN"
+                                    )}
+                                    đ
+                                  </td>
+                                  <td className="px-4 py-3 font-semibold text-slate-600">
+                                    {tx.description}
+                                  </td>
                                   <td className="px-4 py-3 font-semibold text-slate-500">
-                                    {new Date(tx.createdAt).toLocaleString("vi-VN")}
+                                    {new Date(tx.createdAt).toLocaleString(
+                                      "vi-VN"
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -967,7 +1023,7 @@ export default function CustomerProfile() {
                               <span className="material-symbols-outlined text-[32px] text-cyan-700">
                                 {
                                   getVehicleSizeOption(
-                                    normalizeVehicleSize(vehicle),
+                                    normalizeVehicleSize(vehicle)
                                   ).icon
                                 }
                               </span>
@@ -977,7 +1033,7 @@ export default function CustomerProfile() {
                                 {vehicle.label ||
                                   vehicle.name ||
                                   getVehicleSizeOption(
-                                    normalizeVehicleSize(vehicle),
+                                    normalizeVehicleSize(vehicle)
                                   ).label}
                               </h3>
                               <p className="text-xs font-semibold text-slate-500">
@@ -987,7 +1043,7 @@ export default function CustomerProfile() {
                                 <span className="rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-800">
                                   {
                                     getVehicleSizeOption(
-                                      normalizeVehicleSize(vehicle),
+                                      normalizeVehicleSize(vehicle)
                                     ).description
                                   }
                                 </span>
@@ -1100,6 +1156,16 @@ export default function CustomerProfile() {
                   </div>
                 </div>
                 <div className="space-y-3">
+                  {cancelSuccessMsg && (
+                    <div className="rounded-2xl bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-800 ring-1 ring-cyan-100">
+                      {cancelSuccessMsg}
+                    </div>
+                  )}
+                  {cancelError && (
+                    <div className="rounded-2xl bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 ring-1 ring-rose-100">
+                      {cancelError}
+                    </div>
+                  )}
                   {recentBookings.length === 0 ? (
                     <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
                       Chưa có lịch sử rửa xe.
@@ -1120,7 +1186,10 @@ export default function CustomerProfile() {
                             </p>
                           </div>
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${statusStyles[item.status] || "bg-[#0061a5]/10 text-[#0061a5]"}`}
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                              statusStyles[item.status] ||
+                              "bg-[#0061a5]/10 text-[#0061a5]"
+                            }`}
                           >
                             {item.status || "Chờ thực hiện"}
                           </span>
@@ -1129,13 +1198,28 @@ export default function CustomerProfile() {
                           <p className="font-black text-cyan-700">
                             {formatCurrency(item.price)}
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedQrBooking(item)}
-                            className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
-                          >
-                            QR
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {item.status === "PENDING" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCancelError("");
+                                  setCancelSuccessMsg("");
+                                  setCancelBookingItem(item);
+                                }}
+                                className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-600"
+                              >
+                                Hủy
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedQrBooking(item)}
+                              className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                            >
+                              QR
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -1280,7 +1364,7 @@ export default function CustomerProfile() {
                         onChange={(event) =>
                           handleVehicleFieldChange(
                             "modelId",
-                            event.target.value,
+                            event.target.value
                           )
                         }
                         disabled={
@@ -1528,7 +1612,7 @@ export default function CustomerProfile() {
                   alt="Mã QR lịch đặt"
                   className="h-48 w-48 object-contain"
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${getBookingQrValue(
-                    selectedQrBooking,
+                    selectedQrBooking
                   )}`}
                 />
               </div>
@@ -1543,6 +1627,110 @@ export default function CustomerProfile() {
                 className="mt-8 w-full rounded-2xl bg-cyan-400 py-4 font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300"
               >
                 Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {cancelBookingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/75 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-rose-600">
+              <span className="material-symbols-outlined text-4xl">
+                warning
+              </span>
+              <h3 className="text-2xl font-black text-slate-950 text-left">
+                Xác nhận hủy lịch
+              </h3>
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-relaxed text-slate-600 text-left">
+              {(() => {
+                const scheduledTime = new Date(
+                  cancelBookingItem.scheduledStartTime
+                );
+                const now = new Date();
+                const diffInMs = scheduledTime.getTime() - now.getTime();
+                const diffInMinutes = diffInMs / (1000 * 60);
+                if (diffInMinutes < 60) {
+                  return "Bạn đang hủy lịch sát giờ hẹn (dưới 60 phút). Bạn sẽ không được hoàn trả lại tiền cọc. Bạn có chắc chắn muốn hủy không?";
+                }
+                return "Bạn có chắc chắn muốn hủy lịch hẹn này không? Tiền đặt cọc (100%) sẽ được hoàn lại vào ví của bạn.";
+              })()}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={cancelLoading}
+                onClick={() => setCancelBookingItem(null)}
+                className="rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={cancelLoading}
+                onClick={async () => {
+                  setCancelLoading(true);
+                  setCancelError("");
+                  setCancelSuccessMsg("");
+                  try {
+                    const scheduledTime = new Date(
+                      cancelBookingItem.scheduledStartTime
+                    );
+                    const now = new Date();
+                    const diffInMs = scheduledTime.getTime() - now.getTime();
+                    const diffInMinutes = diffInMs / (1000 * 60);
+
+                    await cancelBooking(cancelBookingItem.id);
+
+                    const [profileRes, bookingsRes] = await Promise.all([
+                      getCustomerProfile().catch(() => null),
+                      getCustomerProfileBookings().catch(() => null),
+                    ]);
+
+                    if (profileRes) {
+                      const data =
+                        profileRes.data?.data ?? profileRes.data ?? {};
+                      setProfileData((prev) => ({
+                        ...prev,
+                        ...data,
+                        walletBalance: data.walletBalance || 0,
+                      }));
+                    }
+
+                    if (bookingsRes) {
+                      const bookings = Array.isArray(bookingsRes.data)
+                        ? bookingsRes.data
+                        : bookingsRes.data?.bookings ||
+                          bookingsRes.data?.data ||
+                          [];
+                      setRecentBookings(bookings.slice(-3).reverse());
+                    }
+
+                    if (diffInMinutes >= 60) {
+                      setCancelSuccessMsg(
+                        "Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn."
+                      );
+                    } else {
+                      setCancelSuccessMsg(
+                        "Hủy lịch thành công. Bạn không được hoàn lại tiền đặt cọc do hủy dưới 60 phút."
+                      );
+                    }
+                  } catch (err) {
+                    setCancelError(
+                      getFriendlyErrorMessage(
+                        err,
+                        "Không thể hủy lịch. Vui lòng thử lại sau."
+                      )
+                    );
+                  } finally {
+                    setCancelLoading(false);
+                    setCancelBookingItem(null);
+                  }
+                }}
+                className="rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white transition hover:bg-rose-600 disabled:opacity-50"
+              >
+                {cancelLoading ? "Đang xử lý..." : "Xác nhận hủy"}
               </button>
             </div>
           </div>
