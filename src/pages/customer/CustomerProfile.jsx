@@ -30,7 +30,44 @@ const statusStyles = {
 const formatCurrency = (value) =>
   value ? `${value.toLocaleString("vi-VN")}đ` : "-";
 
+const getBookingTotal = (booking = {}) =>
+  booking.finalPrice ??
+  booking.final_price ??
+  booking.totalPrice ??
+  booking.total_price ??
+  booking.Total_price ??
+  booking.price ??
+  booking.total ??
+  0;
+
+const getBookingTimeValue = (booking) => {
+  const raw =
+    booking?.createdAt ||
+    booking?.updatedAt ||
+    booking?.scheduledStartTime ||
+    booking?.dateTime ||
+    booking?.date ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
+
+const getRecentBookings = (bookings = []) =>
+  [...bookings]
+    .filter(Boolean)
+    .sort((a, b) => {
+      const timeDiff = getBookingTimeValue(b) - getBookingTimeValue(a);
+      if (timeDiff !== 0) return timeDiff;
+      return Number(b?.id || 0) - Number(a?.id || 0);
+    })
+    .slice(0, 3);
+
 const getBookingQrValue = (booking) => {
+  if (booking.qrContent || booking.qrCode || booking.bookingCode) {
+    return encodeURIComponent(
+      booking.qrContent || booking.qrCode || booking.bookingCode,
+    );
+  }
   const payload = {
     id: booking.id || "",
     plate: booking.plate || "",
@@ -303,7 +340,7 @@ export default function CustomerProfile() {
             0,
         });
 
-        setRecentBookings(bookings.slice(-3).reverse());
+        setRecentBookings(getRecentBookings(bookings));
         setVouchers(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []);
       } catch {
         if (isMounted) {
@@ -1196,7 +1233,7 @@ export default function CustomerProfile() {
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-3">
                           <p className="font-black text-cyan-700">
-                            {formatCurrency(item.price)}
+                            {formatCurrency(getBookingTotal(item))}
                           </p>
                           <div className="flex items-center gap-2">
                             {item.status === "PENDING" && (
@@ -1704,7 +1741,7 @@ export default function CustomerProfile() {
                         : bookingsRes.data?.bookings ||
                           bookingsRes.data?.data ||
                           [];
-                      setRecentBookings(bookings.slice(-3).reverse());
+                      setRecentBookings(getRecentBookings(bookings));
                     }
 
                     if (diffInMinutes >= 60) {

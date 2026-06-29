@@ -28,10 +28,52 @@ const unwrapObject = (payload) =>
 
 const formatPrice = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
-const normalizePlate = (value) =>
+const compactLicensePlate = (value = "") =>
   String(value || "")
     .toUpperCase()
-    .trim();
+    .replace(/[^A-Z0-9]/g, "");
+
+const formatVietnamLicensePlate = (value = "") => {
+  const raw = compactLicensePlate(value);
+  let province = "";
+  let series = "";
+  let serial = "";
+
+  for (const char of raw) {
+    if (province.length < 2) {
+      if (/\d/.test(char)) province += char;
+      continue;
+    }
+    if (series.length < 2 && serial.length === 0) {
+      if (/[A-Z]/.test(char)) {
+        series += char;
+        continue;
+      }
+      if (series.length > 0 && /\d/.test(char)) {
+        serial += char;
+        continue;
+      }
+      continue;
+    }
+    if (serial.length < 5 && /\d/.test(char)) serial += char;
+  }
+
+  if (!province) return "";
+  if (province.length < 2) return province;
+  if (!series) return province;
+
+  const plateHead = `${province}${series}`;
+  if (!serial) return plateHead;
+
+  const formattedSerial =
+    serial.length > 3 ? `${serial.slice(0, 3)}.${serial.slice(3)}` : serial;
+  return `${plateHead} - ${formattedSerial}`;
+};
+
+const isValidVietnamLicensePlate = (value = "") =>
+  /^\d{2}[A-Z]{1,2}\s-\s\d{3}\.\d{2}$/.test(formatVietnamLicensePlate(value));
+
+const normalizePlate = formatVietnamLicensePlate;
 
 const normalizeVehicleModels = (payload) =>
   unwrapList(payload, ["vehicleModels", "vehicle_models", "models", "items"])
@@ -542,6 +584,11 @@ export default function StaffCustomers() {
       setError("Vui lòng nhập biển số xe.");
       return;
     }
+    const normalizedPlate = normalizePlate(form.licensePlate);
+    if (!isValidVietnamLicensePlate(normalizedPlate)) {
+      setError("Biển số xe phải đúng dạng 59A - 123.45.");
+      return;
+    }
     if (!form.vehicleModelId || !form.vehicleSize) {
       setError("Vui lòng chọn hãng xe và mẫu xe để xác định kích thước xe.");
       return;
@@ -560,7 +607,7 @@ export default function StaffCustomers() {
       await createWalkInBooking({
         customerName: form.customerName.trim(),
         customerPhone: form.customerPhone.trim(),
-        licensePlate: normalizePlate(form.licensePlate),
+        licensePlate: normalizedPlate,
         vehicleModelId: Number(form.vehicleModelId) || form.vehicleModelId,
         brand: form.vehicleBrand,
         modelName: form.vehicleModelName,
@@ -728,7 +775,7 @@ export default function StaffCustomers() {
                       })
                     }
                     className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                    placeholder="30A-99999"
+                    placeholder="59A - 123.45"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />
                 </Field>
