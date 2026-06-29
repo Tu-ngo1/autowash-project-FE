@@ -53,6 +53,49 @@ const getVehicleBrands = (vehicleModels) =>
     a.localeCompare(b),
   );
 
+const normalizeRegisteredVehicle = (vehicle = {}, index = 0) => {
+  const licensePlate = normalizePlate(
+    vehicle.licensePlate ??
+      vehicle.plate ??
+      vehicle.vehicleLicensePlate ??
+      vehicle.license_plate ??
+      "",
+  );
+  const brand = vehicle.brand ?? vehicle.vehicleBrand ?? "";
+  const modelName =
+    vehicle.modelName ??
+    vehicle.model_name ??
+    vehicle.vehicleModelName ??
+    vehicle.model ??
+    "";
+  const id =
+    vehicle.id ??
+    vehicle.carId ??
+    vehicle.vehicleId ??
+    vehicle.customerCarId ??
+    `${licensePlate}-${index}`;
+
+  return {
+    key: String(id),
+    id,
+    licensePlate,
+    brand,
+    modelName,
+    vehicleModelId:
+      vehicle.vehicleModelId ??
+      vehicle.vehicle_model_id ??
+      vehicle.modelId ??
+      "",
+    vehicleSize: String(
+      vehicle.vehicleSize ??
+        vehicle.vehicle_size ??
+        vehicle.carSize ??
+        vehicle.size ??
+        "",
+    ).toUpperCase(),
+  };
+};
+
 const getServiceId = (service) =>
   service?.serviceId ?? service?.id ?? service?.servicePriceId;
 
@@ -112,8 +155,19 @@ const toScheduledDateTime = (slot) => {
 const normalizeCustomer = (payload = {}) => {
   const data = unwrapObject(payload);
   const customer = data.customer ?? data.user ?? data;
-  const vehicles = data.vehicles ?? customer.vehicles ?? customer.cars ?? [];
-  const firstVehicle = Array.isArray(vehicles) ? vehicles[0] : null;
+  const vehicles =
+    data.registeredVehicles ??
+    customer.registeredVehicles ??
+    data.vehicles ??
+    customer.vehicles ??
+    customer.cars ??
+    [];
+  const registeredVehicles = Array.isArray(vehicles)
+    ? vehicles
+        .map(normalizeRegisteredVehicle)
+        .filter((vehicle) => vehicle.licensePlate)
+    : [];
+  const firstVehicle = registeredVehicles[0] ?? null;
   return {
     name: customer.fullName ?? customer.name ?? customer.customerName ?? "",
     phone: customer.phone ?? customer.customerPhone ?? "",
@@ -138,14 +192,13 @@ const normalizeCustomer = (payload = {}) => {
       customer.licensePlate ??
       customer.plate ??
       firstVehicle?.licensePlate ??
-      firstVehicle?.plate ??
       "",
     vehicleSize:
       customer.vehicleSize ??
       customer.carSize ??
       firstVehicle?.vehicleSize ??
-      firstVehicle?.carSize ??
       "SMALL",
+    registeredVehicles,
   };
 };
 
@@ -181,6 +234,9 @@ export default function StaffCustomers() {
   const [mainServiceId, setMainServiceId] = useState("");
   const [addonIds, setAddonIds] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [registeredVehicles, setRegisteredVehicles] = useState([]);
+  const [selectedVehicleKey, setSelectedVehicleKey] = useState("new");
+  const [vehicleLocked, setVehicleLocked] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -222,6 +278,42 @@ export default function StaffCustomers() {
     }[String(form.tier || "MEMBER").toUpperCase()] ?? 0;
   const discountAmount = Math.round((subtotal * tierDiscountRate) / 100);
   const total = Math.max(subtotal - discountAmount, 0);
+
+  const findVehicleModelForVehicle = (vehicle) =>
+    vehicleModels.find(
+      (model) => String(model.id) === String(vehicle?.vehicleModelId),
+    ) ||
+    vehicleModels.find(
+      (model) =>
+        model.brand === vehicle?.brand &&
+        model.modelName.toLowerCase() ===
+          String(vehicle?.modelName || "").toLowerCase(),
+    );
+
+  const applyRegisteredVehicle = (vehicle) => {
+    const matchedModel = findVehicleModelForVehicle(vehicle);
+    setForm((prev) => ({
+      ...prev,
+      licensePlate: normalizePlate(vehicle?.licensePlate || ""),
+      vehicleBrand: matchedModel?.brand || vehicle?.brand || "",
+      vehicleModelId: matchedModel?.id || vehicle?.vehicleModelId || "",
+      vehicleModelName: matchedModel?.modelName || vehicle?.modelName || "",
+      vehicleSize: matchedModel?.vehicleSize || vehicle?.vehicleSize || "",
+    }));
+    setVehicleLocked(Boolean(matchedModel || vehicle?.vehicleModelId));
+  };
+
+  const resetVehicleForm = () => {
+    setForm((prev) => ({
+      ...prev,
+      licensePlate: "",
+      vehicleBrand: "",
+      vehicleModelId: "",
+      vehicleModelName: "",
+      vehicleSize: "",
+    }));
+    setVehicleLocked(false);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -316,6 +408,8 @@ export default function StaffCustomers() {
   }, [form.vehicleSize]);
 
   const handleVehicleBrandChange = (brand) => {
+    setSelectedVehicleKey("new");
+    setVehicleLocked(false);
     setForm((prev) => ({
       ...prev,
       vehicleBrand: brand,
@@ -326,6 +420,8 @@ export default function StaffCustomers() {
   };
 
   const handleVehicleModelChange = (modelId) => {
+    setSelectedVehicleKey("new");
+    setVehicleLocked(false);
     const selectedModel = vehicleModels.find(
       (model) => String(model.id) === String(modelId),
     );
@@ -336,6 +432,21 @@ export default function StaffCustomers() {
       vehicleModelName: selectedModel?.modelName || "",
       vehicleSize: selectedModel?.vehicleSize || "",
     }));
+  };
+
+  const handleRegisteredVehicleChange = (value) => {
+    setSelectedVehicleKey(value);
+    if (value === "new") {
+      resetVehicleForm();
+      return;
+    }
+
+    const selectedVehicle = registeredVehicles.find(
+      (vehicle) => vehicle.key === value,
+    );
+    if (selectedVehicle) {
+      applyRegisteredVehicle(selectedVehicle);
+    }
   };
 
   const handleLookup = async () => {
@@ -350,32 +461,59 @@ export default function StaffCustomers() {
       const result = normalizeCustomer(
         await searchWalkInCustomer(lookup.trim()),
       );
-      const matchedModel =
-        vehicleModels.find(
-          (model) => String(model.id) === String(result.vehicleModelId),
-        ) ||
-        vehicleModels.find(
-          (model) =>
-            model.brand === result.brand &&
-            model.modelName.toLowerCase() ===
-              String(result.modelName || "").toLowerCase(),
-        );
+      const vehicles = result.registeredVehicles || [];
+      const lookupPlate = normalizePlate(lookup);
+      const selectedVehicle =
+        vehicles.find((vehicle) => vehicle.licensePlate === lookupPlate) ||
+        vehicles[0] ||
+        null;
+      const matchedModel = selectedVehicle
+        ? findVehicleModelForVehicle(selectedVehicle)
+        : findVehicleModelForVehicle(result);
+
+      setRegisteredVehicles(vehicles);
+      setSelectedVehicleKey(selectedVehicle?.key || "new");
+      setVehicleLocked(
+        Boolean(selectedVehicle && (matchedModel || selectedVehicle.vehicleModelId)),
+      );
       setForm((prev) => ({
         ...prev,
         customerName: result.name || prev.customerName,
         customerPhone: result.phone || prev.customerPhone,
-        licensePlate: normalizePlate(result.licensePlate || prev.licensePlate),
-        vehicleBrand: matchedModel?.brand || result.brand || prev.vehicleBrand,
+        licensePlate: normalizePlate(
+          selectedVehicle?.licensePlate || result.licensePlate || "",
+        ),
+        vehicleBrand:
+          matchedModel?.brand ||
+          selectedVehicle?.brand ||
+          result.brand ||
+          "",
         vehicleModelId:
-          matchedModel?.id || result.vehicleModelId || prev.vehicleModelId,
+          matchedModel?.id ||
+          selectedVehicle?.vehicleModelId ||
+          result.vehicleModelId ||
+          "",
         vehicleModelName:
-          matchedModel?.modelName || result.modelName || prev.vehicleModelName,
+          matchedModel?.modelName ||
+          selectedVehicle?.modelName ||
+          result.modelName ||
+          "",
         vehicleSize:
-          matchedModel?.vehicleSize || result.vehicleSize || prev.vehicleSize,
+          matchedModel?.vehicleSize ||
+          selectedVehicle?.vehicleSize ||
+          result.vehicleSize ||
+          "",
         tier: result.tier || prev.tier,
       }));
-      setMessage("Đã tìm thấy khách hàng và tự điền thông tin.");
+      setMessage(
+        vehicles.length > 0
+          ? "Đã tìm thấy khách hàng. Chọn phương tiện để tiếp nhận."
+          : "Đã tìm thấy khách hàng. Khách chưa có xe đã đăng ký.",
+      );
     } catch (err) {
+      setRegisteredVehicles([]);
+      setSelectedVehicleKey("new");
+      setVehicleLocked(false);
       setMessage("Không tìm thấy khách cũ. Có thể nhập nhanh khách vãng lai.");
       setError("");
     } finally {
@@ -522,6 +660,40 @@ export default function StaffCustomers() {
                 </Field>
               </div>
 
+              {registeredVehicles.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-[#6ff6df]/25 bg-[#6ff6df]/10 p-4">
+                  <Field label="Chọn phương tiện của khách">
+                    <select
+                      value={selectedVehicleKey}
+                      onChange={(event) =>
+                        handleRegisteredVehicleChange(event.target.value)
+                      }
+                      className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
+                    >
+                      {registeredVehicles.map((vehicle) => (
+                        <option key={vehicle.key} value={vehicle.key}>
+                          {vehicle.licensePlate}
+                          {vehicle.brand || vehicle.modelName
+                            ? ` (${[vehicle.brand, vehicle.modelName]
+                                .filter(Boolean)
+                                .join(" ")})`
+                            : ""}
+                        </option>
+                      ))}
+                      <option value="new">
+                        [ Sử dụng xe mới / Xe khác ]
+                      </option>
+                    </select>
+                  </Field>
+                  {vehicleLocked && (
+                    <p className="mt-3 text-xs font-semibold text-[#b8d8de]">
+                      Xe đã đăng ký sẽ tự khóa hãng, mẫu và kích thước để khớp
+                      dữ liệu backend.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Họ tên khách hàng">
                   <input
@@ -547,6 +719,7 @@ export default function StaffCustomers() {
                 <Field label="Biển số xe">
                   <input
                     required
+                    readOnly={vehicleLocked}
                     value={form.licensePlate}
                     onChange={(event) =>
                       setForm({
@@ -554,7 +727,7 @@ export default function StaffCustomers() {
                         licensePlate: normalizePlate(event.target.value),
                       })
                     }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df]"
+                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
                     placeholder="30A-99999"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   />
@@ -562,11 +735,12 @@ export default function StaffCustomers() {
                 <Field label="Hãng xe">
                   <select
                     required
+                    disabled={vehicleLocked}
                     value={form.vehicleBrand}
                     onChange={(event) =>
                       handleVehicleBrandChange(event.target.value)
                     }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
+                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <option value="">Chọn hãng xe</option>
                     {vehicleBrands.map((brand) => (
@@ -584,7 +758,9 @@ export default function StaffCustomers() {
                       handleVehicleModelChange(event.target.value)
                     }
                     disabled={
-                      !form.vehicleBrand || currentBrandModels.length === 0
+                      vehicleLocked ||
+                      !form.vehicleBrand ||
+                      currentBrandModels.length === 0
                     }
                     className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-55"
                   >
