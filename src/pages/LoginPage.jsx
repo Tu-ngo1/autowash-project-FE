@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../services/LoginServices";
+import { login } from "../services/authApi";
 import { getUserRole, isAuthenticated, setAuth } from "../utils/auth";
 import { getFriendlyErrorMessage } from "../utils/errorMessage";
 
