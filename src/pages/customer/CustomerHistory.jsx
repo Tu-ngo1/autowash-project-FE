@@ -39,6 +39,35 @@ const formatBookingDate = (value) => {
   });
 };
 
+const formatBookingTime = (item = {}) => {
+  if (item.time) return item.time;
+  const source = item.scheduledStartTime || item.dateTime || item.date;
+  if (!source) return "-";
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getBookingServicesText = (item = {}) => {
+  if (Array.isArray(item.services) && item.services.length > 0) {
+    return item.services
+      .map((service) =>
+        typeof service === "string"
+          ? service
+          : service.serviceName || service.name || service.title,
+      )
+      .filter(Boolean)
+      .join(", ");
+  }
+  return item.service || item.serviceName || "Dịch vụ chăm sóc xe";
+};
+
+const getBookingTotal = (item = {}) =>
+  item.finalPrice ?? item.totalPrice ?? item.price ?? item.total ?? 0;
+
 // removed getLocalHistory
 export default function CustomerHistory() {
   const navigate = useNavigate();
@@ -55,6 +84,7 @@ export default function CustomerHistory() {
   const [reviewMessage, setReviewMessage] = useState("");
   const [cancelBookingItem, setCancelBookingItem] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [detailBooking, setDetailBooking] = useState(null);
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -146,7 +176,7 @@ export default function CustomerHistory() {
     ).length;
     const total = history.length;
     const spent = history.reduce(
-      (sum, item) => sum + (Number(item.price) || 0),
+      (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
       0,
     );
     return { completed, pending, cancelled, total, spent };
@@ -220,7 +250,13 @@ export default function CustomerHistory() {
                     <p className="mt-4 whitespace-nowrap text-xs font-black uppercase tracking-[0.08em] text-slate-500">
                       {label}
                     </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">
+                    <p
+                      className={`mt-2 font-black leading-none text-slate-950 ${
+                        label === "Tổng chi"
+                          ? "text-[clamp(1.15rem,1.5vw,1.5rem)] tracking-normal"
+                          : "text-2xl"
+                      }`}
+                    >
                       {value}
                     </p>
                   </div>
@@ -392,7 +428,7 @@ export default function CustomerHistory() {
                               Tổng
                             </p>
                             <p className="mt-2 font-black text-slate-950">
-                              {formatCurrency(item.totalPrice)}
+                              {formatCurrency(getBookingTotal(item))}
                             </p>
                           </div>
                         </div>
@@ -446,7 +482,7 @@ export default function CustomerHistory() {
                           )}
                           <button
                             type="button"
-                            onClick={() => navigate("/profile")}
+                            onClick={() => setDetailBooking(item)}
                             className="rounded-xl border border-white/15 bg-white/8 px-4 py-2 text-xs font-black text-white transition hover:bg-white/14"
                           >
                             Chi tiết
@@ -467,6 +503,78 @@ export default function CustomerHistory() {
         onClose={() => setReviewBooking(null)}
         onSubmit={handleSubmitReview}
       />
+      {detailBooking && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+          onClick={() => setDetailBooking(null)}
+        >
+          <div
+            className="w-full max-w-3xl overflow-hidden rounded-[30px] border border-white/75 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-cyan-100 bg-cyan-50/80 p-6">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                  Chi tiết booking
+                </p>
+                <h3 className="mt-2 text-3xl font-black text-slate-950">
+                  {detailBooking.bookingCode ||
+                    detailBooking.code ||
+                    detailBooking.id ||
+                    "Đơn rửa xe"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailBooking(null)}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm transition hover:bg-slate-950 hover:text-white"
+                aria-label="Đóng chi tiết booking"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="grid gap-4 p-6 sm:grid-cols-2">
+              {[
+                ["Biển số", detailBooking.plate || detailBooking.vehicleLicensePlate || "-"],
+                ["Dịch vụ", getBookingServicesText(detailBooking)],
+                ["Ngày", formatBookingDate(detailBooking.date || detailBooking.scheduledStartTime)],
+                ["Giờ", formatBookingTime(detailBooking)],
+                [
+                  "Trạng thái",
+                  STATUS_LABELS[String(detailBooking.status || "").toUpperCase()]?.label ||
+                    detailBooking.status ||
+                    "-",
+                ],
+                [
+                  "Thanh toán",
+                  [
+                    detailBooking.paymentMethod,
+                    detailBooking.paymentStatus,
+                  ]
+                    .filter(Boolean)
+                    .join(" / ") || "-",
+                ],
+                ["Voucher", detailBooking.voucherCode || detailBooking.voucherName || "-"],
+                ["Tổng tiền", formatCurrency(getBookingTotal(detailBooking))],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-cyan-100 bg-cyan-50/55 p-4"
+                >
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                    {label}
+                  </p>
+                  <p className="mt-2 break-words text-base font-black text-slate-950">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        </div>
+      )}
       {cancelBookingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
           <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/75 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
