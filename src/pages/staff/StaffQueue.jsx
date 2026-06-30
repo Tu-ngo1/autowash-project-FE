@@ -67,15 +67,22 @@ const normalizeBay = (bay = {}) => {
   };
 };
 
-function QueueCard({ item, onAssign, isSelected }) {
+const getQueueItemKey = (item) => {
+  if (!item) return "";
+  return String(item.id ?? item._id ?? item.bookingId ?? item.queueId ?? item.plate ?? "");
+};
+
+function QueueCard({ item, onSelect, isSelected }) {
   const badgeClass =
     TIER_BADGE[item.tier] || "border-[#4f7883] text-[#b8d8de] bg-[#123746]";
   return (
-    <div
-      className={`staff-panel rounded-3xl p-4 flex items-center justify-between transition-all ${
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`staff-panel w-full rounded-3xl p-4 flex items-center justify-between text-left transition-all active:scale-[0.99] ${
         isSelected
           ? "border-[#6ff6df] bg-[#6ff6df]/10 shadow-[0_0_24px_rgba(94,234,212,0.14)]"
-          : ""
+          : "hover:border-[#6ff6df]/70 hover:bg-[#6ff6df]/5"
       }`}
     >
       <div>
@@ -96,9 +103,7 @@ function QueueCard({ item, onAssign, isSelected }) {
         >
           {item.tier}
         </span>
-        <button
-          type="button"
-          onClick={onAssign}
+        <span
           className={`border text-[11px] font-bold px-3 py-1.5 rounded uppercase transition-colors ${
             isSelected
               ? "bg-[#6ff6df] text-[#06343a] border-[#6ff6df]"
@@ -106,14 +111,14 @@ function QueueCard({ item, onAssign, isSelected }) {
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
-          {isSelected ? "Đang chọn" : "Điều phối"}
-        </button>
+          {isSelected ? "Đang chọn" : "Chọn xe"}
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
-function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
+function BayCard({ bay, selectedCar, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
   return (
     <div
       className={`staff-panel rounded-3xl p-5 flex flex-col justify-between min-h-[220px] transition-all duration-300 ${
@@ -172,7 +177,7 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
       ) : (
         <div className="my-6 text-center text-[#b8d8de] text-[13px] border border-dashed border-[#244653] py-3 rounded-2xl bg-[#0b2532]/55">
           {hasSelectedCar
-            ? "Khoang trống sẵn sàng tiếp nhận"
+            ? `Sẵn sàng nhận ${selectedCar?.plate || "xe đã chọn"}`
             : "Sẵn sàng tiếp nhận xe mới từ hàng đợi"}
         </div>
       )}
@@ -194,7 +199,7 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
               type="button"
               disabled={disabled}
               onClick={onAssignToBay}
-              className="bg-[#6ff6df] text-[#06343a] text-[12px] font-bold px-4 py-2 rounded-2xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)]"
+              className="w-full bg-[#6ff6df] text-[#06343a] text-[12px] font-bold px-4 py-2 rounded-2xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)] disabled:opacity-50"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               Vào khoang này
@@ -270,6 +275,12 @@ export default function StaffQueue() {
     }
   };
 
+  const handleSelectCar = (item) => {
+    const currentKey = getQueueItemKey(selectedCar);
+    const nextKey = getQueueItemKey(item);
+    setSelectedCar(currentKey && currentKey === nextKey ? null : item);
+  };
+
   const handleCompleteWash = async (bayId) => {
     if (!bayId) return;
     setSubmitLoading(true);
@@ -343,18 +354,8 @@ export default function StaffQueue() {
                   >
                     <QueueCard
                       item={item}
-                      isSelected={
-                        selectedCar?.id === item.id ||
-                        selectedCar?._id === item._id
-                      }
-                      onAssign={() =>
-                        setSelectedCar(
-                          selectedCar?.id === item.id ||
-                            selectedCar?._id === item._id
-                            ? null
-                            : item,
-                        )
-                      }
+                      isSelected={getQueueItemKey(selectedCar) === getQueueItemKey(item)}
+                      onSelect={() => handleSelectCar(item)}
                     />
                   </div>
                 ))
@@ -391,6 +392,7 @@ export default function StaffQueue() {
                       <BayCard
                         bay={bay}
                         disabled={submitLoading}
+                        selectedCar={selectedCar}
                         hasSelectedCar={!!selectedCar}
                         onComplete={() => handleCompleteWash(bay.id || bay._id)}
                         onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
