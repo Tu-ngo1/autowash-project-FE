@@ -7,7 +7,7 @@ import {
   getCustomerProfileBookings,
   getCustomerProfileLoyalty,
 } from "../../services/customerProfileApi";
-import { cancelBooking } from "../../services/customerBookingApi";
+import { cancelBooking, getBookingQr } from "../../services/customerBookingApi";
 import {
   addMyCar,
   getMyCars,
@@ -61,23 +61,6 @@ const getRecentBookings = (bookings = []) =>
       return Number(b?.id || 0) - Number(a?.id || 0);
     })
     .slice(0, 3);
-
-const getBookingQrValue = (booking) => {
-  if (booking.qrContent || booking.qrCode || booking.bookingCode) {
-    return encodeURIComponent(
-      booking.qrContent || booking.qrCode || booking.bookingCode,
-    );
-  }
-  const payload = {
-    id: booking.id || "",
-    plate: booking.plate || "",
-    service: booking.service || booking.serviceName || "",
-    date: booking.date || "",
-    time: booking.time || "",
-    status: booking.status || "PENDING",
-  };
-  return encodeURIComponent(JSON.stringify(payload));
-};
 
 const mergeVehicles = (...groups) => {
   const seen = new Set();
@@ -232,6 +215,9 @@ export default function CustomerProfile() {
   const [profileReturnTo, setProfileReturnTo] = useState("");
   const [vehicleReturnTo, setVehicleReturnTo] = useState("");
   const [selectedQrBooking, setSelectedQrBooking] = useState(null);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [qrCodeLoading, setQrCodeLoading] = useState(false);
+  const [qrCodeError, setQrCodeError] = useState("");
   const [vehicleError, setVehicleError] = useState("");
   const [vehicleModels, setVehicleModels] = useState([]);
   const [vehicleModelsLoading, setVehicleModelsLoading] = useState(false);
@@ -270,6 +256,35 @@ export default function CustomerProfile() {
   const currentBrandModels = vehicleModels.filter(
     (model) => model.brand === vehicleForm.brand
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    if (selectedQrBooking && selectedQrBooking.id) {
+      setQrCodeLoading(true);
+      setQrCodeError("");
+      setQrCodeData(null);
+      getBookingQr(selectedQrBooking.id)
+        .then((res) => {
+          if (!isMounted) return;
+          setQrCodeData(res.data);
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          console.error("Failed to fetch QR code:", err);
+          setQrCodeError(getFriendlyErrorMessage(err) || "Không thể tải mã QR");
+        })
+        .finally(() => {
+          if (!isMounted) return;
+          setQrCodeLoading(false);
+        });
+    } else {
+      setQrCodeData(null);
+      setQrCodeError("");
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedQrBooking]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1644,14 +1659,32 @@ export default function CustomerProfile() {
                 </div>
               </div>
 
-              <div className="mb-6 rounded-[26px] border border-cyan-100 bg-white p-4 shadow-inner">
-                <img
-                  alt="Mã QR lịch đặt"
-                  className="h-48 w-48 object-contain"
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${getBookingQrValue(
-                    selectedQrBooking
-                  )}`}
-                />
+              <div className="mb-6 rounded-[26px] border border-cyan-100 bg-white p-4 shadow-inner flex items-center justify-center min-h-[220px] min-w-[220px]">
+                {qrCodeLoading ? (
+                  <div className="flex flex-col items-center justify-center">
+                    <span className="animate-spin text-cyan-500 material-symbols-outlined text-4xl mb-2">
+                      sync
+                    </span>
+                    <span className="text-xs font-bold text-slate-500 font-sans">Đang tải mã QR...</span>
+                  </div>
+                ) : qrCodeError ? (
+                  <div className="flex flex-col items-center justify-center p-2 text-center text-rose-500 text-xs font-sans">
+                    <span className="material-symbols-outlined text-3xl mb-1">
+                      error
+                    </span>
+                    {qrCodeError}
+                  </div>
+                ) : qrCodeData?.qrImageBase64 ? (
+                  <img
+                    alt="Mã QR lịch đặt"
+                    className="h-48 w-48 object-contain"
+                    src={qrCodeData.qrImageBase64}
+                  />
+                ) : (
+                  <div className="flex h-48 w-48 items-center justify-center text-slate-400 text-xs font-bold font-sans">
+                    Không có dữ liệu QR
+                  </div>
+                )}
               </div>
 
               <div className="rounded-full bg-emerald-500/10 px-4 py-2 text-sm font-black text-emerald-600">
