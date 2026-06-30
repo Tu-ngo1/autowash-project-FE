@@ -15,6 +15,7 @@ import {
 } from "../../services/customerVoucherApi";
 import { getCustomerBookingConfig } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { getMyLoyalty } from "../../services/customerLoyaltyApi";
 
 const formatPrice = (price) => price.toLocaleString("vi-VN") + "đ";
 
@@ -382,14 +383,21 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [carsPayload, voucherPayload, configPayload, profileRes] = await Promise.all([
+        const [carsPayload, voucherPayload, configPayload, profileRes, loyaltyPayload] = await Promise.all([
           getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
           getProfile().catch(() => null),
+          getMyLoyalty().catch(() => null),
         ]);
+
+        let freshTier = tier;
+        if (loyaltyPayload) {
+          freshTier = loyaltyPayload.tier || loyaltyPayload.tierLevel || tier;
+          setUserTier(freshTier);
+        }
 
         let voucherSourcePayload = voucherPayload;
         if (profileRes) {
@@ -400,6 +408,7 @@ export default function CustomerBooking() {
             id: profileData.id || currentUser?.id,
             userId: profileData.id || currentUser?.userId,
             walletBalance: freshBalance,
+            tier: freshTier,
             name: profileData.fullName || profileData.name,
           });
           if (!currentUser?.id && !currentUser?.userId && profileData.id) {
