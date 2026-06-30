@@ -1,13 +1,30 @@
 // src/pages/admin/AdminOperations.jsx
-import { useState, useMemo } from "react";
-import { configureTomorrow } from "../../services/adminOperationsApi";
+import { useEffect, useMemo, useState } from "react";
+import {
+  configureTomorrow,
+  getTomorrowConfig,
+} from "../../services/adminOperationsApi";
+
+const SLOT_DURATION_MINUTES = 90;
+
+const toMinutes = (time) => {
+  if (!time) return 0;
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+const slotCountFromConfig = (openTime, closeTime) => {
+  const diff = toMinutes(closeTime) - toMinutes(openTime);
+  return diff > 0 ? Math.max(1, Math.round(diff / SLOT_DURATION_MINUTES)) : 1;
+};
 
 export default function AdminOperations() {
-  const [isActive, setIsActive] = useState(true);
   const [openTime, setOpenTime] = useState("08:00");
   const [slotCount, setSlotCount] = useState(6);
   const [bayCount, setBayCount] = useState(3);
+  const [isActive, setIsActive] = useState(true);
 
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [error, setError] = useState("");
@@ -40,6 +57,40 @@ export default function AdminOperations() {
     return options;
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTomorrowConfig = async () => {
+      setInitialLoading(true);
+      try {
+        const response = await getTomorrowConfig();
+        const data = response?.data?.data ?? response?.data ?? {};
+        if (ignore) return;
+
+        const nextOpenTime = String(data.openTime || "08:00").slice(0, 5);
+        const nextCloseTime = String(data.closeTime || "17:00").slice(0, 5);
+        setOpenTime(nextOpenTime);
+        setSlotCount(slotCountFromConfig(nextOpenTime, nextCloseTime));
+        setBayCount(Number(data.bayCount || 3));
+        setIsActive(data.isActive ?? data.active ?? true);
+      } catch (err) {
+        if (!ignore) {
+          setError("Không thể tải cấu hình ngày mai từ hệ thống.");
+        }
+      } finally {
+        if (!ignore) {
+          setInitialLoading(false);
+        }
+      }
+    };
+
+    loadTomorrowConfig();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const handleSubmit = async (e, force = false) => {
     if (e) e.preventDefault();
     setError("");
@@ -59,20 +110,13 @@ export default function AdminOperations() {
     }
 
     try {
-      const payload = isActive
-        ? {
-            openTime: openTime.length === 5 ? `${openTime}:00` : openTime,
-            slotCount: Number(slotCount),
-            bayCount: Number(bayCount),
-            isActive: true,
-            ...(force ? { forceSave: true } : {}),
-          }
-        : {
-            isActive: false,
-            ...(force ? { forceSave: true } : {}),
-          };
-
-      const response = await configureTomorrow(payload);
+      const response = await configureTomorrow({
+        isActive,
+        openTime: isActive ? openTime : null,
+        slotCount: isActive ? Number(slotCount) : null,
+        bayCount: isActive ? Number(bayCount) : null,
+        forceSave: force,
+      });
 
       const data = response?.data?.data ?? response?.data ?? {};
       setSuccessData(data);
@@ -185,11 +229,7 @@ export default function AdminOperations() {
                       .
                     </p>
                     <div className="space-y-1 pl-2 border-l border-emerald-500/30 text-emerald-300 font-bold uppercase tracking-wide">
-                      <div>
-                        Trạng thái cửa hàng:{" "}
-                        {successData.isActive === false ? "ĐÓNG CỬA" : "MỞ CỬA"}
-                      </div>
-                      {successData.isActive !== false && (
+                      {successData.isActive ? (
                         <>
                           <div>Giờ mở cửa: {successData.openTime}</div>
                           <div>
@@ -200,23 +240,28 @@ export default function AdminOperations() {
                             Số lượng khoang rửa: {successData.bayCount} khoang
                           </div>
                         </>
-                      )}
+                      ) : null}
+                      <div>
+                        Trạng thái hoạt động:{" "}
+                        {successData.isActive ? "ĐANG HOẠT ĐỘNG" : "ĐÓNG CỬA"}
+                      </div>
                     </div>
-                    {successData.isActive === false ? (
-                      <div className="mt-3 text-[10px] font-black text-emerald-300 uppercase tracking-widest">
-                        * Đã thiết lập ngày nghỉ thành công và hoàn trả tiền cho khách hàng bị ảnh hưởng.
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-[10px] font-black text-cyan-300 uppercase tracking-widest">
-                        * VUI LÒNG KIỂM TRA LẠI GIỜ ĐÓNG CỬA TÍNH TOÁN TRƯỚC KHI
-                        ĐỒNG Ý
-                      </div>
-                    )}
+                    <div className="mt-3 text-[10px] font-black text-cyan-300 uppercase tracking-widest">
+                      {successData.isActive
+                        ? "* VUI LÒNG KIỂM TRA LẠI GIỜ ĐÓNG CỬA TÍNH TOÁN TRƯỚC KHI ĐỒNG Ý"
+                        : "* ĐÃ THIẾT LẬP NGÀY NGHỈ VÀ CHẶN LỊCH ĐẶT MỚI."}
+                    </div>
                   </div>
                 </div>
               )}
 
               <div className="space-y-4">
+                {initialLoading && (
+                  <div className="border border-cyan-400/20 bg-cyan-400/5 p-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">
+                    Đang tải cấu hình ngày mai...
+                  </div>
+                )}
+
                 {/* Application Date Indicator */}
                 <div>
                   <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
@@ -234,14 +279,14 @@ export default function AdminOperations() {
                   <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
                     Trạng thái cửa hàng ngày mai
                   </label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setIsActive(true)}
                       className={`h-12 border px-4 font-mono text-xs font-black uppercase tracking-[0.16em] transition ${
                         isActive
-                          ? "border-emerald-400 bg-emerald-400/15 text-emerald-200"
-                          : "border-zinc-800 bg-black text-zinc-500 hover:border-zinc-600"
+                          ? "border-cyan-400 bg-cyan-400/10 text-cyan-200"
+                          : "border-zinc-800 bg-black text-zinc-500 hover:text-zinc-300"
                       }`}
                     >
                       Mở cửa
@@ -251,90 +296,86 @@ export default function AdminOperations() {
                       onClick={() => setIsActive(false)}
                       className={`h-12 border px-4 font-mono text-xs font-black uppercase tracking-[0.16em] transition ${
                         !isActive
-                          ? "border-amber-400 bg-amber-400/15 text-amber-200"
-                          : "border-zinc-800 bg-black text-zinc-500 hover:border-zinc-600"
+                          ? "border-amber-400 bg-amber-400/15 text-amber-100"
+                          : "border-zinc-800 bg-black text-zinc-500 hover:text-zinc-300"
                       }`}
                     >
                       Đóng cửa / Ngày nghỉ
                     </button>
                   </div>
+                  {!isActive && (
+                    <p className="mt-3 border border-amber-400/35 bg-amber-400/10 p-3 font-mono text-xs font-bold text-amber-200">
+                      Ngày nghỉ sẽ chặn tất cả lịch đặt mới. Nếu ngày mai đã có
+                      lịch, hệ thống sẽ yêu cầu xác nhận hủy và hoàn tiền.
+                    </p>
+                  )}
                 </div>
 
-                {!isActive ? (
-                  <div className="border border-amber-500/35 bg-amber-950/20 p-4 font-mono text-xs text-amber-200 flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[18px] text-amber-300 mt-0.5">
-                      warning
-                    </span>
-                    <p>
-                      Chú ý: Thiết lập ngày nghỉ sẽ chặn tất cả các lượt đặt lịch mới vào ngày này.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Field 1: Open Time Select */}
-                    <div>
-                      <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
-                        Giờ mở cửa (Open Time)
-                      </label>
-                      <select
-                        value={openTime}
-                        onChange={(e) => setOpenTime(e.target.value)}
-                        className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                {/* Field 1: Open Time Select */}
+                <div>
+                  <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
+                    Giờ mở cửa (Open Time)
+                  </label>
+                  <select
+                    value={openTime}
+                    onChange={(e) => setOpenTime(e.target.value)}
+                    disabled={!isActive}
+                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                  >
+                    {timeOptions.map((time) => (
+                      <option
+                        key={time}
+                        value={time}
+                        className="bg-black text-zinc-100"
                       >
-                        {timeOptions.map((time) => (
-                          <option
-                            key={time}
-                            value={time}
-                            className="bg-black text-zinc-100"
-                          >
-                            {time}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                    {/* Field 2: Slot Count */}
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                          Số lượng ca hoạt động
-                        </label>
-                        <span className="font-mono text-[9px] font-bold text-cyan-300 border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 uppercase tracking-wider">
-                          Ca kéo dài 90 phút
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={slotCount}
-                        onChange={(e) => setSlotCount(e.target.value)}
-                        placeholder="Nhập số lượng ca (ví dụ: 6)"
-                        className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                      />
-                      <p className="mt-1 font-mono text-[10px] text-zinc-500 italic">
-                        * Lưu ý: Mỗi ca làm việc kéo dài cố định 90 phút. Ví dụ: 6
-                        ca từ 08:00 sẽ kết thúc vào lúc 17:00.
-                      </p>
-                    </div>
+                {/* Field 2: Slot Count */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                      Số lượng ca hoạt động
+                    </label>
+                    <span className="font-mono text-[9px] font-bold text-cyan-300 border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 uppercase tracking-wider">
+                      Ca kéo dài 90 phút
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={slotCount}
+                    onChange={(e) => setSlotCount(e.target.value)}
+                    disabled={!isActive}
+                    placeholder="Nhập số lượng ca (ví dụ: 6)"
+                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                  />
+                  <p className="mt-1 font-mono text-[10px] text-zinc-500 italic">
+                    * Lưu ý: Mỗi ca làm việc kéo dài cố định 90 phút. Ví dụ: 6
+                    ca từ 08:00 sẽ kết thúc vào lúc 17:00.
+                  </p>
+                </div>
 
-                    {/* Field 3: Bay Count */}
-                    <div>
-                      <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
-                        Số khoang rửa khả dụng (Bay Count)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={bayCount}
-                        onChange={(e) => setBayCount(e.target.value)}
-                        placeholder="Nhập số khoang rửa (ví dụ: 3)"
-                        className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                      />
-                    </div>
-                  </>
-                )}
+                {/* Field 3: Bay Count */}
+                <div>
+                  <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
+                    Số khoang rửa khả dụng (Bay Count)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={bayCount}
+                    onChange={(e) => setBayCount(e.target.value)}
+                    disabled={!isActive}
+                    placeholder="Nhập số khoang rửa (ví dụ: 3)"
+                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                  />
+                </div>
               </div>
 
               {/* Submit Button */}
@@ -347,7 +388,7 @@ export default function AdminOperations() {
                   <span className="material-symbols-outlined text-[18px]">
                     {loading ? "sync" : "save"}
                   </span>
-                  {loading ? "Đang gửi cấu hình..." : "Lưu cấu hình"}
+                  {loading ? "Đang gửi cấu hình..." : "Xác nhận & lưu cấu hình"}
                 </button>
               </div>
             </form>
@@ -400,7 +441,7 @@ export default function AdminOperations() {
             
             <div className="space-y-4 font-mono text-xs text-zinc-300">
               <p className="text-left">
-                Cảnh báo: Hiện đang có <strong className="text-amber-400 font-bold">{conflictBookings.length} lịch đặt</strong> của khách hàng trong ngày này:
+                Ngày mai hiện đang có <strong className="text-amber-400 font-bold">{conflictBookings.length} đơn đặt lịch</strong> nằm ngoài khung giờ hoạt động mới bạn vừa chọn:
               </p>
               
               <ul className="max-h-36 overflow-y-auto border border-zinc-800 bg-black/50 p-3 space-y-1 text-zinc-400 text-left">
@@ -413,11 +454,11 @@ export default function AdminOperations() {
               </ul>
 
               <p className="leading-relaxed text-left">
-                Bạn có chắc chắn muốn đóng cửa và <strong className="text-rose-400 font-black">tự động hủy lịch, hoàn tiền 100% cho khách hàng</strong> không?
+                Nếu bạn tiếp tục lưu cấu hình này, hệ thống sẽ <strong className="text-rose-400 font-black">tự động hủy các đơn đặt lịch trên và hoàn lại 100% tiền cọc</strong> vào ví của khách hàng.
               </p>
 
               <p className="text-zinc-500 uppercase tracking-widest text-[9px] font-black border-t border-zinc-800 pt-3 text-left">
-                Chỉ xác nhận nếu đây là ngày nghỉ của cửa hàng.
+                Bạn có muốn tiếp tục lưu và ghi đè không?
               </p>
             </div>
 
@@ -439,7 +480,7 @@ export default function AdminOperations() {
                 onClick={() => handleSubmit(null, true)}
                 className="border border-amber-500/50 bg-amber-500/10 px-4 py-2 font-black uppercase tracking-wider text-amber-200 hover:bg-amber-500/20 transition disabled:opacity-50"
               >
-                {loading ? "Đang đóng cửa..." : "Xác nhận đóng cửa"}
+                {loading ? "Đang ghi đè..." : "Tiếp Tục Lưu & Hủy Đơn"}
               </button>
             </div>
           </div>

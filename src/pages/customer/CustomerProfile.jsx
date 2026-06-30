@@ -62,6 +62,17 @@ const getRecentBookings = (bookings = []) =>
     })
     .slice(0, 3);
 
+const getPendingQrBookings = (bookings = []) =>
+  [...bookings]
+    .filter(
+      (booking) => String(booking?.status || "").toUpperCase() === "PENDING",
+    )
+    .sort((a, b) => {
+      const timeDiff = getBookingTimeValue(b) - getBookingTimeValue(a);
+      if (timeDiff !== 0) return timeDiff;
+      return Number(b?.id || 0) - Number(a?.id || 0);
+    });
+
 const getBookingQrValue = (booking) => {
   if (booking.qrContent || booking.qrCode || booking.bookingCode) {
     return encodeURIComponent(
@@ -87,7 +98,7 @@ const mergeVehicles = (...groups) => {
     .map(normalizeCustomerCar)
     .filter((vehicle) => {
       const key = String(
-        vehicle.licensePlate || vehicle.plate || vehicle.id || ""
+        vehicle.licensePlate || vehicle.plate || vehicle.id || "",
       ).toUpperCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
@@ -131,7 +142,7 @@ const getVehicleSizeOption = (value) =>
 
 const getVehicleBrands = (vehicleModels) =>
   Array.from(new Set(vehicleModels.map((model) => model.brand))).sort((a, b) =>
-    a.localeCompare(b)
+    a.localeCompare(b),
   );
 
 const getVehicleModelById = (vehicleModels, id) =>
@@ -142,7 +153,7 @@ const getVehicleModelByName = (vehicleModels, brand, modelName) =>
     (model) =>
       model.brand === brand &&
       String(model.modelName || "").toLowerCase() ===
-        String(modelName || "").toLowerCase()
+        String(modelName || "").toLowerCase(),
   );
 
 const normalizeVehicleSize = (vehicle) => {
@@ -151,7 +162,7 @@ const normalizeVehicleSize = (vehicle) => {
       vehicle?.vehicleSize ||
       vehicle?.vehicle_size ||
       vehicle?.type ||
-      ""
+      "",
   ).toUpperCase();
   if (["SMALL", "MEDIUM", "LARGE", "XLARGE"].includes(rawSize)) return rawSize;
   if (String(vehicle?.type || "").includes("7")) return "LARGE";
@@ -218,7 +229,7 @@ export default function CustomerProfile() {
   const user = getUser() || {};
 
   const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") === "wallet" ? "wallet" : "profile"
+    searchParams.get("tab") === "wallet" ? "wallet" : "profile",
   );
   const [depositAmount, setDepositAmount] = useState("");
   const [depositLoading, setDepositLoading] = useState(false);
@@ -260,6 +271,7 @@ export default function CustomerProfile() {
   });
 
   const [recentBookings, setRecentBookings] = useState([]);
+  const [pendingQrBookings, setPendingQrBookings] = useState([]);
   const [vouchers, setVouchers] = useState([]);
   const [cancelBookingItem, setCancelBookingItem] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -268,7 +280,7 @@ export default function CustomerProfile() {
 
   const vehicleBrands = getVehicleBrands(vehicleModels);
   const currentBrandModels = vehicleModels.filter(
-    (model) => model.brand === vehicleForm.brand
+    (model) => model.brand === vehicleForm.brand,
   );
 
   useEffect(() => {
@@ -321,7 +333,7 @@ export default function CustomerProfile() {
           washes: apiProfile.washes ?? prev.washes,
           vehicles: mergeVehicles(
             Array.isArray(carsRes) ? carsRes : [],
-            Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : []
+            Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],
           ),
           walletBalance:
             apiProfile.walletBalance ??
@@ -341,10 +353,12 @@ export default function CustomerProfile() {
         });
 
         setRecentBookings(getRecentBookings(bookings));
+        setPendingQrBookings(getPendingQrBookings(bookings));
         setVouchers(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []);
       } catch {
         if (isMounted) {
           setRecentBookings([]);
+          setPendingQrBookings([]);
           setVouchers([]);
         }
       }
@@ -380,16 +394,16 @@ export default function CustomerProfile() {
             brand: model.brand,
             modelName: model.modelName || model.model_name || model.name,
             vehicleSize: String(
-              model.vehicleSize || model.vehicle_size || ""
+              model.vehicleSize || model.vehicle_size || "",
             ).toUpperCase(),
             model_name: model.model_name || model.modelName || model.name,
             vehicle_size: String(
-              model.vehicle_size || model.vehicleSize || ""
+              model.vehicle_size || model.vehicleSize || "",
             ).toUpperCase(),
           }))
           .filter(
             (model) =>
-              model.id && model.brand && model.modelName && model.vehicleSize
+              model.id && model.brand && model.modelName && model.vehicleSize,
           );
 
         if (!isMounted) return;
@@ -502,15 +516,15 @@ export default function CustomerProfile() {
         window.location.href = paymentUrl;
       } else {
         setDepositError(
-          "Không tạo được liên kết thanh toán. Vui lòng thử lại."
+          "Không tạo được liên kết thanh toán. Vui lòng thử lại.",
         );
       }
     } catch (err) {
       setDepositError(
         getFriendlyErrorMessage(
           err,
-          "Không thể kết nối đến cổng thanh toán. Vui lòng thử lại sau."
-        )
+          "Không thể kết nối đến cổng thanh toán. Vui lòng thử lại sau.",
+        ),
       );
     } finally {
       setDepositLoading(false);
@@ -565,16 +579,16 @@ export default function CustomerProfile() {
     const vehicleModel =
       getVehicleModelById(
         vehicleModels,
-        vehicle.modelId || vehicle.vehicleModelId
+        vehicle.modelId || vehicle.vehicleModelId,
       ) ||
       getVehicleModelByName(
         vehicleModels,
         vehicle.brand,
-        vehicle.modelName || vehicle.model
+        vehicle.modelName || vehicle.model,
       );
     setVehicleForm({
       plate: formatVietnamLicensePlate(
-        vehicle.plate || vehicle.licensePlate || ""
+        vehicle.plate || vehicle.licensePlate || "",
       ),
       brand: vehicleModel?.brand || vehicle.brand || "",
       modelId:
@@ -620,7 +634,7 @@ export default function CustomerProfile() {
 
     const selectedModel = getVehicleModelById(
       vehicleModels,
-      vehicleForm.modelId
+      vehicleForm.modelId,
     );
     if (!selectedModel) {
       setVehicleError("Vui lòng chọn dòng xe.");
@@ -628,7 +642,7 @@ export default function CustomerProfile() {
     }
 
     const sizeOption = getVehicleSizeOption(
-      vehicleForm.size || selectedModel.vehicleSize
+      vehicleForm.size || selectedModel.vehicleSize,
     );
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
     const normalizedPlate = formatVietnamLicensePlate(vehicleForm.plate);
@@ -642,7 +656,7 @@ export default function CustomerProfile() {
       (vehicle) =>
         compactLicensePlate(vehicle.plate || vehicle.licensePlate) ===
           normalizedPlateKey &&
-        (vehicle.id || vehicle.plate) !== editingVehicleId
+        (vehicle.id || vehicle.plate) !== editingVehicleId,
     );
 
     if (duplicate) {
@@ -696,7 +710,7 @@ export default function CustomerProfile() {
       ? profile.vehicles.map((vehicle) =>
           (vehicle.id || vehicle.plate) === editingVehicleId
             ? { ...vehicle, ...nextVehicle }
-            : vehicle
+            : vehicle,
         )
       : [...profile.vehicles, nextVehicle];
 
@@ -978,8 +992,8 @@ export default function CustomerProfile() {
                                 tx.type === "DEPOSIT"
                                   ? "Nạp tiền"
                                   : tx.type === "REFUND"
-                                  ? "Hoàn tiền"
-                                  : "Thanh toán";
+                                    ? "Hoàn tiền"
+                                    : "Thanh toán";
 
                               return (
                                 <tr key={tx.id} className="hover:bg-cyan-50/30">
@@ -997,7 +1011,7 @@ export default function CustomerProfile() {
                                   >
                                     {sign}
                                     {Math.abs(tx.amount).toLocaleString(
-                                      "vi-VN"
+                                      "vi-VN",
                                     )}
                                     đ
                                   </td>
@@ -1006,7 +1020,7 @@ export default function CustomerProfile() {
                                   </td>
                                   <td className="px-4 py-3 font-semibold text-slate-500">
                                     {new Date(tx.createdAt).toLocaleString(
-                                      "vi-VN"
+                                      "vi-VN",
                                     )}
                                   </td>
                                 </tr>
@@ -1060,7 +1074,7 @@ export default function CustomerProfile() {
                               <span className="material-symbols-outlined text-[32px] text-cyan-700">
                                 {
                                   getVehicleSizeOption(
-                                    normalizeVehicleSize(vehicle)
+                                    normalizeVehicleSize(vehicle),
                                   ).icon
                                 }
                               </span>
@@ -1070,7 +1084,7 @@ export default function CustomerProfile() {
                                 {vehicle.label ||
                                   vehicle.name ||
                                   getVehicleSizeOption(
-                                    normalizeVehicleSize(vehicle)
+                                    normalizeVehicleSize(vehicle),
                                   ).label}
                               </h3>
                               <p className="text-xs font-semibold text-slate-500">
@@ -1080,7 +1094,7 @@ export default function CustomerProfile() {
                                 <span className="rounded-full bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-800">
                                   {
                                     getVehicleSizeOption(
-                                      normalizeVehicleSize(vehicle)
+                                      normalizeVehicleSize(vehicle),
                                     ).description
                                   }
                                 </span>
@@ -1185,10 +1199,10 @@ export default function CustomerProfile() {
                 <div className="mb-6">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-                      Gần đây
+                      Check-in
                     </p>
                     <h2 className="mt-2 text-3xl font-black text-slate-950">
-                      Lịch sử gần đây
+                      Mã QR
                     </h2>
                   </div>
                 </div>
@@ -1203,58 +1217,61 @@ export default function CustomerProfile() {
                       {cancelError}
                     </div>
                   )}
-                  {recentBookings.length === 0 ? (
+                  {pendingQrBookings.length === 0 ? (
                     <div className="rounded-[24px] border border-dashed border-cyan-200 bg-cyan-50/70 p-8 text-center text-sm font-semibold text-slate-500">
-                      Chưa có lịch sử rửa xe.
+                      Chưa có lịch đặt nào đang chờ QR.
                     </div>
                   ) : (
-                    recentBookings.map((item, index) => (
+                    pendingQrBookings.map((item, index) => (
                       <div
                         key={item.id || index}
-                        className="rounded-[24px] border border-white/75 bg-white/70 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200"
+                        className="rounded-[24px] border border-cyan-100 bg-white/78 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-[0_18px_46px_rgba(8,145,178,0.14)]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="font-black text-slate-950">
+                              {item.plate ||
+                                item.licensePlate ||
+                                "Chưa có biển số"}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
                               {item.service || item.serviceName || "-"}
                             </p>
-                            <p className="mt-1 text-xs font-semibold text-slate-500">
-                              {item.date || "--/--/----"}
-                            </p>
                           </div>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
-                              statusStyles[item.status] ||
-                              "bg-[#0061a5]/10 text-[#0061a5]"
-                            }`}
-                          >
-                            {item.status || "Chờ thực hiện"}
+                          <span className="rounded-full bg-[#0061a5]/10 px-3 py-1 text-xs font-black uppercase text-[#0061a5]">
+                            PENDING
                           </span>
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-3">
-                          <p className="font-black text-cyan-700">
-                            {formatCurrency(getBookingTotal(item))}
-                          </p>
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-700">
+                              {item.time || "--:--"}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-950">
+                              {item.date || "--/--/----"}
+                            </p>
+                          </div>
                           <div className="flex items-center gap-2">
-                            {item.status === "PENDING" && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCancelError("");
-                                  setCancelSuccessMsg("");
-                                  setCancelBookingItem(item);
-                                }}
-                                className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-600"
-                              >
-                                Hủy
-                              </button>
-                            )}
                             <button
                               type="button"
                               onClick={() => setSelectedQrBooking(item)}
-                              className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
+                              className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-slate-800"
                             >
+                              <span className="material-symbols-outlined text-[16px]">
+                                qr_code_2
+                              </span>
                               QR
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCancelError("");
+                                setCancelSuccessMsg("");
+                                setCancelBookingItem(item);
+                              }}
+                              className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-600"
+                            >
+                              Hủy
                             </button>
                           </div>
                         </div>
@@ -1401,7 +1418,7 @@ export default function CustomerProfile() {
                         onChange={(event) =>
                           handleVehicleFieldChange(
                             "modelId",
-                            event.target.value
+                            event.target.value,
                           )
                         }
                         disabled={
@@ -1649,7 +1666,7 @@ export default function CustomerProfile() {
                   alt="Mã QR lịch đặt"
                   className="h-48 w-48 object-contain"
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${getBookingQrValue(
-                    selectedQrBooking
+                    selectedQrBooking,
                   )}`}
                 />
               </div>
@@ -1683,7 +1700,7 @@ export default function CustomerProfile() {
             <p className="mt-4 text-sm font-semibold leading-relaxed text-slate-600 text-left">
               {(() => {
                 const scheduledTime = new Date(
-                  cancelBookingItem.scheduledStartTime
+                  cancelBookingItem.scheduledStartTime,
                 );
                 const now = new Date();
                 const diffInMs = scheduledTime.getTime() - now.getTime();
@@ -1712,7 +1729,7 @@ export default function CustomerProfile() {
                   setCancelSuccessMsg("");
                   try {
                     const scheduledTime = new Date(
-                      cancelBookingItem.scheduledStartTime
+                      cancelBookingItem.scheduledStartTime,
                     );
                     const now = new Date();
                     const diffInMs = scheduledTime.getTime() - now.getTime();
@@ -1742,23 +1759,24 @@ export default function CustomerProfile() {
                           bookingsRes.data?.data ||
                           [];
                       setRecentBookings(getRecentBookings(bookings));
+                      setPendingQrBookings(getPendingQrBookings(bookings));
                     }
 
                     if (diffInMinutes >= 60) {
                       setCancelSuccessMsg(
-                        "Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn."
+                        "Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn.",
                       );
                     } else {
                       setCancelSuccessMsg(
-                        "Hủy lịch thành công. Bạn không được hoàn lại tiền đặt cọc do hủy dưới 60 phút."
+                        "Hủy lịch thành công. Bạn không được hoàn lại tiền đặt cọc do hủy dưới 60 phút.",
                       );
                     }
                   } catch (err) {
                     setCancelError(
                       getFriendlyErrorMessage(
                         err,
-                        "Không thể hủy lịch. Vui lòng thử lại sau."
-                      )
+                        "Không thể hủy lịch. Vui lòng thử lại sau.",
+                      ),
                     );
                   } finally {
                     setCancelLoading(false);
