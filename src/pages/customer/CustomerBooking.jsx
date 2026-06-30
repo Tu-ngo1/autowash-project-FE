@@ -15,6 +15,7 @@ import {
 } from "../../services/customerVoucherApi";
 import { getCustomerBookingConfig } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { getMyLoyalty } from "../../services/customerLoyaltyApi";
 
 const formatPrice = (price) => price.toLocaleString("vi-VN") + "đ";
 
@@ -173,7 +174,7 @@ const getVoucherStatus = (voucher) =>
   String(voucher?.status || "AVAILABLE").toUpperCase();
 
 const isVoucherSelectable = (voucher) =>
-  getVoucherStatus(voucher) === "AVAILABLE";
+  ["AVAILABLE", "ACTIVE"].includes(getVoucherStatus(voucher));
 
 const unwrapObject = (payload) =>
   payload?.data?.data ?? payload?.data ?? payload ?? {};
@@ -382,20 +383,39 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [carsPayload, voucherPayload, configPayload, profileRes] = await Promise.all([
+        const [carsPayload, voucherPayload, configPayload, profileRes, loyaltyPayload] = await Promise.all([
           getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
           getProfile().catch(() => null),
+          getMyLoyalty().catch(() => null),
         ]);
 
+        let freshTier = tier;
+        if (loyaltyPayload) {
+          freshTier = loyaltyPayload.tier || loyaltyPayload.tierLevel || tier;
+          setUserTier(freshTier);
+        }
+
+        let voucherSourcePayload = voucherPayload;
         if (profileRes) {
           const profileData = profileRes.data?.data ?? profileRes.data ?? {};
           const freshBalance = Number(profileData.walletBalance ?? profileData.balance ?? balance) || 0;
           setWalletBalance(freshBalance);
-          updateUser({ walletBalance: freshBalance, name: profileData.fullName || profileData.name });
+          updateUser({
+            id: profileData.id || currentUser?.id,
+            userId: profileData.id || currentUser?.userId,
+            walletBalance: freshBalance,
+            tier: freshTier,
+            name: profileData.fullName || profileData.name,
+          });
+          if (!currentUser?.id && !currentUser?.userId && profileData.id) {
+            voucherSourcePayload = await getCustomerVouchers(profileData.id).catch(
+              () => voucherPayload,
+            );
+          }
         }
 
         const config = unwrapObject(configPayload);
@@ -406,7 +426,7 @@ export default function CustomerBooking() {
         );
 
         setVehicles(nextVehicles);
-        const voucherList = unwrapList(voucherPayload, [
+        const voucherList = unwrapList(voucherSourcePayload, [
           "vouchers",
           "items",
           "data",
@@ -558,8 +578,9 @@ export default function CustomerBooking() {
     }
   };
 
-  const handleApplyVoucher = async () => {
-    if (!voucherCode.trim()) {
+  const applyVoucherCode = async (code) => {
+    const nextCode = String(code || "").trim();
+    if (!nextCode) {
       setVoucherMessage("Vui lòng nhập mã voucher.");
       setVoucherApplied(false);
       setVoucherValue(0);
@@ -567,7 +588,7 @@ export default function CustomerBooking() {
     }
 
     try {
-      const response = await validateVoucher(voucherCode);
+      const response = await validateVoucher(nextCode);
       if (response.data.valid) {
         const discountPercent = Number(response.data.discountPercent) || 0;
         const discountAmount =
@@ -596,6 +617,8 @@ export default function CustomerBooking() {
     }
   };
 
+  const handleApplyVoucher = () => applyVoucherCode(voucherCode);
+
   const handleRefreshVouchers = async () => {
     setLoadingVouchers(true);
     try {
@@ -615,12 +638,14 @@ export default function CustomerBooking() {
     }
   };
 
-  const handleSelectVoucher = (voucher) => {
+  const handleSelectVoucher = async (voucher) => {
     if (!isVoucherSelectable(voucher)) return;
-    setVoucherCode(getVoucherCode(voucher));
+    const code = getVoucherCode(voucher);
+    setVoucherCode(code);
     setVoucherApplied(false);
     setVoucherValue(0);
-    setVoucherMessage("");
+    setVoucherMessage("Đang kiểm tra voucher...");
+    await applyVoucherCode(code);
   };
 
   const selectVehicle = (vehicle) => {

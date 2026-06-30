@@ -9,10 +9,13 @@ export const assignBay = (bayId, data) =>
   api.post(apiPath(`/staff/bays/${bayId}/assign`), data);
 export const completeBay = (bayId) =>
   api.post(apiPath(`/staff/bays/${bayId}/complete`));
+export const startWashBay = (bayId) =>
+  api.post(apiPath(`/staff/bays/${bayId}/start`));
 
 export default {
   getQueue,
   getBays,
   assignBay,
   completeBay,
+  startWashBay,
 };
