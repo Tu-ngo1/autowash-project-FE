@@ -15,9 +15,8 @@ import {
 } from "../../services/customerVoucherApi";
 import { getCustomerBookingConfig } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
-import { getMyLoyalty } from "../../services/customerLoyaltyApi";
 
-const formatPrice = (price) => price.toLocaleString("vi-VN") + "đ";
+const formatPrice = (price) => Number(price || 0).toLocaleString("vi-VN") + "đ";
 
 const padHour = (hour) => String(hour).padStart(2, "0");
 
@@ -195,6 +194,14 @@ const normalizeServiceOption = (service = {}) => ({
   servicePriceId: service.servicePriceId || service.priceId,
   name: getServiceName(service),
   label: getServiceName(service),
+  price: Number(
+    service.price ??
+      service.servicePrice ??
+      service.amount ??
+      service.value ??
+      service.currentPrice ??
+      0,
+  ),
   durationMinutes: Number(service.durationMinutes ?? service.duration ?? 0),
   duration: Number(service.duration ?? service.durationMinutes ?? 0),
   isMain: isMainServiceItem(service),
@@ -297,7 +304,11 @@ export default function CustomerBooking() {
         "data",
       ]).map(normalizeServiceOption);
       const fetchedSlots = normalizeHourlySlots(
-        payload.timeSlots,
+        payload.timeSlots ||
+          payload.availableSlots ||
+          payload.slots ||
+          payload.availableTimeSlots ||
+          [],
         businessHours,
       );
 
@@ -354,21 +365,21 @@ export default function CustomerBooking() {
     return services.filter((item) => item.isMainService === false);
   }, [services]);
 
-  const serviceInfo = mainServices.find((item) => item.id === service) || {
+  const serviceInfo = mainServices.find((item) => String(item.id) === String(service)) || {
     price: 0,
     name: "",
     description: "",
   };
 
   const addonCost = selectedAddons.reduce((sum, addonId) => {
-    const addon = addonServices.find((item) => item.id === addonId);
+    const addon = addonServices.find((item) => String(item.id) === String(addonId));
     return sum + (addon?.price || 0);
   }, 0);
 
   const totalDuration = useMemo(() => {
     const mainServiceDuration = Number(serviceInfo.durationMinutes ?? serviceInfo.duration ?? 0);
     const addonsDuration = selectedAddons.reduce((sum, addonId) => {
-      const addon = addonServices.find((item) => item.id === addonId);
+      const addon = addonServices.find((item) => String(item.id) === String(addonId));
       return sum + Number(addon?.durationMinutes ?? addon?.duration ?? 0);
     }, 0);
     return mainServiceDuration + addonsDuration;
@@ -383,21 +394,14 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [carsPayload, voucherPayload, configPayload, profileRes, loyaltyPayload] = await Promise.all([
+        const [carsPayload, voucherPayload, configPayload, profileRes] = await Promise.all([
           getMyCars().catch(() => []),
           getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
             () => [],
           ),
           getCustomerBookingConfig().catch(() => ({})),
           getProfile().catch(() => null),
-          getMyLoyalty().catch(() => null),
         ]);
-
-        let freshTier = tier;
-        if (loyaltyPayload) {
-          freshTier = loyaltyPayload.tier || loyaltyPayload.tierLevel || tier;
-          setUserTier(freshTier);
-        }
 
         let voucherSourcePayload = voucherPayload;
         if (profileRes) {
@@ -408,7 +412,6 @@ export default function CustomerBooking() {
             id: profileData.id || currentUser?.id,
             userId: profileData.id || currentUser?.userId,
             walletBalance: freshBalance,
-            tier: freshTier,
             name: profileData.fullName || profileData.name,
           });
           if (!currentUser?.id && !currentUser?.userId && profileData.id) {
@@ -475,7 +478,7 @@ export default function CustomerBooking() {
   }, [totalPrice, walletBalance, paymentMethod]);
 
   const selectedAddonLabels = selectedAddons
-    .map((addonId) => addonServices.find((item) => item.id === addonId)?.name)
+    .map((addonId) => addonServices.find((item) => String(item.id) === String(addonId))?.name)
     .filter(Boolean);
 
   const mainServiceLabel = serviceInfo.name || "Chưa chọn";
@@ -589,11 +592,12 @@ export default function CustomerBooking() {
 
     try {
       const response = await validateVoucher(nextCode);
-      if (response.data.valid) {
-        const discountPercent = Number(response.data.discountPercent) || 0;
+      const voucherData = response?.data?.data ?? response?.data ?? {};
+      if (voucherData.valid) {
+        const discountPercent = Number(voucherData.discountPercent) || 0;
         const discountAmount =
-          Number(response.data.discountAmount ?? response.data.value) || 0;
-        const maxDiscountAmount = Number(response.data.maxDiscountAmount) || 0;
+          Number(voucherData.discountAmount ?? voucherData.value) || 0;
+        const maxDiscountAmount = Number(voucherData.maxDiscountAmount) || 0;
         const nextVoucherValue = discountPercent
           ? Math.min(
               Math.round((subtotal * discountPercent) / 100),

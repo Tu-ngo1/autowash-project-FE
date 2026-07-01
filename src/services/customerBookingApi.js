@@ -5,6 +5,14 @@ const customerBookingsPath = (path = "") =>
 
 const normalizeBooking = (booking = {}) => {
   const scheduledStartTime = booking.scheduledStartTime || booking.dateTime || "";
+  const finalPrice =
+    booking.finalPrice ??
+    booking.final_price ??
+    booking.totalPrice ??
+    booking.total_price ??
+    booking.price ??
+    booking.total ??
+    0;
   const serviceNames = Array.isArray(booking.services)
     ? booking.services
     : booking.service
@@ -23,8 +31,9 @@ const normalizeBooking = (booking = {}) => {
         : ""),
     service: booking.service || serviceNames.join(", "),
     serviceName: booking.serviceName || serviceNames.join(", "),
-    price: booking.price ?? booking.totalPrice ?? 0,
-    totalPrice: booking.totalPrice ?? booking.price ?? 0,
+    price: finalPrice,
+    totalPrice: finalPrice,
+    finalPrice,
     scheduledStartTime,
   };
 };
@@ -68,6 +77,8 @@ export const updateBookingStatus = (id, status) =>
   api.patch(customerBookingsPath(`${id}/status`), { status });
 export const cancelBooking = (id) =>
   api.post(customerBookingsPath(`${id}/cancel`));
+export const confirmBookingReceived = (id) =>
+  api.post(customerBookingsPath(`${id}/confirm-received`));
 export const getBookingQr = (id) =>
   api.get(customerBookingsPath(`${id}/qr`));
 export const verifyPayment = (id) =>
@@ -80,6 +91,7 @@ export default {
   updateBooking,
   updateBookingStatus,
   cancelBooking,
+  confirmBookingReceived,
   getBookingQr,
   verifyPayment,
 };
