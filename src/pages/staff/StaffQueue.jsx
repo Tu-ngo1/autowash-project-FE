@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import StaffNavbar from "../../components/StaffNavbar";
-import { assignBay, completeBay, getBays, getQueue } from "../../services/staffQueueApi";
+import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../services/staffQueueApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_BADGE = {
@@ -47,17 +47,20 @@ const normalizeQueueBooking = (booking = {}) => ({
 
 const normalizeBay = (bay = {}) => {
   const booking = bay.booking ? normalizeQueueBooking(bay.booking) : null;
-  const isBusy =
-    String(bay.status || "").toUpperCase() === "BUSY" ||
-    String(bay.status || "").toUpperCase() === "ACTIVE" ||
-    Boolean(booking);
+  
+  let status = "available";
+  if (String(bay.status || "").toUpperCase() === "BUSY" || String(bay.status || "").toUpperCase() === "ACTIVE") {
+    status = "active";
+  } else if (String(bay.status || "").toUpperCase() === "READY_TO_WASH") {
+    status = "ready_to_wash";
+  }
 
   return {
     ...bay,
     id: bay.id ?? bay.bayId,
     name: bay.name || `Bay ${bay.id ?? bay.bayId ?? ""}`.trim(),
     type: bay.type || "Khoang rửa",
-    status: isBusy ? "active" : "available",
+    status,
     currentCar: booking
       ? {
           ...booking,
@@ -67,15 +70,22 @@ const normalizeBay = (bay = {}) => {
   };
 };
 
-function QueueCard({ item, onAssign, isSelected }) {
+const getQueueItemKey = (item) => {
+  if (!item) return "";
+  return String(item.id ?? item._id ?? item.bookingId ?? item.queueId ?? item.plate ?? "");
+};
+
+function QueueCard({ item, onSelect, isSelected }) {
   const badgeClass =
     TIER_BADGE[item.tier] || "border-[#4f7883] text-[#b8d8de] bg-[#123746]";
   return (
-    <div
-      className={`staff-panel rounded-3xl p-4 flex items-center justify-between transition-all ${
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`staff-panel w-full rounded-3xl p-4 flex items-center justify-between text-left transition-all active:scale-[0.99] ${
         isSelected
           ? "border-[#6ff6df] bg-[#6ff6df]/10 shadow-[0_0_24px_rgba(94,234,212,0.14)]"
-          : ""
+          : "hover:border-[#6ff6df]/70 hover:bg-[#6ff6df]/5"
       }`}
     >
       <div>
@@ -96,9 +106,7 @@ function QueueCard({ item, onAssign, isSelected }) {
         >
           {item.tier}
         </span>
-        <button
-          type="button"
-          onClick={onAssign}
+        <span
           className={`border text-[11px] font-bold px-3 py-1.5 rounded uppercase transition-colors ${
             isSelected
               ? "bg-[#6ff6df] text-[#06343a] border-[#6ff6df]"
@@ -106,22 +114,24 @@ function QueueCard({ item, onAssign, isSelected }) {
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
-          {isSelected ? "Đang chọn" : "Điều phối"}
-        </button>
+          {isSelected ? "Đang chọn" : "Chọn xe"}
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
-function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
+function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, hasSelectedCar, disabled }) {
   return (
     <div
       className={`staff-panel rounded-3xl p-5 flex flex-col justify-between min-h-[220px] transition-all duration-300 ${
         bay.status === "active"
           ? "staff-scanline border-[#4edea3] bg-[#123746] shadow-[0_0_22px_rgba(78,222,163,0.08)]"
-          : hasSelectedCar
-            ? "border-[#6ff6df] bg-[#6ff6df]/8 border-dashed animate-pulse"
-            : ""
+          : bay.status === "ready_to_wash"
+            ? "border-[#72f3ff] bg-[#102e3f] shadow-[0_0_22px_rgba(114,243,255,0.08)]"
+            : hasSelectedCar
+              ? "border-[#6ff6df] bg-[#6ff6df]/8 border-dashed animate-pulse"
+              : ""
       }`}
     >
       <div className="flex justify-between items-start">
@@ -138,11 +148,13 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
           className={`text-[11px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
             bay.status === "active"
               ? "border-[#4edea3] text-[#4edea3] bg-[#4edea3]/5"
-              : "border-[#4f7883] text-[#b8d8de]"
+              : bay.status === "ready_to_wash"
+                ? "border-[#72f3ff] text-[#72f3ff] bg-[#72f3ff]/5"
+                : "border-[#4f7883] text-[#b8d8de]"
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
-          {bay.status === "active" ? "ĐANG RỬA" : "TRỐNG"}
+          {bay.status === "active" ? "ĐANG RỬA" : bay.status === "ready_to_wash" ? "CHỜ RỬA" : "TRỐNG"}
         </span>
       </div>
 
@@ -169,15 +181,35 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
             ></div>
           </div>
         </div>
+      ) : bay.status === "ready_to_wash" ? (
+        <div className="my-4 space-y-2">
+          <div className="flex justify-between text-[13px]">
+            <span
+              className="font-bold text-[#72f3ff]"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              {bay.currentCar?.plate}
+            </span>
+            <span
+              className="text-[#b8d8de] text-xs font-semibold uppercase tracking-wider"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              Chờ bắt đầu
+            </span>
+          </div>
+          <div className="text-[12px] text-[#9fb7c9] line-clamp-2 mt-1">
+            Dịch vụ: {bay.currentCar?.service}
+          </div>
+        </div>
       ) : (
         <div className="my-6 text-center text-[#b8d8de] text-[13px] border border-dashed border-[#244653] py-3 rounded-2xl bg-[#0b2532]/55">
           {hasSelectedCar
-            ? "Khoang trống sẵn sàng tiếp nhận"
+            ? `Sẵn sàng nhận ${selectedCar?.plate || "xe đã chọn"}`
             : "Sẵn sàng tiếp nhận xe mới từ hàng đợi"}
         </div>
       )}
 
-      <div className="border-t border-[#244653] pt-3 flex justify-end min-h-[40px]">
+      <div className="border-t border-[#244653] pt-3 flex justify-end min-h-[40px] gap-2">
         {bay.status === "active" ? (
           <button
             type="button"
@@ -188,13 +220,23 @@ function BayCard({ bay, onComplete, onAssignToBay, hasSelectedCar, disabled }) {
           >
             Hoàn thành
           </button>
+        ) : bay.status === "ready_to_wash" ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onStartWash}
+            className="bg-[#72f3ff] text-[#061427] text-[12px] font-bold px-4 py-2 rounded uppercase hover:bg-[#a5f7ff] transition-all disabled:opacity-50"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Bắt đầu rửa
+          </button>
         ) : (
           hasSelectedCar && (
             <button
               type="button"
               disabled={disabled}
               onClick={onAssignToBay}
-              className="bg-[#6ff6df] text-[#06343a] text-[12px] font-bold px-4 py-2 rounded-2xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)]"
+              className="w-full bg-[#6ff6df] text-[#06343a] text-[12px] font-bold px-4 py-2 rounded-2xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)] disabled:opacity-50"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               Vào khoang này
@@ -270,8 +312,16 @@ export default function StaffQueue() {
     }
   };
 
+  const handleSelectCar = (item) => {
+    const currentKey = getQueueItemKey(selectedCar);
+    const nextKey = getQueueItemKey(item);
+    setSelectedCar(currentKey && currentKey === nextKey ? null : item);
+  };
+
   const handleCompleteWash = async (bayId) => {
     if (!bayId) return;
+    const ok = window.confirm("Bạn có chắc chắn muốn HOÀN THÀNH quá trình rửa xe và GIẢI PHÓNG khoang rửa này không?");
+    if (!ok) return;
     setSubmitLoading(true);
     try {
       await completeBay(bayId);
@@ -281,6 +331,26 @@ export default function StaffQueue() {
         getFriendlyErrorMessage(
           err,
           "Không thể cập nhật trạng thái hoàn thành. Vui lòng thử lại.",
+        ),
+      );
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleStartWash = async (bayId) => {
+    if (!bayId) return;
+    const ok = window.confirm("Bạn có chắc chắn muốn BẮT ĐẦU rửa xe cho khoang này không?");
+    if (!ok) return;
+    setSubmitLoading(true);
+    try {
+      await startWashBay(bayId);
+      fetchQueueAndBays();
+    } catch (err) {
+      alert(
+        getFriendlyErrorMessage(
+          err,
+          "Không thể bắt đầu rửa xe. Vui lòng thử lại.",
         ),
       );
     } finally {
@@ -343,18 +413,8 @@ export default function StaffQueue() {
                   >
                     <QueueCard
                       item={item}
-                      isSelected={
-                        selectedCar?.id === item.id ||
-                        selectedCar?._id === item._id
-                      }
-                      onAssign={() =>
-                        setSelectedCar(
-                          selectedCar?.id === item.id ||
-                            selectedCar?._id === item._id
-                            ? null
-                            : item,
-                        )
-                      }
+                      isSelected={getQueueItemKey(selectedCar) === getQueueItemKey(item)}
+                      onSelect={() => handleSelectCar(item)}
                     />
                   </div>
                 ))
@@ -391,8 +451,10 @@ export default function StaffQueue() {
                       <BayCard
                         bay={bay}
                         disabled={submitLoading}
+                        selectedCar={selectedCar}
                         hasSelectedCar={!!selectedCar}
                         onComplete={() => handleCompleteWash(bay.id || bay._id)}
+                        onStartWash={() => handleStartWash(bay.id || bay._id)}
                         onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
                       />
                     </div>

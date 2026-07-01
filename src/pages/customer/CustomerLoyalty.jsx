@@ -5,22 +5,41 @@ import {
   getMyLoyalty,
   redeemVoucher,
 } from "../../services/customerLoyaltyApi";
+import { getCustomerVouchers } from "../../services/customerVoucherApi";
 import { getCustomerTierConfigs } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { getUser } from "../../utils/auth";
 import UserNavbar from "../../components/UserNavbar";
 
 const getVoucherPoints = (voucher) =>
   Number(voucher.pointCost ?? voucher.pointsCost ?? voucher.points ?? 0);
 
-const getVoucherName = (voucher) => voucher.name || voucher.title || "Voucher";
+const getVoucherName = (voucher) =>
+  voucher.name || voucher.title || voucher.campaignName || "Voucher";
 const getVoucherDescription = (voucher) =>
-  voucher.description || voucher.desc || "";
+  voucher.description ||
+  voucher.desc ||
+  (voucher.discountAmount
+    ? `Giảm ${Number(voucher.discountAmount).toLocaleString("vi-VN")}đ cho lần rửa xe.`
+    : "") ||
+  (voucher.discountPercent
+    ? `Giảm ${Number(voucher.discountPercent).toLocaleString("vi-VN")}% cho lần rửa xe.`
+    : "");
 
 const getTierName = (tier) => tier?.tierLevel || tier?.tier || tier?.name || "";
 const getTierLabel = (tier) =>
   tier?.label || tier?.displayName || getTierName(tier);
 const getTierMinPoints = (tier) =>
   Number(tier?.minPoints ?? tier?.thresholdPoints ?? tier?.requiredPoints ?? 0);
+const getVoucherIdentity = (voucher) =>
+  String(
+    voucher?.promotionId ??
+      voucher?.voucherId ??
+      voucher?.id ??
+      voucher?.voucherCode ??
+      voucher?.code ??
+      "",
+  );
 const unwrapList = (payload, keys = []) => {
   if (Array.isArray(payload)) return payload;
   for (const key of keys) {
@@ -46,9 +65,9 @@ function PageShell({ active = "Rewards", children }) {
   );
 }
 
-function VoucherCard({ voucher, redeemablePoints, onRedeem }) {
+function VoucherCard({ voucher, redeemablePoints, onRedeem, redeemed = false }) {
   const pointCost = getVoucherPoints(voucher);
-  const canRedeem = pointCost <= (redeemablePoints ?? 0);
+  const canRedeem = !redeemed && pointCost <= (redeemablePoints ?? 0);
 
   return (
     <article
@@ -85,12 +104,14 @@ function VoucherCard({ voucher, redeemablePoints, onRedeem }) {
           disabled={!canRedeem}
           onClick={() => onRedeem(voucher.id || voucher.voucherId)}
           className={`rounded-2xl px-4 py-2 text-xs font-black transition ${
-            canRedeem
+            redeemed
+              ? "cursor-default bg-emerald-100 text-emerald-700"
+              : canRedeem
               ? "bg-slate-950 text-white hover:bg-slate-800"
               : "cursor-not-allowed bg-slate-100 text-slate-400"
           }`}
         >
-          {canRedeem ? "Đổi ngay" : "Không đủ điểm"}
+          {redeemed ? "Đã đổi" : canRedeem ? "Đổi ngay" : "Không đủ điểm"}
         </button>
       </div>
     </article>
@@ -101,6 +122,7 @@ export function VoucherPage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
+  const [ownedVouchers, setOwnedVouchers] = useState([]);
   const [tierConfigs, setTierConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,13 +133,17 @@ export function VoucherPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const [profileRes, voucherRes, tierRes] = await Promise.all([
+        const currentUser = getUser();
+        const userId = currentUser?.id || currentUser?.userId;
+        const [profileRes, voucherRes, ownedVoucherRes, tierRes] = await Promise.all([
           getMyLoyalty().catch(() => null),
           getLoyaltyVouchers().catch(() => []),
+          userId ? getCustomerVouchers(userId).catch(() => []) : Promise.resolve([]),
           getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
         setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+        setOwnedVouchers(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []);
         const tiers = unwrapList(tierRes, [
           "tiers",
           "tierConfigs",
@@ -135,6 +161,16 @@ export function VoucherPage() {
   }, []);
 
   const redeemablePoints = profile?.redeemablePoints ?? 0;
+  const ownedVoucherKeys = useMemo(() => {
+    const keys = new Set();
+    ownedVouchers.forEach((voucher) => {
+      const promotionKey = voucher?.promotionId ?? voucher?.promotion?.id;
+      const codeKey = voucher?.voucherCode ?? voucher?.code;
+      if (promotionKey != null) keys.add(String(promotionKey));
+      if (codeKey) keys.add(String(codeKey));
+    });
+    return keys;
+  }, [ownedVouchers]);
   const filtered = useMemo(() => {
     let list = allVouchers || [];
     if (filter === "redeemable") {
@@ -157,12 +193,16 @@ export function VoucherPage() {
     setMessage("");
     try {
       await redeemVoucher(voucherId);
-      const [profileRes, voucherRes] = await Promise.all([
+      const currentUser = getUser();
+      const userId = currentUser?.id || currentUser?.userId;
+      const [profileRes, voucherRes, ownedVoucherRes] = await Promise.all([
         getMyLoyalty().catch(() => profile),
         getLoyaltyVouchers().catch(() => allVouchers),
+        userId ? getCustomerVouchers(userId).catch(() => ownedVouchers) : Promise.resolve(ownedVouchers),
       ]);
       setProfile(profileRes || null);
       setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+      setOwnedVouchers(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []);
       setMessage("Đổi voucher thành công. Ưu đãi đã được cập nhật.");
     } catch (err) {
       setMessage(
@@ -284,6 +324,10 @@ export function VoucherPage() {
               voucher={voucher}
               redeemablePoints={redeemablePoints}
               onRedeem={handleRedeem}
+              redeemed={
+                ownedVoucherKeys.has(getVoucherIdentity(voucher)) ||
+                ownedVoucherKeys.has(String(voucher.code || voucher.voucherCode || ""))
+              }
             />
           ))
         )}
@@ -475,6 +519,7 @@ export default function CustomerLoyalty() {
                     voucher={voucher}
                     redeemablePoints={profile?.redeemablePoints ?? 0}
                     onRedeem={() => {}}
+                    redeemed
                   />
                 ))}
               </div>

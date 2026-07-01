@@ -99,6 +99,9 @@ const toBackendVoucherPayload = (voucher = {}) => {
   };
 };
 
+const getVoucherId = (voucher = {}) =>
+  voucher.id ?? voucher.voucherId ?? voucher.promotionId ?? voucher.campaignId;
+
 export default function AdminPromotions() {
   const [tiers, setTiers] = useState([]);
   const [vouchers, setVouchers] = useState([]);
@@ -108,11 +111,23 @@ export default function AdminPromotions() {
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [tierDrafts, setTierDrafts] = useState({});
 
   useEffect(() => {
     fetchTiers();
     fetchVouchers();
   }, []);
+
+  useEffect(() => {
+    const nextDrafts = {};
+    tiers.forEach((tier) => {
+      nextDrafts[tier.id] = {
+        pointsRequired: getTierPointsRequired(tier) ?? 0,
+        discountPercent: tier.discountPercent ?? 0,
+      };
+    });
+    setTierDrafts(nextDrafts);
+  }, [tiers]);
 
   const fetchTiers = async () => {
     try {
@@ -150,7 +165,18 @@ export default function AdminPromotions() {
     }
   };
 
+  const updateTierDraft = (tierId, field, value) => {
+    setTierDrafts((current) => ({
+      ...current,
+      [tierId]: {
+        ...(current[tierId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
   const updateVoucherStatus = async (voucherId, isActive) => {
+    if (!voucherId) return;
     try {
       await updateVoucherStatusApi(voucherId, isActive);
       fetchVouchers();
@@ -160,9 +186,13 @@ export default function AdminPromotions() {
   };
 
   const deleteVoucher = async (voucherId) => {
+    if (!voucherId) return;
     if (window.confirm("Bạn có chắc muốn xóa voucher này?")) {
       try {
         await deleteVoucherApi(voucherId);
+        setVouchers((prev) =>
+          prev.filter((voucher) => getVoucherId(voucher) !== voucherId),
+        );
         fetchVouchers();
       } catch (err) {
         console.error("Failed to delete voucher:", err);
@@ -181,6 +211,7 @@ export default function AdminPromotions() {
   };
 
   const updateVoucher = async (voucherId, data) => {
+    if (!voucherId) return;
     try {
       await updateVoucherApi(voucherId, toBackendVoucherPayload(data));
       fetchVouchers();
@@ -388,19 +419,18 @@ export default function AdminPromotions() {
                     }`}
                     type="text"
                     disabled={isMemberTier(tier)}
-                    value={isMemberTier(tier) ? "0" : undefined}
-                    defaultValue={
+                    value={
                       isMemberTier(tier)
-                        ? undefined
-                        : getTierPointsRequired(tier)?.toLocaleString()
+                        ? "0"
+                        : (tierDrafts[tier.id]?.pointsRequired ?? "")
                     }
-                    onBlur={(e) => {
+                    onChange={(e) => {
                       if (isMemberTier(tier)) return;
-                      updateTier(tier.id, {
-                        pointsRequired: parseInt(
-                          e.target.value.replace(/,/g, "")
-                        ),
-                      });
+                      updateTierDraft(
+                        tier.id,
+                        "pointsRequired",
+                        e.target.value.replace(/[^\d]/g, ""),
+                      );
                     }}
                   />
                 </div>
@@ -412,11 +442,13 @@ export default function AdminPromotions() {
                     <input
                       className="h-10 w-full border border-zinc-800 bg-black px-3 pr-8 font-mono text-sm font-black text-zinc-100 outline-none focus:border-cyan-400"
                       type="text"
-                      defaultValue={tier.discountPercent}
-                      onBlur={(e) =>
-                        updateTier(tier.id, {
-                          discountPercent: parseInt(e.target.value),
-                        })
+                      value={tierDrafts[tier.id]?.discountPercent ?? ""}
+                      onChange={(e) =>
+                        updateTierDraft(
+                          tier.id,
+                          "discountPercent",
+                          e.target.value.replace(/[^\d.]/g, ""),
+                        )
                       }
                     />
                     <span className="absolute right-3 top-2 font-mono text-zinc-500">
@@ -425,7 +457,20 @@ export default function AdminPromotions() {
                   </div>
                 </div>
                 <div className="md:col-span-2 flex justify-end">
-                  <button className="w-full border border-cyan-400/50 bg-cyan-400/10 px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300 transition hover:bg-cyan-400/20 md:w-auto">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateTier(tier.id, {
+                        pointsRequired: isMemberTier(tier)
+                          ? 0
+                          : Number(tierDrafts[tier.id]?.pointsRequired ?? 0),
+                        discountPercent: Number(
+                          tierDrafts[tier.id]?.discountPercent ?? 0,
+                        ),
+                      })
+                    }
+                    className="w-full border border-cyan-400/50 bg-cyan-400/10 px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300 transition hover:bg-cyan-400/20 md:w-auto"
+                  >
                     Cập nhật
                   </button>
                 </div>
@@ -525,9 +570,11 @@ export default function AdminPromotions() {
                     </td>
                   </tr>
                 ) : (
-                  filteredVouchers.map((voucher, index) => (
+                  filteredVouchers.map((voucher, index) => {
+                    const voucherId = getVoucherId(voucher);
+                    return (
                     <tr
-                      key={voucher.id}
+                      key={voucherId || voucher.code || index}
                       className="admin-reveal border-b border-zinc-900 transition duration-200 hover:translate-x-1 hover:bg-cyan-400/[0.04]"
                       style={{ animationDelay: `${320 + index * 45}ms` }}
                     >
@@ -546,7 +593,7 @@ export default function AdminPromotions() {
                       </td>
                       <td className="px-4 py-4">
                         <span
-                          className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${getTierBadge(
+                          className={`inline-flex min-w-[92px] items-center justify-center whitespace-nowrap border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${getTierBadge(
                             voucher.tier
                           )}`}
                         >
@@ -568,7 +615,7 @@ export default function AdminPromotions() {
                           <input
                             checked={voucher.isActive}
                             onChange={(e) =>
-                              updateVoucherStatus(voucher.id, e.target.checked)
+                              updateVoucherStatus(voucherId, e.target.checked)
                             }
                             type="checkbox"
                             className="toggle-checkbox absolute z-10 block h-5 w-5 cursor-pointer appearance-none border-2 border-zinc-700 bg-black transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-emerald-300"
@@ -590,7 +637,7 @@ export default function AdminPromotions() {
                             </span>
                           </button>
                           <button
-                            onClick={() => deleteVoucher(voucher.id)}
+                            onClick={() => deleteVoucher(voucherId)}
                             className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
                           >
                             <span className="material-symbols-outlined text-[18px]">
@@ -600,7 +647,8 @@ export default function AdminPromotions() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -840,7 +888,7 @@ export default function AdminPromotions() {
               </button>
               <button
                 onClick={() =>
-                  updateVoucher(selectedVoucher.id, selectedVoucher)
+                  updateVoucher(getVoucherId(selectedVoucher), selectedVoucher)
                 }
                 className="flex-1 border border-cyan-400/60 bg-cyan-400/10 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300 transition hover:bg-cyan-400/20"
               >
