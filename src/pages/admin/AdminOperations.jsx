@@ -1,12 +1,30 @@
 // src/pages/admin/AdminOperations.jsx
-import { useState, useMemo } from "react";
-import { configureTomorrow } from "../../services/adminOperationsApi";
+import { useEffect, useMemo, useState } from "react";
+import {
+  configureTomorrow,
+  getTomorrowConfig,
+} from "../../services/adminOperationsApi";
+
+const SLOT_DURATION_MINUTES = 90;
+
+const toMinutes = (time) => {
+  if (!time) return 0;
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+const slotCountFromConfig = (openTime, closeTime) => {
+  const diff = toMinutes(closeTime) - toMinutes(openTime);
+  return diff > 0 ? Math.max(1, Math.round(diff / SLOT_DURATION_MINUTES)) : 1;
+};
 
 export default function AdminOperations() {
   const [openTime, setOpenTime] = useState("08:00");
   const [slotCount, setSlotCount] = useState(6);
   const [bayCount, setBayCount] = useState(3);
+  const [isActive, setIsActive] = useState(true);
 
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [error, setError] = useState("");
@@ -39,19 +57,53 @@ export default function AdminOperations() {
     return options;
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTomorrowConfig = async () => {
+      setInitialLoading(true);
+      try {
+        const response = await getTomorrowConfig();
+        const data = response?.data?.data ?? response?.data ?? {};
+        if (ignore) return;
+
+        const nextOpenTime = String(data.openTime || "08:00").slice(0, 5);
+        const nextCloseTime = String(data.closeTime || "17:00").slice(0, 5);
+        setOpenTime(nextOpenTime);
+        setSlotCount(slotCountFromConfig(nextOpenTime, nextCloseTime));
+        setBayCount(Number(data.bayCount || 3));
+        setIsActive(data.isActive ?? data.active ?? true);
+      } catch (err) {
+        if (!ignore) {
+          setError("Không thể tải cấu hình ngày mai từ hệ thống.");
+        }
+      } finally {
+        if (!ignore) {
+          setInitialLoading(false);
+        }
+      }
+    };
+
+    loadTomorrowConfig();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const handleSubmit = async (e, force = false) => {
     if (e) e.preventDefault();
     setError("");
     setSuccessData(null);
     setLoading(true);
 
-    if (slotCount < 1 || !Number.isInteger(Number(slotCount))) {
+    if (isActive && (slotCount < 1 || !Number.isInteger(Number(slotCount)))) {
       setError("Số lượng ca phải là số nguyên lớn hơn hoặc bằng 1.");
       setLoading(false);
       return;
     }
 
-    if (bayCount < 1 || !Number.isInteger(Number(bayCount))) {
+    if (isActive && (bayCount < 1 || !Number.isInteger(Number(bayCount)))) {
       setError("Số khoang rửa phải là số nguyên lớn hơn hoặc bằng 1.");
       setLoading(false);
       return;
@@ -59,9 +111,10 @@ export default function AdminOperations() {
 
     try {
       const response = await configureTomorrow({
-        openTime,
-        slotCount: Number(slotCount),
-        bayCount: Number(bayCount),
+        isActive,
+        openTime: isActive ? openTime : null,
+        slotCount: isActive ? Number(slotCount) : null,
+        bayCount: isActive ? Number(bayCount) : null,
         forceSave: force,
       });
 
@@ -72,7 +125,10 @@ export default function AdminOperations() {
     } catch (err) {
       const responseData = err.response?.data;
       const status = err.response?.status;
-      const message = responseData?.message || responseData?.error || "";
+      const message =
+        typeof responseData === "string"
+          ? responseData
+          : responseData?.message || responseData?.error || "";
 
       if (status === 409 && message.startsWith("CONFLICT:")) {
         const bookingIdsStr = message.substring("CONFLICT:".length);
@@ -173,28 +229,39 @@ export default function AdminOperations() {
                       .
                     </p>
                     <div className="space-y-1 pl-2 border-l border-emerald-500/30 text-emerald-300 font-bold uppercase tracking-wide">
-                      <div>Giờ mở cửa: {successData.openTime}</div>
-                      <div>
-                        Giờ đóng cửa tính toán:{" "}
-                        {successData.closeTime || "Chưa xác định"}
-                      </div>
-                      <div>
-                        Số lượng khoang rửa: {successData.bayCount} khoang
-                      </div>
+                      {successData.isActive ? (
+                        <>
+                          <div>Giờ mở cửa: {successData.openTime}</div>
+                          <div>
+                            Giờ đóng cửa tính toán:{" "}
+                            {successData.closeTime || "Chưa xác định"}
+                          </div>
+                          <div>
+                            Số lượng khoang rửa: {successData.bayCount} khoang
+                          </div>
+                        </>
+                      ) : null}
                       <div>
                         Trạng thái hoạt động:{" "}
-                        {successData.isActive ? "ĐANG HOẠT ĐỘNG" : "TẮT"}
+                        {successData.isActive ? "ĐANG HOẠT ĐỘNG" : "ĐÓNG CỬA"}
                       </div>
                     </div>
                     <div className="mt-3 text-[10px] font-black text-cyan-300 uppercase tracking-widest">
-                      * VUI LÒNG KIỂM TRA LẠI GIỜ ĐÓNG CỬA TÍNH TOÁN TRƯỚC KHI
-                      ĐỒNG Ý
+                      {successData.isActive
+                        ? "* VUI LÒNG KIỂM TRA LẠI GIỜ ĐÓNG CỬA TÍNH TOÁN TRƯỚC KHI ĐỒNG Ý"
+                        : "* ĐÃ THIẾT LẬP NGÀY NGHỈ VÀ CHẶN LỊCH ĐẶT MỚI."}
                     </div>
                   </div>
                 </div>
               )}
 
               <div className="space-y-4">
+                {initialLoading && (
+                  <div className="border border-cyan-400/20 bg-cyan-400/5 p-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">
+                    Đang tải cấu hình ngày mai...
+                  </div>
+                )}
+
                 {/* Application Date Indicator */}
                 <div>
                   <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
@@ -208,6 +275,42 @@ export default function AdminOperations() {
                   />
                 </div>
 
+                <div>
+                  <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
+                    Trạng thái cửa hàng ngày mai
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsActive(true)}
+                      className={`h-12 border px-4 font-mono text-xs font-black uppercase tracking-[0.16em] transition ${
+                        isActive
+                          ? "border-cyan-400 bg-cyan-400/10 text-cyan-200"
+                          : "border-zinc-800 bg-black text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      Mở cửa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsActive(false)}
+                      className={`h-12 border px-4 font-mono text-xs font-black uppercase tracking-[0.16em] transition ${
+                        !isActive
+                          ? "border-amber-400 bg-amber-400/15 text-amber-100"
+                          : "border-zinc-800 bg-black text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      Đóng cửa / Ngày nghỉ
+                    </button>
+                  </div>
+                  {!isActive && (
+                    <p className="mt-3 border border-amber-400/35 bg-amber-400/10 p-3 font-mono text-xs font-bold text-amber-200">
+                      Ngày nghỉ sẽ chặn tất cả lịch đặt mới. Nếu ngày mai đã có
+                      lịch, hệ thống sẽ yêu cầu xác nhận hủy và hoàn tiền.
+                    </p>
+                  )}
+                </div>
+
                 {/* Field 1: Open Time Select */}
                 <div>
                   <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
@@ -216,6 +319,7 @@ export default function AdminOperations() {
                   <select
                     value={openTime}
                     onChange={(e) => setOpenTime(e.target.value)}
+                    disabled={!isActive}
                     className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                   >
                     {timeOptions.map((time) => (
@@ -246,6 +350,7 @@ export default function AdminOperations() {
                     step="1"
                     value={slotCount}
                     onChange={(e) => setSlotCount(e.target.value)}
+                    disabled={!isActive}
                     placeholder="Nhập số lượng ca (ví dụ: 6)"
                     className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                   />
@@ -266,6 +371,7 @@ export default function AdminOperations() {
                     step="1"
                     value={bayCount}
                     onChange={(e) => setBayCount(e.target.value)}
+                    disabled={!isActive}
                     placeholder="Nhập số khoang rửa (ví dụ: 3)"
                     className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                   />

@@ -219,7 +219,7 @@ export default function CustomerHistory() {
         <main className="mx-auto w-full max-w-[1520px] px-4 pb-14 pt-32 sm:px-6 lg:px-10">
           <section className="relative mb-8 overflow-hidden rounded-[34px] border border-white/75 bg-white/58 p-7 shadow-[0_32px_90px_rgba(2,74,138,0.12)] backdrop-blur-2xl sm:p-10">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(34,211,238,0.24),transparent_30%),radial-gradient(circle_at_82%_20%,rgba(14,165,233,0.18),transparent_28%)]" />
-            <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_560px] lg:items-end">
+            <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_640px] lg:items-end">
               <div>
                 <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/62 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-700 backdrop-blur-md">
                   <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
@@ -233,7 +233,7 @@ export default function CustomerHistory() {
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(190px,1.35fr)]">
                 {[
                   ["Tổng đơn", summary.total, "receipt_long"],
                   ["Hoàn thành", summary.completed, "verified"],
@@ -242,7 +242,7 @@ export default function CustomerHistory() {
                 ].map(([label, value, icon]) => (
                   <div
                     key={label}
-                    className="rounded-[24px] border border-white/75 bg-white/62 p-4 shadow-sm backdrop-blur-xl"
+                    className="rounded-[24px] border border-white/75 bg-white/62 p-5 shadow-sm backdrop-blur-xl"
                   >
                     <span className="material-symbols-outlined text-[22px] text-cyan-700">
                       {icon}
@@ -253,7 +253,7 @@ export default function CustomerHistory() {
                     <p
                       className={`mt-2 font-black leading-none text-slate-950 ${
                         label === "Tổng chi"
-                          ? "text-[clamp(1.15rem,1.5vw,1.5rem)] tracking-normal"
+                          ? "whitespace-nowrap text-[clamp(1.25rem,1.55vw,1.6rem)] tracking-normal"
                           : "text-2xl"
                       }`}
                     >

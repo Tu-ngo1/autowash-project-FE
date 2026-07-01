@@ -39,6 +39,9 @@ const getServicePrices = (service = {}) => {
   return [];
 };
 
+const getServiceId = (service = {}) =>
+  service.id ?? service.serviceId ?? service.washServiceId;
+
 const formatCurrency = (value) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return "-";
@@ -61,7 +64,7 @@ const getPriceRange = (service) => {
 
 const getDurationRange = (service) => {
   const durations = getServicePrices(service)
-    .map((item) => Number(item.duration))
+    .map((item) => Number(item.durationMinutes ?? item.duration))
     .filter(Number.isFinite);
 
   if (!durations.length) return "-";
@@ -80,6 +83,13 @@ const getVehicleLabel = (price) => {
     price.vehicleSize ||
     "Default"
   );
+};
+
+const getIsMainService = (service = {}) => {
+  if (typeof service.isMainService === "boolean") return service.isMainService;
+  if (typeof service.mainService === "boolean") return service.mainService;
+  if (service.type) return String(service.type).toUpperCase() === "MAIN";
+  return true;
 };
 
 export default function AdminServices() {
@@ -124,6 +134,7 @@ export default function AdminServices() {
   };
 
   const updateService = async (id, data) => {
+    if (!id) return;
     try {
       await updateServiceApi(id, data);
       fetchServices();
@@ -134,6 +145,7 @@ export default function AdminServices() {
   };
 
   const deleteService = async (id) => {
+    if (!id) return;
     if (window.confirm("Bạn có chắc muốn xóa gói dịch vụ này?")) {
       try {
         await deleteServiceApi(id);
@@ -257,6 +269,9 @@ export default function AdminServices() {
                   Tổng doanh thu
                 </th>
                 <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Loại
+                </th>
+                <th className="px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   Trạng thái
                 </th>
                 <th className="px-6 py-4 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
@@ -268,7 +283,7 @@ export default function AdminServices() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="8"
                     className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Đang tải...
@@ -277,7 +292,7 @@ export default function AdminServices() {
               ) : filteredServices.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="8"
                     className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Không có dữ liệu
@@ -285,11 +300,12 @@ export default function AdminServices() {
                 </tr>
               ) : (
                 filteredServices.map((service, index) => {
-                  const expanded = expandedServiceId === service.id;
+                  const serviceId = getServiceId(service);
+                  const expanded = expandedServiceId === serviceId;
                   const prices = getServicePrices(service);
 
                   return (
-                    <Fragment key={service.id}>
+                    <Fragment key={serviceId}>
                       <tr
                         className={`admin-reveal transition duration-200 hover:bg-cyan-400/[0.04] ${
                           expanded ? "bg-cyan-400/[0.08]" : ""
@@ -299,9 +315,9 @@ export default function AdminServices() {
                         <td className="px-6 py-5 font-black text-zinc-100">
                           <button
                             type="button"
-                            onClick={() =>
-                              setExpandedServiceId(expanded ? null : service.id)
-                            }
+                          onClick={() =>
+                            setExpandedServiceId(expanded ? null : serviceId)
+                          }
                             className="flex items-center gap-2 text-left"
                           >
                             <span className="material-symbols-outlined text-[18px] text-cyan-300">
@@ -323,6 +339,17 @@ export default function AdminServices() {
                           {formatCurrency(service.totalRevenue)}
                         </td>
                         <td className="px-6 py-5">
+                          <span
+                            className={`inline-flex min-w-[72px] items-center justify-center whitespace-nowrap border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${
+                              getIsMainService(service)
+                                ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-200"
+                                : "border-emerald-300/50 bg-emerald-300/10 text-emerald-200"
+                            }`}
+                          >
+                            {getIsMainService(service) ? "Gói chính" : "Phụ"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5">
                           <div className="flex items-center gap-2">
                             <div
                               className={`h-2 w-2 rounded-full ${
@@ -331,7 +358,7 @@ export default function AdminServices() {
                                   : "bg-red-300"
                               }`}
                             />
-                            <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
+                            <span className="whitespace-nowrap font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
                               {service.status === "ACTIVE"
                                 ? "ĐANG BẬT"
                                 : "ĐÃ TẮT"}
@@ -352,7 +379,7 @@ export default function AdminServices() {
                               </span>
                             </button>
                             <button
-                              onClick={() => deleteService(service.id)}
+                              onClick={() => deleteService(serviceId)}
                               className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
                             >
                               <span className="material-symbols-outlined text-[20px]">
@@ -366,7 +393,7 @@ export default function AdminServices() {
                       {expanded && (
                         <tr>
                           <td
-                            colSpan="7"
+                            colSpan="8"
                             className="bg-cyan-400/[0.04] px-14 pb-5"
                           >
                             <div className="max-w-xl border border-cyan-300/30 bg-cyan-300/10 p-4">
@@ -435,7 +462,7 @@ export default function AdminServices() {
             mode="edit"
             service={selectedService}
             onClose={() => setIsDrawerOpen(false)}
-            onSave={(data) => updateService(selectedService.id, data)}
+            onSave={(data) => updateService(getServiceId(selectedService), data)}
           />
         </>
       )}
@@ -449,6 +476,7 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
     name: service?.name || "",
     description: service?.description || "",
     status: service?.status || "ACTIVE",
+    isMainService: getIsMainService(service),
     servicePrices: getServicePrices(service).length
       ? getServicePrices(service)
       : DEFAULT_SERVICE_PRICES,
@@ -471,10 +499,13 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
   const handleSubmit = () => {
     onSave({
       ...formData,
+      isMainService: Boolean(formData.isMainService),
       servicePrices: formData.servicePrices.map((item) => ({
         ...item,
+        id: typeof item.id === "number" ? item.id : undefined,
         price: Number(item.price),
-        duration: Number(item.duration),
+        duration: Number(item.durationMinutes ?? item.duration),
+        durationMinutes: Number(item.durationMinutes ?? item.duration),
         active: item.active ?? true,
       })),
     });
@@ -515,6 +546,36 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+            Loại dịch vụ
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, isMainService: true })}
+              className={`border px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] transition ${
+                formData.isMainService
+                  ? "border-cyan-400 bg-cyan-400/10 text-cyan-300"
+                  : "border-zinc-800 bg-black text-zinc-500 hover:border-cyan-400/60 hover:text-cyan-300"
+              }`}
+            >
+              Gói chính
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, isMainService: false })}
+              className={`border px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.14em] transition ${
+                !formData.isMainService
+                  ? "border-emerald-300 bg-emerald-300/10 text-emerald-200"
+                  : "border-zinc-800 bg-black text-zinc-500 hover:border-emerald-300/60 hover:text-emerald-200"
+              }`}
+            >
+              Dịch vụ phụ
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">
