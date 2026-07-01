@@ -95,7 +95,18 @@ const getVehicleBrands = (vehicleModels) =>
     a.localeCompare(b),
   );
 
+const normalizeVehicleText = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
 const normalizeRegisteredVehicle = (vehicle = {}, index = 0) => {
+  const model =
+    vehicle.vehicleModel ??
+    vehicle.vehicle_model ??
+    vehicle.modelDetail ??
+    vehicle.modelInfo ??
+    {};
   const licensePlate = normalizePlate(
     vehicle.licensePlate ??
       vehicle.plate ??
@@ -103,12 +114,21 @@ const normalizeRegisteredVehicle = (vehicle = {}, index = 0) => {
       vehicle.license_plate ??
       "",
   );
-  const brand = vehicle.brand ?? vehicle.vehicleBrand ?? "";
+  const brand =
+    vehicle.brand ??
+    vehicle.vehicleBrand ??
+    model.brand ??
+    model.vehicleBrand ??
+    "";
   const modelName =
     vehicle.modelName ??
     vehicle.model_name ??
     vehicle.vehicleModelName ??
+    vehicle.vehicle_model_name ??
     vehicle.model ??
+    model.modelName ??
+    model.model_name ??
+    model.name ??
     "";
   const id =
     vehicle.id ??
@@ -127,12 +147,18 @@ const normalizeRegisteredVehicle = (vehicle = {}, index = 0) => {
       vehicle.vehicleModelId ??
       vehicle.vehicle_model_id ??
       vehicle.modelId ??
+      model.id ??
+      model.vehicleModelId ??
+      model.vehicle_model_id ??
       "",
     vehicleSize: String(
       vehicle.vehicleSize ??
         vehicle.vehicle_size ??
         vehicle.carSize ??
         vehicle.size ??
+        model.vehicleSize ??
+        model.vehicle_size ??
+        model.size ??
         "",
     ).toUpperCase(),
   };
@@ -279,6 +305,7 @@ export default function StaffCustomers() {
   const [registeredVehicles, setRegisteredVehicles] = useState([]);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState("new");
   const [vehicleLocked, setVehicleLocked] = useState(false);
+  const [lookupState, setLookupState] = useState("idle");
   const [loadingData, setLoadingData] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -327,9 +354,10 @@ export default function StaffCustomers() {
     ) ||
     vehicleModels.find(
       (model) =>
-        model.brand === vehicle?.brand &&
-        model.modelName.toLowerCase() ===
-          String(vehicle?.modelName || "").toLowerCase(),
+        normalizeVehicleText(model.brand) ===
+          normalizeVehicleText(vehicle?.brand) &&
+        normalizeVehicleText(model.modelName) ===
+          normalizeVehicleText(vehicle?.modelName),
     );
 
   const applyRegisteredVehicle = (vehicle) => {
@@ -374,6 +402,25 @@ export default function StaffCustomers() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!registeredVehicles.length || selectedVehicleKey === "new") return;
+    const selectedVehicle = registeredVehicles.find(
+      (vehicle) => vehicle.key === selectedVehicleKey,
+    );
+    if (!selectedVehicle) return;
+    const matchedModel = findVehicleModelForVehicle(selectedVehicle);
+    if (!matchedModel) return;
+
+    setForm((prev) => ({
+      ...prev,
+      vehicleBrand: matchedModel.brand,
+      vehicleModelId: matchedModel.id,
+      vehicleModelName: matchedModel.modelName,
+      vehicleSize: matchedModel.vehicleSize,
+    }));
+    setVehicleLocked(true);
+  }, [vehicleModels, registeredVehicles, selectedVehicleKey]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -500,9 +547,11 @@ export default function StaffCustomers() {
     setError("");
     setMessage("");
     try {
-      const result = normalizeCustomer(
-        await searchWalkInCustomer(lookup.trim()),
-      );
+      const foundCustomer = await searchWalkInCustomer(lookup.trim());
+      if (!foundCustomer) {
+        throw new Error("CUSTOMER_NOT_FOUND");
+      }
+      const result = normalizeCustomer(foundCustomer);
       const vehicles = result.registeredVehicles || [];
       const lookupPlate = normalizePlate(lookup);
       const selectedVehicle =
@@ -518,6 +567,7 @@ export default function StaffCustomers() {
       setVehicleLocked(
         Boolean(selectedVehicle && (matchedModel || selectedVehicle.vehicleModelId)),
       );
+      setLookupState("found");
       setForm((prev) => ({
         ...prev,
         customerName: result.name || prev.customerName,
@@ -556,6 +606,22 @@ export default function StaffCustomers() {
       setRegisteredVehicles([]);
       setSelectedVehicleKey("new");
       setVehicleLocked(false);
+      setLookupState("not-found");
+      setForm((prev) => ({
+        ...prev,
+        customerName: "",
+        customerPhone: /^\d{8,12}$/.test(lookup.trim())
+          ? lookup.trim()
+          : prev.customerPhone,
+        licensePlate: /^\d{2}/.test(compactLicensePlate(lookup))
+          ? normalizePlate(lookup)
+          : prev.licensePlate,
+        vehicleBrand: "",
+        vehicleModelId: "",
+        vehicleModelName: "",
+        vehicleSize: "",
+        tier: "Member",
+      }));
       setMessage("Không tìm thấy khách cũ. Có thể nhập nhanh khách vãng lai.");
       setError("");
     } finally {
@@ -576,6 +642,10 @@ export default function StaffCustomers() {
     setError("");
     setMessage("");
 
+    if (lookupState === "idle") {
+      setError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
+      return;
+    }
     if (!form.customerName.trim()) {
       setError("Vui lòng nhập họ tên khách hàng.");
       return;
@@ -684,7 +754,15 @@ export default function StaffCustomers() {
                   <div className="flex gap-2">
                     <input
                       value={lookup}
-                      onChange={(event) => setLookup(event.target.value)}
+                      onChange={(event) => {
+                        setLookup(event.target.value);
+                        setLookupState("idle");
+                        setRegisteredVehicles([]);
+                        setSelectedVehicleKey("new");
+                        setVehicleLocked(false);
+                        setMessage("");
+                        setError("");
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
@@ -707,156 +785,198 @@ export default function StaffCustomers() {
                 </Field>
               </div>
 
-              {registeredVehicles.length > 0 && (
-                <div className="mb-6 rounded-2xl border border-[#6ff6df]/25 bg-[#6ff6df]/10 p-4">
-                  <Field label="Chọn phương tiện của khách">
-                    <select
-                      value={selectedVehicleKey}
-                      onChange={(event) =>
-                        handleRegisteredVehicleChange(event.target.value)
-                      }
-                      className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
+              {lookupState !== "idle" && (
+                <div className="mb-8 rounded-2xl border border-cyan-100/15 bg-[#061923]/55 p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p
+                        className="text-[13px] font-bold uppercase tracking-[0.18em] text-[#8df9ef]"
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      >
+                        {lookupState === "found"
+                          ? "Thông tin từ dữ liệu khách hàng"
+                          : "Nhập thông tin khách mới"}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
+                        {lookupState === "found"
+                          ? "Thông tin đã được gán sẵn từ hồ sơ, dịch vụ vẫn chọn bình thường."
+                          : "Không tìm thấy khách trong hệ thống, nhập nhanh để tạo lịch tại quầy."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLookupState("idle");
+                        setRegisteredVehicles([]);
+                        setSelectedVehicleKey("new");
+                        setVehicleLocked(false);
+                      }}
+                      className="rounded-xl border border-cyan-100/15 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-[#b8d8de] transition hover:border-[#6ff6df] hover:text-[#6ff6df]"
                     >
-                      {registeredVehicles.map((vehicle) => (
-                        <option key={vehicle.key} value={vehicle.key}>
-                          {vehicle.licensePlate}
-                          {vehicle.brand || vehicle.modelName
-                            ? ` (${[vehicle.brand, vehicle.modelName]
-                                .filter(Boolean)
-                                .join(" ")})`
-                            : ""}
-                        </option>
-                      ))}
-                      <option value="new">
-                        [ Sử dụng xe mới / Xe khác ]
-                      </option>
-                    </select>
-                  </Field>
-                  {vehicleLocked && (
-                    <p className="mt-3 text-xs font-semibold text-[#b8d8de]">
-                      Xe đã đăng ký sẽ tự khóa hãng, mẫu và kích thước để khớp
-                      dữ liệu backend.
-                    </p>
+                      Thu gọn
+                    </button>
+                  </div>
+
+                  {registeredVehicles.length > 0 && (
+                    <div className="mb-6 rounded-2xl border border-[#6ff6df]/25 bg-[#6ff6df]/10 p-4">
+                      <Field label="Chọn phương tiện của khách">
+                        <select
+                          value={selectedVehicleKey}
+                          onChange={(event) =>
+                            handleRegisteredVehicleChange(event.target.value)
+                          }
+                          className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
+                        >
+                          {registeredVehicles.map((vehicle) => (
+                            <option key={vehicle.key} value={vehicle.key}>
+                              {vehicle.licensePlate}
+                              {vehicle.brand || vehicle.modelName
+                                ? ` (${[vehicle.brand, vehicle.modelName]
+                                    .filter(Boolean)
+                                    .join(" ")})`
+                                : ""}
+                            </option>
+                          ))}
+                          <option value="new">
+                            [ Sử dụng xe mới / Xe khác ]
+                          </option>
+                        </select>
+                      </Field>
+                    </div>
                   )}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Họ tên khách hàng">
+                      <input
+                        required
+                        readOnly={lookupState === "found"}
+                        value={form.customerName}
+                        onChange={(event) =>
+                          setForm({ ...form, customerName: event.target.value })
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
+                        placeholder="Nguyễn Văn A"
+                      />
+                    </Field>
+                    <Field label="Số điện thoại">
+                      <input
+                        readOnly={lookupState === "found"}
+                        value={form.customerPhone}
+                        onChange={(event) =>
+                          setForm({ ...form, customerPhone: event.target.value })
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
+                        placeholder="0987654321"
+                      />
+                    </Field>
+                    <Field label="Biển số xe">
+                      <input
+                        required
+                        readOnly={vehicleLocked}
+                        value={form.licensePlate}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            licensePlate: normalizePlate(event.target.value),
+                          })
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
+                        placeholder="59A - 123.45"
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      />
+                    </Field>
+                    <Field label="Hãng xe">
+                      <select
+                        required
+                        disabled={vehicleLocked}
+                        value={form.vehicleBrand}
+                        onChange={(event) =>
+                          handleVehicleBrandChange(event.target.value)
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        <option value="">Chọn hãng xe</option>
+                        {form.vehicleBrand &&
+                          !vehicleBrands.includes(form.vehicleBrand) && (
+                            <option value={form.vehicleBrand}>
+                              {form.vehicleBrand}
+                            </option>
+                          )}
+                        {vehicleBrands.map((brand) => (
+                          <option key={brand} value={brand}>
+                            {brand}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Mẫu xe">
+                      <select
+                        required
+                        value={form.vehicleModelId}
+                        onChange={(event) =>
+                          handleVehicleModelChange(event.target.value)
+                        }
+                        disabled={
+                          vehicleLocked ||
+                          !form.vehicleBrand ||
+                          currentBrandModels.length === 0
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        <option value="">Chọn mẫu xe</option>
+                        {form.vehicleModelId &&
+                          form.vehicleModelName &&
+                          !currentBrandModels.some(
+                            (model) =>
+                              String(model.id) === String(form.vehicleModelId),
+                          ) && (
+                            <option value={form.vehicleModelId}>
+                              {form.vehicleModelName}
+                            </option>
+                          )}
+                        {currentBrandModels.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.modelName}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Kích thước xe">
+                      <input
+                        readOnly
+                        value={form.vehicleSize}
+                        className="w-full cursor-not-allowed rounded-xl border border-cyan-100/15 bg-[#071620] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none"
+                        placeholder="Tự fill theo mẫu xe"
+                      />
+                    </Field>
+                    <Field label="Hạng thành viên">
+                      <input
+                        readOnly={lookupState === "found"}
+                        value={form.tier}
+                        onChange={(event) =>
+                          setForm({ ...form, tier: event.target.value })
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
+                      />
+                    </Field>
+                    <Field label="Thanh toán">
+                      <select
+                        value={form.paymentMethod}
+                        onChange={(event) =>
+                          setForm({ ...form, paymentMethod: event.target.value })
+                        }
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
+                      >
+                        {PAYMENT_METHODS.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
                 </div>
               )}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Họ tên khách hàng">
-                  <input
-                    required
-                    value={form.customerName}
-                    onChange={(event) =>
-                      setForm({ ...form, customerName: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df]"
-                    placeholder="Nguyễn Văn A"
-                  />
-                </Field>
-                <Field label="Số điện thoại">
-                  <input
-                    value={form.customerPhone}
-                    onChange={(event) =>
-                      setForm({ ...form, customerPhone: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df]"
-                    placeholder="0987654321"
-                  />
-                </Field>
-                <Field label="Biển số xe">
-                  <input
-                    required
-                    readOnly={vehicleLocked}
-                    value={form.licensePlate}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        licensePlate: normalizePlate(event.target.value),
-                      })
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                    placeholder="59A - 123.45"
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Field>
-                <Field label="Hãng xe">
-                  <select
-                    required
-                    disabled={vehicleLocked}
-                    value={form.vehicleBrand}
-                    onChange={(event) =>
-                      handleVehicleBrandChange(event.target.value)
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    <option value="">Chọn hãng xe</option>
-                    {vehicleBrands.map((brand) => (
-                      <option key={brand} value={brand}>
-                        {brand}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Mẫu xe">
-                  <select
-                    required
-                    value={form.vehicleModelId}
-                    onChange={(event) =>
-                      handleVehicleModelChange(event.target.value)
-                    }
-                    disabled={
-                      vehicleLocked ||
-                      !form.vehicleBrand ||
-                      currentBrandModels.length === 0
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-55"
-                  >
-                    <option value="">
-                      {form.vehicleBrand ? "Chọn mẫu xe" : "Chọn mẫu xe"}
-                    </option>
-                    {currentBrandModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.modelName}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Kích thước xe">
-                  <input
-                    readOnly
-                    value={form.vehicleSize}
-                    className="w-full cursor-not-allowed rounded-xl border border-cyan-100/15 bg-[#071620] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none"
-                    placeholder="Tự fill theo mẫu xe"
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label="Hạng thành viên">
-                  <input
-                    value={form.tier}
-                    onChange={(event) =>
-                      setForm({ ...form, tier: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none focus:border-[#6ff6df]"
-                  />
-                </Field>
-                <Field label="Thanh toán">
-                  <select
-                    value={form.paymentMethod}
-                    onChange={(event) =>
-                      setForm({ ...form, paymentMethod: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
-                  >
-                    {PAYMENT_METHODS.map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
 
               <div className="mt-8 space-y-5">
                 <div>
