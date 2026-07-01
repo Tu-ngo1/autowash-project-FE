@@ -92,6 +92,29 @@ const getIsMainService = (service = {}) => {
   return true;
 };
 
+const getServiceStatus = (service = {}) => {
+  if (typeof service.active === "boolean") {
+    return service.active ? "ACTIVE" : "INACTIVE";
+  }
+  if (typeof service.isActive === "boolean") {
+    return service.isActive ? "ACTIVE" : "INACTIVE";
+  }
+  return String(service.status || "ACTIVE").toUpperCase() === "INACTIVE"
+    ? "INACTIVE"
+    : "ACTIVE";
+};
+
+const getNewestValue = (item = {}) => {
+  const rawDate =
+    item.createdAt ||
+    item.created_at ||
+    item.updatedAt ||
+    item.updated_at;
+  const parsedDate = rawDate ? new Date(rawDate).getTime() : NaN;
+  if (Number.isFinite(parsedDate)) return parsedDate;
+  return Number(getServiceId(item) || 0);
+};
+
 export default function AdminServices() {
   const [services, setServices] = useState([]);
   const [expandedServiceId, setExpandedServiceId] = useState(null);
@@ -114,7 +137,7 @@ export default function AdminServices() {
       const data = Array.isArray(payload)
         ? payload
         : payload?.services || payload?.items || [];
-      setServices(data);
+      setServices([...data].sort((a, b) => getNewestValue(b) - getNewestValue(a)));
     } catch (err) {
       console.error("Failed to load services:", err);
       setServices([]);
@@ -475,7 +498,7 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
   const [formData, setFormData] = useState({
     name: service?.name || "",
     description: service?.description || "",
-    status: service?.status || "ACTIVE",
+    status: getServiceStatus(service),
     isMainService: getIsMainService(service),
     servicePrices: getServicePrices(service).length
       ? getServicePrices(service)
@@ -656,20 +679,29 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
               Hiển thị gói này trên ứng dụng khách hàng
             </p>
           </div>
-          <div className="relative inline-block w-10 h-5 align-middle select-none">
-            <input
-              checked={formData.status === "ACTIVE"}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  status: e.target.checked ? "ACTIVE" : "INACTIVE",
-                })
-              }
-              type="checkbox"
-              className="toggle-checkbox absolute z-10 block h-5 w-5 cursor-pointer appearance-none border-2 border-zinc-700 bg-black transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-emerald-300"
+          <button
+            type="button"
+            aria-pressed={formData.status === "ACTIVE"}
+            onClick={() =>
+              setFormData((prev) => ({
+                ...prev,
+                status: prev.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+              }))
+            }
+            className={`relative h-7 w-14 rounded-full border transition-all duration-200 ${
+              formData.status === "ACTIVE"
+                ? "border-emerald-300/70 bg-emerald-300/20 shadow-[0_0_18px_rgba(110,231,183,0.18)]"
+                : "border-zinc-700 bg-zinc-900"
+            }`}
+          >
+            <span
+              className={`absolute left-1 top-1 h-5 w-5 rounded-full border transition-all duration-200 ${
+                formData.status === "ACTIVE"
+                  ? "translate-x-7 border-emerald-100 bg-emerald-200"
+                  : "translate-x-0 border-zinc-600 bg-zinc-950"
+              }`}
             />
-            <label className="toggle-label block h-5 cursor-pointer overflow-hidden border-2 border-zinc-700 bg-zinc-900 transition-colors duration-200 ease-in-out"></label>
-          </div>
+          </button>
         </div>
       </div>
 

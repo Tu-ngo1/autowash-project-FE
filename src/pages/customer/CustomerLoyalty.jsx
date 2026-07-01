@@ -40,6 +40,17 @@ const getVoucherIdentity = (voucher) =>
       voucher?.code ??
       "",
   );
+const mergeUniqueVouchers = (...voucherGroups) => {
+  const result = [];
+  const seen = new Set();
+  voucherGroups.flat().filter(Boolean).forEach((voucher) => {
+    const key = getVoucherIdentity(voucher) || getVoucherName(voucher);
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(voucher);
+  });
+  return result;
+};
 const unwrapList = (payload, keys = []) => {
   if (Array.isArray(payload)) return payload;
   for (const key of keys) {
@@ -102,7 +113,7 @@ function VoucherCard({ voucher, redeemablePoints, onRedeem, redeemed = false }) 
         <button
           type="button"
           disabled={!canRedeem}
-          onClick={() => onRedeem(voucher.id || voucher.voucherId)}
+          onClick={() => onRedeem(getVoucherIdentity(voucher))}
           className={`rounded-2xl px-4 py-2 text-xs font-black transition ${
             redeemed
               ? "cursor-default bg-emerald-100 text-emerald-700"
@@ -142,8 +153,27 @@ export function VoucherPage() {
           getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
-        setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
-        setOwnedVouchers(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []);
+        const sortNewestFirst = (items = []) =>
+          [...items].sort((a, b) => {
+            const getTime = (item = {}) => {
+              const raw =
+                item.createdAt ||
+                item.created_at ||
+                item.updatedAt ||
+                item.updated_at ||
+                item.redeemedAt ||
+                item.usedAt ||
+                item.startDate ||
+                "";
+              const time = new Date(raw).getTime();
+              return Number.isNaN(time) ? Number(item.id || item.promotionId || 0) : time;
+            };
+            const diff = getTime(b) - getTime(a);
+            if (diff !== 0) return diff;
+            return Number(b?.id || b?.promotionId || 0) - Number(a?.id || a?.promotionId || 0);
+          });
+        setAllVouchers(sortNewestFirst(Array.isArray(voucherRes) ? voucherRes : []));
+        setOwnedVouchers(sortNewestFirst(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []));
         const tiers = unwrapList(tierRes, [
           "tiers",
           "tierConfigs",
@@ -160,7 +190,11 @@ export function VoucherPage() {
     load();
   }, []);
 
-  const redeemablePoints = profile?.redeemablePoints ?? 0;
+  const redeemablePoints =
+    profile?.redeemablePoints ??
+    profile?.rewardPoints ??
+    profile?.points ??
+    0;
   const ownedVoucherKeys = useMemo(() => {
     const keys = new Set();
     ownedVouchers.forEach((voucher) => {
@@ -191,8 +225,11 @@ export function VoucherPage() {
 
   const handleRedeem = async (voucherId) => {
     setMessage("");
+    const redeemedVoucher = allVouchers.find(
+      (voucher) => getVoucherIdentity(voucher) === String(voucherId),
+    );
     try {
-      await redeemVoucher(voucherId);
+      const redeemRes = await redeemVoucher(voucherId);
       const currentUser = getUser();
       const userId = currentUser?.id || currentUser?.userId;
       const [profileRes, voucherRes, ownedVoucherRes] = await Promise.all([
@@ -202,7 +239,17 @@ export function VoucherPage() {
       ]);
       setProfile(profileRes || null);
       setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
-      setOwnedVouchers(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []);
+      const returnedVoucher =
+        redeemRes?.voucher ||
+        redeemRes?.customerVoucher ||
+        redeemRes?.promotion ||
+        redeemRes;
+      setOwnedVouchers(
+        mergeUniqueVouchers(
+          Array.isArray(ownedVoucherRes) ? ownedVoucherRes : [],
+          [returnedVoucher, redeemedVoucher],
+        ),
+      );
       setMessage("Đổi voucher thành công. Ưu đãi đã được cập nhật.");
     } catch (err) {
       setMessage(
@@ -339,17 +386,22 @@ export function VoucherPage() {
 export default function CustomerLoyalty() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const [ownedVouchers, setOwnedVouchers] = useState([]);
   const [tierConfigs, setTierConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [profileRes, tierRes] = await Promise.all([
+        const currentUser = getUser();
+        const userId = currentUser?.id || currentUser?.userId;
+        const [profileRes, ownedVoucherRes, tierRes] = await Promise.all([
           getMyLoyalty().catch(() => null),
+          userId ? getCustomerVouchers(userId).catch(() => []) : Promise.resolve([]),
           getCustomerTierConfigs().catch(() => []),
         ]);
         setProfile(profileRes || null);
+        setOwnedVouchers(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []);
         const tiers = unwrapList(tierRes, [
           "tiers",
           "tierConfigs",
@@ -389,7 +441,10 @@ export default function CustomerLoyalty() {
     );
   }, [profile, nextTier, tierConfigs, tier]);
 
-  const myVouchers = profile?.vouchers || [];
+  const myVouchers = mergeUniqueVouchers(
+    ownedVouchers,
+    profile?.vouchers || [],
+  );
 
   return (
     <PageShell>
@@ -455,7 +510,11 @@ export default function CustomerLoyalty() {
         <>
           <section className="mb-8 grid gap-5 md:grid-cols-2">
             {[
-              ["Điểm có thể đổi quà", profile?.redeemablePoints ?? 0, "redeem"],
+              [
+                "Điểm có thể đổi quà",
+                profile?.redeemablePoints ?? profile?.rewardPoints ?? profile?.points ?? 0,
+                "redeem",
+              ],
               ["Điểm xét hạng", profile?.points ?? 0, "stars"],
             ].map(([label, value, icon]) => (
               <div
@@ -517,7 +576,12 @@ export default function CustomerLoyalty() {
                       getVoucherName(voucher)
                     }
                     voucher={voucher}
-                    redeemablePoints={profile?.redeemablePoints ?? 0}
+                    redeemablePoints={
+                      profile?.redeemablePoints ??
+                      profile?.rewardPoints ??
+                      profile?.points ??
+                      0
+                    }
                     onRedeem={() => {}}
                     redeemed
                   />

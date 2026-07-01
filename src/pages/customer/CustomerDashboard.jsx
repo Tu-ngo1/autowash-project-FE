@@ -9,12 +9,16 @@ import {
 import ReviewModal from "../../components/customer/ReviewModal";
 import { createReview, getMyReviews } from "../../services/customerReviewApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
-import { cancelBooking } from "../../services/customerBookingApi";
+import {
+  cancelBooking,
+  confirmBookingReceived,
+} from "../../services/customerBookingApi";
 const statusLabels = {
   PENDING: "Chờ tiếp nhận",
   RECEIVED: "Đã tiếp nhận",
   WASHING: "Đang rửa xe",
-  DRYING: "Sấy hoàn thiện",
+  IN_PROGRESS: "Đang rửa xe",
+  WASHED: "Đã rửa xong",
   COMPLETED: "Hoàn thành",
   CANCELLED: "Đã hủy",
 };
@@ -24,6 +28,25 @@ const unwrap = (payload) =>
 
 const formatCurrency = (value) =>
   Number(value || 0).toLocaleString("vi-VN") + "đ";
+
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.date ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
 
 const formatDate = (value) => {
   if (!value) return "Chưa có ngày";
@@ -48,6 +71,8 @@ export default function CustomerDashboard() {
   const [error, setError] = useState("");
   const [cancelBookingItem, setCancelBookingItem] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [receivedBooking, setReceivedBooking] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +92,7 @@ export default function CustomerDashboard() {
         if (bookingRes.status === "fulfilled") {
           const data = unwrap(bookingRes.value);
           const list = Array.isArray(data) ? data : data.bookings || [];
-          setBookings(list);
+          setBookings(sortNewestFirst(list));
         } else {
           setBookings([]);
         }
@@ -116,8 +141,10 @@ export default function CustomerDashboard() {
   const completedCount = bookings.filter(
     (item) => String(item.status || "").toUpperCase() === "COMPLETED",
   ).length;
-  const points = loyalty?.points ?? loyalty?.redeemablePoints ?? 0;
-  const tier = loyalty?.tier || "Member";
+  const points =
+    loyalty?.points ?? loyalty?.redeemablePoints ?? loyalty?.rewardPoints ?? 0;
+  const tier =
+    loyalty?.tier || loyalty?.tierLevel || loyalty?.membership || "Member";
   const currentStatus = String(
     latestBooking?.status || "PENDING",
   ).toUpperCase();
@@ -138,6 +165,20 @@ export default function CustomerDashboard() {
       !getReviewByBookingId(booking.id) &&
       !dismissedReviewIds.includes(String(booking.id)),
   );
+
+  const washedBooking = bookings.find(
+    (booking) => String(booking.status || "").toUpperCase() === "WASHED",
+  );
+
+  useEffect(() => {
+    if (washedBooking) {
+      setReceivedBooking((current) =>
+        current && String(current.id) === String(washedBooking.id)
+          ? current
+          : washedBooking,
+      );
+    }
+  }, [washedBooking]);
 
   const handleSubmitReview = async (payload) => {
     setReviewLoading(true);
@@ -160,6 +201,39 @@ export default function CustomerDashboard() {
     }
   };
 
+  const handleConfirmReceived = async () => {
+    const bookingId = receivedBooking?.id || receivedBooking?.bookingId;
+    if (!bookingId) return;
+
+    setConfirmLoading(true);
+    setReviewMessage("");
+    try {
+      const response = await confirmBookingReceived(bookingId);
+      const updatedBooking = response?.data?.data ?? response?.data ?? {
+        ...receivedBooking,
+        status: "COMPLETED",
+      };
+      setBookings((prev) =>
+        prev.map((booking) =>
+          String(booking.id || booking.bookingId) === String(bookingId)
+            ? { ...booking, ...updatedBooking, status: "COMPLETED" }
+            : booking,
+        ),
+      );
+      setReceivedBooking(null);
+      setReviewMessage("Đã xác nhận nhận xe. Cảm ơn bạn đã sử dụng dịch vụ.");
+    } catch (err) {
+      setReviewMessage(
+        getFriendlyErrorMessage(
+          err,
+          "Chưa xác nhận được nhận xe. Vui lòng thử lại sau.",
+        ),
+      );
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
   return (
     <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
@@ -169,6 +243,83 @@ export default function CustomerDashboard() {
 
       <div className="relative z-10">
         <UserNavbar active="Home" />
+
+        {receivedBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+            <section className="w-full max-w-2xl overflow-hidden rounded-[34px] border border-white/80 bg-white shadow-[0_34px_100px_rgba(2,6,23,0.28)]">
+              <div className="relative bg-[linear-gradient(135deg,rgba(207,250,254,0.96),rgba(240,253,250,0.98))] p-8 sm:p-10">
+                <div className="absolute right-8 top-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                  <span className="material-symbols-outlined text-[32px]">
+                    verified
+                  </span>
+                </div>
+                <p className="inline-flex items-center gap-2 rounded-full bg-cyan-100 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-800">
+                  Xe đã sẵn sàng
+                </p>
+                <h2 className="mt-7 max-w-xl text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
+                  Xe của bạn đã rửa xong
+                </h2>
+                <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-600">
+                  Vui lòng kiểm tra xe tại khoang. Nếu mọi thứ ổn, hãy xác nhận
+                  nhận xe để hoàn tất lượt rửa.
+                </p>
+
+                <div className="mt-7 grid gap-3 rounded-[24px] border border-white/80 bg-white/72 p-5 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Biển số
+                    </p>
+                    <p className="mt-2 text-lg font-black text-slate-950">
+                      {receivedBooking.plate ||
+                        receivedBooking.vehicleLicensePlate ||
+                        "Xe của bạn"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Dịch vụ
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-sm font-black text-slate-950">
+                      {receivedBooking.service ||
+                        receivedBooking.serviceName ||
+                        "Dịch vụ rửa xe"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                      Tổng tiền
+                    </p>
+                    <p className="mt-2 text-lg font-black text-slate-950">
+                      {formatCurrency(
+                        receivedBooking.finalPrice ??
+                          receivedBooking.totalPrice ??
+                          receivedBooking.price,
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    disabled={confirmLoading}
+                    onClick={handleConfirmReceived}
+                    className="flex-1 rounded-2xl bg-slate-950 px-6 py-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-cyan-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {confirmLoading ? "Đang xác nhận..." : "Xác nhận đã nhận xe"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/history")}
+                    className="rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-700 ring-1 ring-cyan-100 transition hover:bg-cyan-50"
+                  >
+                    Xem chi tiết
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
 
         <main className="mx-auto w-full max-w-[1520px] px-4 pb-14 pt-32 sm:px-6 lg:px-10">
           <section className="grid min-h-[560px] gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
@@ -429,12 +580,18 @@ export default function CustomerDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
           <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/75 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-rose-600">
-              <span className="material-symbols-outlined text-4xl">warning</span>
-              <h3 className="text-2xl font-black text-slate-950">Xác nhận hủy lịch</h3>
+              <span className="material-symbols-outlined text-4xl">
+                warning
+              </span>
+              <h3 className="text-2xl font-black text-slate-950">
+                Xác nhận hủy lịch
+              </h3>
             </div>
             <p className="mt-4 text-sm font-semibold leading-relaxed text-slate-600">
               {(() => {
-                const scheduledTime = new Date(cancelBookingItem.scheduledStartTime);
+                const scheduledTime = new Date(
+                  cancelBookingItem.scheduledStartTime,
+                );
                 const now = new Date();
                 const diffInMs = scheduledTime.getTime() - now.getTime();
                 const diffInMinutes = diffInMs / (1000 * 60);
@@ -459,25 +616,38 @@ export default function CustomerDashboard() {
                 onClick={async () => {
                   setCancelLoading(true);
                   try {
-                    const scheduledTime = new Date(cancelBookingItem.scheduledStartTime);
+                    const scheduledTime = new Date(
+                      cancelBookingItem.scheduledStartTime,
+                    );
                     const now = new Date();
                     const diffInMs = scheduledTime.getTime() - now.getTime();
                     const diffInMinutes = diffInMs / (1000 * 60);
-                    
+
                     await cancelBooking(cancelBookingItem.id);
-                    
+
                     const bookingRes = await getCustomerDashboardBookings();
                     const data = unwrap(bookingRes);
-                    const list = Array.isArray(data) ? data : data.bookings || [];
-                    setBookings(list);
+                    const list = Array.isArray(data)
+                      ? data
+                      : data.bookings || [];
+                    setBookings(sortNewestFirst(list));
 
                     if (diffInMinutes >= 60) {
-                      setReviewMessage("Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn.");
+                      setReviewMessage(
+                        "Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn.",
+                      );
                     } else {
-                      setReviewMessage("Hủy lịch thành công. Bạn không được hoàn lại tiền đặt cọc do hủy dưới 60 phút.");
+                      setReviewMessage(
+                        "Hủy lịch thành công. Bạn không được hoàn lại tiền đặt cọc do hủy dưới 60 phút.",
+                      );
                     }
                   } catch (err) {
-                    setReviewMessage(getFriendlyErrorMessage(err, "Không thể hủy lịch. Vui lòng thử lại sau."));
+                    setReviewMessage(
+                      getFriendlyErrorMessage(
+                        err,
+                        "Không thể hủy lịch. Vui lòng thử lại sau.",
+                      ),
+                    );
                   } finally {
                     setCancelLoading(false);
                     setCancelBookingItem(null);
