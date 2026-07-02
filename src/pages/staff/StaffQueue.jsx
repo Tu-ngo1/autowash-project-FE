@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import StaffNavbar from "../../components/StaffNavbar";
-import { assignBay, completeBay, getBays, getQueue } from "../../services/staffQueueApi";
+import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../services/staffQueueApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_BADGE = {
@@ -151,17 +151,20 @@ const normalizeQueueBooking = (booking = {}) => ({
 
 const normalizeBay = (bay = {}) => {
   const booking = bay.booking ? normalizeQueueBooking(bay.booking) : null;
-  const isBusy =
-    String(bay.status || "").toUpperCase() === "BUSY" ||
-    String(bay.status || "").toUpperCase() === "ACTIVE" ||
-    Boolean(booking);
+  
+  let status = "available";
+  if (String(bay.status || "").toUpperCase() === "BUSY" || String(bay.status || "").toUpperCase() === "ACTIVE") {
+    status = "active";
+  } else if (String(bay.status || "").toUpperCase() === "READY_TO_WASH") {
+    status = "ready_to_wash";
+  }
 
   return {
     ...bay,
     id: bay.id ?? bay.bayId,
     name: bay.name || `Bay ${bay.id ?? bay.bayId ?? ""}`.trim(),
     type: bay.type || "Khoang rửa",
-    status: isBusy ? "active" : "available",
+    status,
     currentCar: booking
       ? {
           ...booking,
@@ -227,7 +230,7 @@ function QueueCard({ item, onSelect, isSelected }) {
   );
 }
 
-function BayCard({ bay, selectedCar, onComplete, onAssignToBay, hasSelectedCar, disabled, now }) {
+function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, hasSelectedCar, disabled, now }) {
   const serviceNames = (bay.currentCar?.services || [])
     .map((service) =>
       typeof service === "string"
@@ -269,11 +272,13 @@ function BayCard({ bay, selectedCar, onComplete, onAssignToBay, hasSelectedCar, 
           className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
             bay.status === "active"
               ? "border-amber-300/50 text-amber-200 bg-amber-300/10"
-              : "border-[#4f7883] text-[#b8d8de]"
+              : bay.status === "ready_to_wash"
+                ? "border-[#72f3ff] text-[#72f3ff] bg-[#72f3ff]/5"
+                : "border-[#4f7883] text-[#b8d8de]"
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
-          {bay.status === "active" ? "ĐANG RỬA" : "TRỐNG"}
+          {bay.status === "active" ? "ĐANG RỬA" : bay.status === "ready_to_wash" ? "CHỜ RỬA" : "TRỐNG"}
         </span>
       </div>
 
@@ -338,6 +343,49 @@ function BayCard({ bay, selectedCar, onComplete, onAssignToBay, hasSelectedCar, 
             </div>
           </div>
         </div>
+      ) : bay.status === "ready_to_wash" ? (
+        <div className="my-5 flex flex-1 flex-col justify-between gap-5">
+          <div>
+            <div
+              className="text-[22px] font-black tracking-widest text-[#72f3ff]"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              {bay.currentCar?.plate || "-"}
+            </div>
+            <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
+              {bay.currentCar?.model || bay.currentCar?.vehicleModel || ""}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#244653] bg-[#071620]/80 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span
+                className="text-[10px] font-black uppercase tracking-widest text-[#72f3ff]"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                Dịch vụ chờ rửa
+              </span>
+              <span className="text-[10px] font-bold text-[#b8d8de]">
+                {serviceNames.length} mục
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {(serviceNames.length ? serviceNames : ["Đang cập nhật dịch vụ"]).slice(0, 3).map((name) => (
+                <div key={name} className="flex items-center gap-2 text-[12px] font-semibold text-[#ecfeff]">
+                  <span className="material-symbols-outlined text-[15px] text-[#72f3ff]">
+                    check_circle
+                  </span>
+                  <span className="truncate">{name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-center py-2 text-center text-[#72f3ff] text-xs font-bold font-sans">
+            <span className="material-symbols-outlined animate-pulse mr-1">
+              pause_circle
+            </span>
+            Sẵn sàng bắt đầu
+          </div>
+        </div>
       ) : (
         <div className="my-6 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[#244653] bg-[#0b2532]/35 p-5 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-[#4f7883]">
@@ -354,7 +402,7 @@ function BayCard({ bay, selectedCar, onComplete, onAssignToBay, hasSelectedCar, 
         </div>
       )}
 
-      <div className="border-t border-[#244653] pt-3 flex justify-end min-h-[40px]">
+      <div className="border-t border-[#244653] pt-3 flex justify-end min-h-[40px] gap-2">
         {bay.status === "active" ? (
           <button
             type="button"
@@ -364,6 +412,16 @@ function BayCard({ bay, selectedCar, onComplete, onAssignToBay, hasSelectedCar, 
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             Hoàn tất rửa & giao xe
+          </button>
+        ) : bay.status === "ready_to_wash" ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onStartWash}
+            className="w-full rounded-xl bg-[#72f3ff] px-4 py-2 text-[11px] font-bold uppercase text-[#061427] transition-all hover:bg-[#a5f7ff] disabled:opacity-50"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Bắt đầu rửa
           </button>
         ) : (
           hasSelectedCar && (
@@ -465,6 +523,8 @@ export default function StaffQueue() {
 
   const handleCompleteWash = async (bayId) => {
     if (!bayId) return;
+    const ok = window.confirm("Bạn có chắc chắn muốn HOÀN THÀNH quá trình rửa xe và GIẢI PHÓNG khoang rửa này không?");
+    if (!ok) return;
     setSubmitLoading(true);
     try {
       await completeBay(bayId);
@@ -474,6 +534,26 @@ export default function StaffQueue() {
         getFriendlyErrorMessage(
           err,
           "Không thể cập nhật trạng thái hoàn thành. Vui lòng thử lại.",
+        ),
+      );
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleStartWash = async (bayId) => {
+    if (!bayId) return;
+    const ok = window.confirm("Bạn có chắc chắn muốn BẮT ĐẦU rửa xe cho khoang này không?");
+    if (!ok) return;
+    setSubmitLoading(true);
+    try {
+      await startWashBay(bayId);
+      fetchQueueAndBays();
+    } catch (err) {
+      alert(
+        getFriendlyErrorMessage(
+          err,
+          "Không thể bắt đầu rửa xe. Vui lòng thử lại.",
         ),
       );
     } finally {
@@ -578,6 +658,7 @@ export default function StaffQueue() {
                         selectedCar={selectedCar}
                         hasSelectedCar={!!selectedCar}
                         onComplete={() => handleCompleteWash(bay.id || bay._id)}
+                        onStartWash={() => handleStartWash(bay.id || bay._id)}
                         onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
                       />
                     </div>
