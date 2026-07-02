@@ -42,6 +42,19 @@ const getTierStyle = (tierLevel) =>
 const getTierRank = (tier) =>
   TIER_ORDER[String(tier || "MEMBER").toUpperCase()] ?? 99;
 
+const getNewestValue = (item = {}) => {
+  const rawDate =
+    item.createdAt ||
+    item.created_at ||
+    item.updatedAt ||
+    item.updated_at ||
+    item.registeredAt ||
+    item.joinedAt;
+  const parsedDate = rawDate ? new Date(rawDate).getTime() : NaN;
+  if (Number.isFinite(parsedDate)) return parsedDate;
+  return Number(item.id || item.userId || 0);
+};
+
 export default function AdminUsers() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,8 +101,8 @@ export default function AdminUsers() {
     const normalizedCustomers = items
       .map(normalizeAdminCustomer)
       .sort((a, b) => {
-        const tierDiff = getTierRank(a.tier) - getTierRank(b.tier);
-        if (tierDiff !== 0) return tierDiff;
+        const newestDiff = getNewestValue(b) - getNewestValue(a);
+        if (newestDiff !== 0) return newestDiff;
         return String(a.name || a.fullName || "").localeCompare(
           String(b.name || b.fullName || ""),
           "vi",
@@ -117,13 +130,17 @@ export default function AdminUsers() {
     });
   };
 
-  const fetchCustomerDetails = async (id) => {
+  const fetchCustomerDetails = async (id, fallbackCustomer = null) => {
     try {
       const res = await getAdminUser(id);
       setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       setIsDrawerOpen(true);
     } catch (err) {
       console.error("Failed to load customer details:", err);
+      if (fallbackCustomer) {
+        setSelectedCustomer(normalizeAdminCustomer(fallbackCustomer));
+        setIsDrawerOpen(true);
+      }
     }
   };
 
@@ -467,7 +484,7 @@ export default function AdminUsers() {
                       key={customer.id}
                       className="admin-reveal group cursor-pointer transition duration-200 hover:translate-x-1 hover:bg-cyan-400/[0.04]"
                       style={{ animationDelay: `${340 + index * 45}ms` }}
-                      onClick={() => fetchCustomerDetails(customer.id)}
+                      onClick={() => fetchCustomerDetails(customer.id, customer)}
                     >
                       <td className="px-6 py-4 font-mono text-zinc-400">
                         {customer.id}
@@ -558,7 +575,7 @@ export default function AdminUsers() {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
-                            onClick={() => fetchCustomerDetails(customer.id)}
+                            onClick={() => fetchCustomerDetails(customer.id, customer)}
                             className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
                           >
                             <span className="material-symbols-outlined text-sm">
