@@ -14,6 +14,14 @@ const STATUS_LABELS = {
   PENDING: { label: "Chờ phục vụ", classes: "bg-amber-100 text-amber-700" },
   RECEIVED: { label: "Đã tiếp nhận", classes: "bg-sky-100 text-sky-700" },
   WASHING: { label: "Đang rửa xe", classes: "bg-cyan-100 text-cyan-700" },
+  IN_PROGRESS: {
+    label: "Đang rửa xe",
+    classes: "bg-cyan-100 text-cyan-700",
+  },
+  WASHED: {
+    label: "Đã rửa xong",
+    classes: "bg-teal-100 text-teal-700",
+  },
   DRYING: {
     label: "Sấy & hoàn thiện",
     classes: "bg-indigo-100 text-indigo-700",
@@ -68,6 +76,25 @@ const getBookingServicesText = (item = {}) => {
 const getBookingTotal = (item = {}) =>
   item.finalPrice ?? item.totalPrice ?? item.price ?? item.total ?? 0;
 
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.date ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
+
 // removed getLocalHistory
 export default function CustomerHistory() {
   const navigate = useNavigate();
@@ -103,7 +130,7 @@ export default function CustomerHistory() {
           ? reviewRes
           : reviewRes?.reviews || [];
 
-        setHistory(bookings);
+        setHistory(sortNewestFirst(bookings));
         setReviews(reviewList);
       } catch {
         setHistory([]);
@@ -441,6 +468,15 @@ export default function CustomerHistory() {
                           </p>
                         </div>
                         <div className="mt-8 flex flex-wrap gap-2">
+                          {statusKey === "WASHED" && (
+                            <button
+                              type="button"
+                              onClick={() => navigate("/")}
+                              className="rounded-xl bg-emerald-300 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-200"
+                            >
+                              Xem thông báo
+                            </button>
+                          )}
                           {statusKey === "COMPLETED" &&
                             (getReviewByBookingId(item.id) ? (
                               <button

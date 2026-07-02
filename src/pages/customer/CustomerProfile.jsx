@@ -23,6 +23,10 @@ import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const statusStyles = {
   PENDING: "bg-[#0061a5]/10 text-[#0061a5]",
+  CONFIRM: "bg-[#0061a5]/10 text-[#0061a5]",
+  ARRIVED: "bg-sky-100 text-sky-700",
+  IN_PROGRESS: "bg-cyan-100 text-cyan-700",
+  WASHED: "bg-teal-100 text-teal-700",
   COMPLETED: "bg-emerald-500/10 text-emerald-600",
   CANCELLED: "bg-rose-100 text-rose-700",
 };
@@ -51,6 +55,27 @@ const getBookingTimeValue = (booking) => {
   const time = new Date(raw).getTime();
   return Number.isNaN(time) ? 0 : time;
 };
+
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.created_at ||
+    item.updatedAt ||
+    item.updated_at ||
+    item.redeemedAt ||
+    item.usedAt ||
+    item.createdDate ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.transactionId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.transactionId || 0) - Number(a?.id || a?.transactionId || 0);
+  });
 
 const getRecentBookings = (bookings = []) =>
   [...bookings]
@@ -89,9 +114,10 @@ const getBookingQrValue = (booking) => {
   };
   return encodeURIComponent(JSON.stringify(payload));
 };
+
 const mergeVehicles = (...groups) => {
   const seen = new Set();
-  return groups
+  return sortNewestFirst(groups
     .flat()
     .filter(Boolean)
     .map(normalizeCustomerCar)
@@ -102,7 +128,7 @@ const mergeVehicles = (...groups) => {
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
-    });
+    }));
 };
 
 const unwrapPayload = (payload) =>
@@ -184,28 +210,11 @@ const compactLicensePlate = (value = "") =>
 
 const formatVietnamLicensePlate = (value = "") => {
   const raw = compactLicensePlate(value);
-  let province = "";
-  let series = "";
-  let serial = "";
-
-  for (const char of raw) {
-    if (province.length < 2) {
-      if (/\d/.test(char)) province += char;
-      continue;
-    }
-    if (series.length < 2 && serial.length === 0) {
-      if (/[A-Z]/.test(char)) {
-        series += char;
-        continue;
-      }
-      if (series.length > 0 && /\d/.test(char)) {
-        serial += char;
-        continue;
-      }
-      continue;
-    }
-    if (serial.length < 5 && /\d/.test(char)) serial += char;
-  }
+  const province = raw.slice(0, 2);
+  const rest = raw.slice(2);
+  const seriesMatch = rest.match(/^[A-Z]{0,2}/);
+  const series = seriesMatch?.[0] || "";
+  const serial = rest.slice(series.length, series.length + 5);
 
   if (!province) return "";
   if (province.length < 2) return province;
@@ -220,7 +229,7 @@ const formatVietnamLicensePlate = (value = "") => {
 };
 
 const isValidVietnamLicensePlate = (value = "") =>
-  /^\d{2}[A-Z]{1,2}\s-\s\d{3}\.\d{2}$/.test(formatVietnamLicensePlate(value));
+  /^\d{2}[A-Z]{1,2}\d{4,5}$/.test(compactLicensePlate(value));
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
@@ -280,11 +289,6 @@ export default function CustomerProfile() {
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState("");
   const [cancelError, setCancelError] = useState("");
 
-  const vehicleBrands = getVehicleBrands(vehicleModels);
-  const currentBrandModels = vehicleModels.filter(
-    (model) => model.brand === vehicleForm.brand,
-  );
-
   useEffect(() => {
     let isMounted = true;
     if (selectedQrBooking && selectedQrBooking.id) {
@@ -313,6 +317,11 @@ export default function CustomerProfile() {
       isMounted = false;
     };
   }, [selectedQrBooking]);
+
+  const vehicleBrands = getVehicleBrands(vehicleModels);
+  const currentBrandModels = vehicleModels.filter(
+    (model) => model.brand === vehicleForm.brand,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -385,7 +394,7 @@ export default function CustomerProfile() {
 
         setRecentBookings(getRecentBookings(bookings));
         setPendingQrBookings(getPendingQrBookings(bookings));
-        setVouchers(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []);
+        setVouchers(sortNewestFirst(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []));
       } catch {
         if (isMounted) {
           setRecentBookings([]);
@@ -512,7 +521,7 @@ export default function CustomerProfile() {
     setTransactionsLoading(true);
     try {
       const txs = await getWalletTransactions();
-      setTransactions(txs || []);
+      setTransactions(sortNewestFirst(txs || []));
     } catch {
       setTransactions([]);
     } finally {

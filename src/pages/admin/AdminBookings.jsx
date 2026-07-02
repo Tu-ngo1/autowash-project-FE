@@ -36,6 +36,25 @@ const getBookingIsoDate = (booking) => {
   return toIsoDate(String(source));
 };
 
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.date ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
+
 const downloadCsv = (filename, rows) => {
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const csv = rows.map((row) => row.map(escape).join(",")).join("\n");
@@ -143,7 +162,7 @@ export default function AdminBookings() {
       });
       const payload = res.data?.data ?? res.data ?? {};
       const apiItems = asArrayPayload(res, ["bookings", "items", "data"]);
-      const items = apiItems.map(normalizeAdminBooking);
+      const items = sortNewestFirst(apiItems.map(normalizeAdminBooking));
 
       const detectClientSide =
         Array.isArray(payload) && items.length > pagination.limit;

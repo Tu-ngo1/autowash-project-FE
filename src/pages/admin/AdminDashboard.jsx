@@ -29,6 +29,25 @@ const getList = (payload, keys = []) => {
   return [];
 };
 
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.date ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
+
 const getMetric = (payload, keys, fallback = 0) => {
   for (const key of keys) {
     if (payload?.[key] !== undefined && payload?.[key] !== null) {
@@ -297,7 +316,7 @@ export default function AdminDashboard() {
         "items",
         "data",
       ]);
-      const bookingItems = apiBookingItems.map(normalizeAdminBooking);
+      const bookingItems = sortNewestFirst(apiBookingItems.map(normalizeAdminBooking));
       setBookings(bookingItems);
       const statusItems = asArrayPayload(statusRes, [
         "items",

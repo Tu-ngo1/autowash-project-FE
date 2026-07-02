@@ -50,6 +50,10 @@ export async function login({ account, password }) {
   const usernameOrPhone = account.trim();
   const response = await api.post(apiPath("/auth/login"), {
     usernameOrPhone,
+    username: usernameOrPhone,
+    phone: usernameOrPhone,
+    email: usernameOrPhone,
+    account: usernameOrPhone,
     password,
   });
 

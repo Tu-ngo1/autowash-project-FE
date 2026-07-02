@@ -31,6 +31,25 @@ const formatStaffTime = (value) => {
   return text.slice(0, 5);
 };
 
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.startTime ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
+
 const normalizeStaffBooking = (booking = {}) => {
   const services = Array.isArray(booking.services)
     ? booking.services
@@ -235,8 +254,10 @@ export default function StaffDashboard() {
     try {
       const response = await getPendingAppointments();
       setPendingList(
-        unwrapStaffPayload(response, ["items", "bookings", "pending"]).map(
-          normalizeStaffBooking,
+        sortNewestFirst(
+          unwrapStaffPayload(response, ["items", "bookings", "pending"]).map(
+            normalizeStaffBooking,
+          ),
         ),
       );
     } catch (err) {

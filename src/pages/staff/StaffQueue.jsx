@@ -26,6 +26,93 @@ const formatStaffTime = (value) => {
   return text.slice(0, 5);
 };
 
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.arrivedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.startTime ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
+
+const parseStaffDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getServiceDurationMinutes = (service) =>
+  Number(
+    service?.durationMinutes ??
+      service?.duration ??
+      service?.actualDurationMinutes ??
+      service?.serviceDurationMinutes ??
+      0,
+  );
+
+const getBookingDurationMinutes = (booking = {}) => {
+  if (!booking) return 30;
+  const directDuration = Number(
+    booking.durationMinutes ??
+      booking.actualDurationMinutes ??
+      booking.totalDurationMinutes ??
+      0,
+  );
+  if (directDuration > 0) return directDuration;
+
+  const services = Array.isArray(booking.services) ? booking.services : [];
+  const serviceDuration = services.reduce(
+    (total, service) => total + getServiceDurationMinutes(service),
+    0,
+  );
+  return serviceDuration > 0 ? serviceDuration : 30;
+};
+
+const getBookingStartDate = (booking = {}) => {
+  if (!booking) return null;
+  return parseStaffDate(
+    booking.washStartedAt ||
+      booking.arrivedAt ||
+      booking.startedAt ||
+      booking.startTime ||
+      booking.scheduledStartTime ||
+      booking.createdAt,
+  );
+};
+
+const getBookingEndDate = (booking = {}) => {
+  if (!booking) return null;
+  const explicitEnd = parseStaffDate(
+    booking.expectedEndTime ||
+      booking.estimatedEndTime ||
+      booking.endTime ||
+      booking.scheduledEndTime,
+  );
+  if (explicitEnd) return explicitEnd;
+
+  const startDate = getBookingStartDate(booking);
+  if (!startDate) return null;
+  return new Date(startDate.getTime() + getBookingDurationMinutes(booking) * 60_000);
+};
+
+const formatCountdown = (milliseconds) => {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+};
+
 const normalizeQueueBooking = (booking = {}) => ({
   ...booking,
   id: booking.id ?? booking.bookingId,
@@ -43,6 +130,23 @@ const normalizeQueueBooking = (booking = {}) => ({
     booking.time ||
     formatStaffTime(booking.scheduledStartTime || booking.startTime),
   tier: booking.tier || booking.tierLevel || booking.status || "Member",
+  services: Array.isArray(booking.services)
+    ? booking.services
+    : booking.service
+      ? [booking.service]
+      : [],
+  durationMinutes: getBookingDurationMinutes(booking),
+  washStartedAt:
+    booking.washStartedAt ||
+    booking.arrivedAt ||
+    booking.startedAt ||
+    booking.scheduledStartTime ||
+    booking.createdAt,
+  expectedEndTime:
+    booking.expectedEndTime ||
+    booking.estimatedEndTime ||
+    booking.endTime ||
+    booking.scheduledEndTime,
 });
 
 const normalizeBay = (bay = {}) => {
@@ -82,62 +186,82 @@ function QueueCard({ item, onSelect, isSelected }) {
     <button
       type="button"
       onClick={onSelect}
-      className={`staff-panel w-full rounded-3xl p-4 flex items-center justify-between text-left transition-all active:scale-[0.99] ${
+      className={`staff-panel w-full rounded-2xl p-4 text-left transition-all active:scale-[0.99] ${
         isSelected
           ? "border-[#6ff6df] bg-[#6ff6df]/10 shadow-[0_0_24px_rgba(94,234,212,0.14)]"
           : "hover:border-[#6ff6df]/70 hover:bg-[#6ff6df]/5"
       }`}
     >
-      <div>
-        <div
-          className="text-[18px] font-bold tracking-wider text-[#ecfeff]"
-          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <span
+            className={`mb-2 inline-flex border px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${badgeClass}`}
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            {item.tier}
+          </span>
+          <div
+            className="text-[18px] font-bold tracking-wider text-[#ecfeff]"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            {item.plate}
+          </div>
+          <div className="mt-1 text-[12px] text-[#b8d8de]">
+            Check-in: {item.checkinTime || item.time || "--:--"}
+          </div>
+        </div>
+        <span
+          className="material-symbols-outlined text-[20px] text-[#6ff6df]"
         >
-          {item.plate}
-        </div>
-        <div className="text-[12px] text-[#b8d8de] mt-1">
-          Check-in: {item.checkinTime || item.time}
-        </div>
+          local_car_wash
+        </span>
       </div>
-      <div className="flex items-center gap-3">
-        <span
-          className={`border px-2 py-0.5 text-[10px] font-bold rounded uppercase ${badgeClass}`}
-          style={{ fontFamily: "'JetBrains Mono', monospace" }}
-        >
-          {item.tier}
-        </span>
-        <span
-          className={`border text-[11px] font-bold px-3 py-1.5 rounded uppercase transition-colors ${
-            isSelected
-              ? "bg-[#6ff6df] text-[#06343a] border-[#6ff6df]"
-              : "border-[#6ff6df] text-[#6ff6df] hover:bg-[#6ff6df]/10"
-          }`}
-          style={{ fontFamily: "'JetBrains Mono', monospace" }}
-        >
-          {isSelected ? "Đang chọn" : "Chọn xe"}
-        </span>
+      <div
+        className={`w-full rounded-xl py-2 text-center text-[11px] font-bold uppercase tracking-widest transition-colors ${
+          isSelected
+            ? "bg-[#6ff6df] text-[#06343a]"
+            : "border border-[#244653] text-[#b8d8de]"
+        }`}
+        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      >
+        {isSelected ? "Đang chọn" : "Chọn điều phối"}
       </div>
     </button>
   );
 }
 
-function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, hasSelectedCar, disabled }) {
+function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, hasSelectedCar, disabled, now }) {
+  const serviceNames = (bay.currentCar?.services || [])
+    .map((service) =>
+      typeof service === "string"
+        ? service
+        : service?.serviceName || service?.name || service?.label,
+    )
+    .filter(Boolean);
+  const progress = Math.max(0, Math.min(100, Number(bay.currentCar?.progress ?? 55)));
+  const startDate = getBookingStartDate(bay.currentCar);
+  const endDate = getBookingEndDate(bay.currentCar);
+  const totalDuration = startDate && endDate ? endDate.getTime() - startDate.getTime() : 0;
+  const remaining = endDate ? endDate.getTime() - now : 0;
+  const countdownProgress =
+    totalDuration > 0
+      ? Math.max(0, Math.min(100, (remaining / totalDuration) * 100))
+      : progress;
+  const timerLabel = endDate ? formatCountdown(remaining) : "--:--";
   return (
     <div
-      className={`staff-panel rounded-3xl p-5 flex flex-col justify-between min-h-[220px] transition-all duration-300 ${
+      className={`staff-panel rounded-2xl p-4 flex min-h-[280px] flex-col justify-between transition-all duration-300 ${
         bay.status === "active"
-          ? "staff-scanline border-[#4edea3] bg-[#123746] shadow-[0_0_22px_rgba(78,222,163,0.08)]"
-          : bay.status === "ready_to_wash"
-            ? "border-[#72f3ff] bg-[#102e3f] shadow-[0_0_22px_rgba(114,243,255,0.08)]"
-            : hasSelectedCar
-              ? "border-[#6ff6df] bg-[#6ff6df]/8 border-dashed animate-pulse"
-              : ""
+          ? "staff-scanline border-amber-400/70 bg-[#172033] shadow-[0_0_28px_rgba(251,191,36,0.12)]"
+          : hasSelectedCar
+            ? "border-[#6ff6df] bg-[#6ff6df]/8 border-dashed"
+            : "border-dashed border-[#244653] bg-[#0c1725]/55"
       }`}
     >
       <div className="flex justify-between items-start">
         <div>
           <h3
-            className="text-[18px] font-bold text-[#ecfeff]"
+            className="text-[15px] font-bold uppercase tracking-widest text-[#ecfeff]"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             {bay.name}
@@ -145,9 +269,9 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
           <p className="text-[12px] text-[#b8d8de] mt-0.5">{bay.type}</p>
         </div>
         <span
-          className={`text-[11px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
+          className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
             bay.status === "active"
-              ? "border-[#4edea3] text-[#4edea3] bg-[#4edea3]/5"
+              ? "border-amber-300/50 text-amber-200 bg-amber-300/10"
               : bay.status === "ready_to_wash"
                 ? "border-[#72f3ff] text-[#72f3ff] bg-[#72f3ff]/5"
                 : "border-[#4f7883] text-[#b8d8de]"
@@ -159,53 +283,122 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
       </div>
 
       {bay.status === "active" ? (
-        <div className="my-4 space-y-2">
-          <div className="flex justify-between text-[13px]">
-            <span
-              className="font-bold text-[#4edea3]"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              {bay.currentCar?.plate}
-            </span>
-            <span
-              className="text-[#b8d8de]"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              {bay.currentCar?.progress || 0}%
-            </span>
-          </div>
-          <div className="w-full h-[3px] bg-[#1a2436] rounded-full overflow-hidden">
+        <div className="my-5 flex flex-1 flex-col justify-between gap-5">
+          <div>
             <div
-              className="h-full bg-[#4edea3] transition-all duration-500"
-              style={{ width: `${bay.currentCar?.progress || 0}%` }}
-            ></div>
+              className="text-[22px] font-black tracking-widest text-[#ecfeff]"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              {bay.currentCar?.plate || "-"}
+            </div>
+            <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
+              {bay.currentCar?.model || bay.currentCar?.vehicleModel || ""}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#244653] bg-[#071620]/80 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span
+                className="text-[10px] font-black uppercase tracking-widest text-[#8df9ef]"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                Dịch vụ đã chọn
+              </span>
+              <span className="text-[10px] font-bold text-[#b8d8de]">
+                {serviceNames.length} mục
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {(serviceNames.length ? serviceNames : ["Đang cập nhật dịch vụ"]).slice(0, 3).map((name) => (
+                <div key={name} className="flex items-center gap-2 text-[12px] font-semibold text-[#ecfeff]">
+                  <span className="material-symbols-outlined text-[15px] text-[#6ff6df]">
+                    check_circle
+                  </span>
+                  <span className="truncate">{name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-center">
+            <div
+              className="relative flex h-[92px] w-[92px] items-center justify-center rounded-full"
+              style={{
+                background: `conic-gradient(#f59e0b ${countdownProgress * 3.6}deg, #1a2436 0deg)`,
+              }}
+            >
+              <div className="absolute inset-[8px] rounded-full bg-[#172033] shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]"></div>
+              <div className="relative text-center">
+                <div
+                  className="text-[22px] font-black tracking-widest text-amber-300"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  {timerLabel}
+                </div>
+                <div
+                  className="mt-0.5 text-[8px] font-bold uppercase tracking-widest text-[#b8d8de]"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  Còn lại
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : bay.status === "ready_to_wash" ? (
-        <div className="my-4 space-y-2">
-          <div className="flex justify-between text-[13px]">
-            <span
-              className="font-bold text-[#72f3ff]"
+        <div className="my-5 flex flex-1 flex-col justify-between gap-5">
+          <div>
+            <div
+              className="text-[22px] font-black tracking-widest text-[#72f3ff]"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
-              {bay.currentCar?.plate}
-            </span>
-            <span
-              className="text-[#b8d8de] text-xs font-semibold uppercase tracking-wider"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              Chờ bắt đầu
-            </span>
+              {bay.currentCar?.plate || "-"}
+            </div>
+            <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
+              {bay.currentCar?.model || bay.currentCar?.vehicleModel || ""}
+            </p>
           </div>
-          <div className="text-[12px] text-[#9fb7c9] line-clamp-2 mt-1">
-            Dịch vụ: {bay.currentCar?.service}
+          <div className="rounded-xl border border-[#244653] bg-[#071620]/80 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span
+                className="text-[10px] font-black uppercase tracking-widest text-[#72f3ff]"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                Dịch vụ chờ rửa
+              </span>
+              <span className="text-[10px] font-bold text-[#b8d8de]">
+                {serviceNames.length} mục
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {(serviceNames.length ? serviceNames : ["Đang cập nhật dịch vụ"]).slice(0, 3).map((name) => (
+                <div key={name} className="flex items-center gap-2 text-[12px] font-semibold text-[#ecfeff]">
+                  <span className="material-symbols-outlined text-[15px] text-[#72f3ff]">
+                    check_circle
+                  </span>
+                  <span className="truncate">{name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-center py-2 text-center text-[#72f3ff] text-xs font-bold font-sans">
+            <span className="material-symbols-outlined animate-pulse mr-1">
+              pause_circle
+            </span>
+            Sẵn sàng bắt đầu
           </div>
         </div>
       ) : (
-        <div className="my-6 text-center text-[#b8d8de] text-[13px] border border-dashed border-[#244653] py-3 rounded-2xl bg-[#0b2532]/55">
-          {hasSelectedCar
-            ? `Sẵn sàng nhận ${selectedCar?.plate || "xe đã chọn"}`
-            : "Sẵn sàng tiếp nhận xe mới từ hàng đợi"}
+        <div className="my-6 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[#244653] bg-[#0b2532]/35 p-5 text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-[#4f7883]">
+            <span className="material-symbols-outlined text-[34px]">
+              local_shipping
+            </span>
+          </div>
+          <p className="font-bold text-[#ecfeff]">Khoang trống</p>
+          <p className="mt-2 max-w-[220px] text-[12px] leading-5 text-[#b8d8de]">
+            {hasSelectedCar
+              ? `Sẵn sàng nhận ${selectedCar?.plate || "xe đã chọn"}`
+              : "Sẵn sàng nhận xe tiếp theo từ hàng đợi."}
+          </p>
         </div>
       )}
 
@@ -215,17 +408,17 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
             type="button"
             disabled={disabled}
             onClick={onComplete}
-            className="bg-[#4edea3] text-[#003822] text-[12px] font-bold px-4 py-2 rounded uppercase hover:bg-[#62f2b8] transition-all disabled:opacity-50"
+            className="w-full rounded-xl bg-[#4edea3] px-4 py-2 text-[11px] font-bold uppercase text-[#003822] transition-all hover:bg-[#62f2b8] disabled:opacity-50"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
-            Hoàn thành
+            Hoàn tất rửa & giao xe
           </button>
         ) : bay.status === "ready_to_wash" ? (
           <button
             type="button"
             disabled={disabled}
             onClick={onStartWash}
-            className="bg-[#72f3ff] text-[#061427] text-[12px] font-bold px-4 py-2 rounded uppercase hover:bg-[#a5f7ff] transition-all disabled:opacity-50"
+            className="w-full rounded-xl bg-[#72f3ff] px-4 py-2 text-[11px] font-bold uppercase text-[#061427] transition-all hover:bg-[#a5f7ff] disabled:opacity-50"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
             Bắt đầu rửa
@@ -236,7 +429,7 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
               type="button"
               disabled={disabled}
               onClick={onAssignToBay}
-              className="w-full bg-[#6ff6df] text-[#06343a] text-[12px] font-bold px-4 py-2 rounded-2xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)] disabled:opacity-50"
+              className="w-full bg-[#6ff6df] text-[#06343a] text-[11px] font-bold px-4 py-2 rounded-xl uppercase hover:bg-[#9fffee] transition-all shadow-[0_0_10px_rgba(94,234,212,0.2)] disabled:opacity-50"
               style={{ fontFamily: "'JetBrains Mono', monospace" }}
             >
               Vào khoang này
@@ -255,6 +448,7 @@ export default function StaffQueue() {
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState("");
+  const [now, setNow] = useState(Date.now());
 
   const fetchQueueAndBays = async () => {
     setLoading(true);
@@ -266,8 +460,10 @@ export default function StaffQueue() {
       ]);
 
       setQueue(
-        unwrapStaffPayload(queueRes, ["items", "queue", "bookings"]).map(
-          normalizeQueueBooking,
+        sortNewestFirst(
+          unwrapStaffPayload(queueRes, ["items", "queue", "bookings"]).map(
+            normalizeQueueBooking,
+          ),
         ),
       );
       setBays(
@@ -287,6 +483,13 @@ export default function StaffQueue() {
 
   useEffect(() => {
     fetchQueueAndBays();
+  }, []);
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timerId);
   }, []);
 
   const handleAssignToBay = async (bayId) => {
@@ -378,9 +581,9 @@ export default function StaffQueue() {
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row gap-8 items-start flex-1">
+          <div className="grid flex-1 items-start gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
             {/* LEFT Column - Hàng đợi điều phối */}
-            <section className="staff-reveal w-full lg:w-[35%] flex flex-col gap-4" style={{ animationDelay: "80ms" }}>
+            <section className="staff-reveal flex w-full flex-col gap-4" style={{ animationDelay: "80ms" }}>
               <div className="flex justify-between items-center mb-1">
                 <h2
                   className="text-[20px] font-semibold text-[#ecfeff]"
@@ -422,7 +625,7 @@ export default function StaffQueue() {
             </section>
 
             {/* RIGHT Column - Danh sách khoang dịch vụ */}
-            <section className="staff-reveal w-full lg:w-[65%] flex flex-col gap-4" style={{ animationDelay: "140ms" }}>
+            <section className="staff-reveal flex w-full min-w-0 flex-col gap-4" style={{ animationDelay: "140ms" }}>
               <div className="flex justify-between items-center mb-1">
                 <h2
                   className="text-[20px] font-semibold text-[#ecfeff]"
@@ -441,7 +644,7 @@ export default function StaffQueue() {
                   Chưa có khoang rửa nào.
                 </p>
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 flex-1">
+                <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
                   {bays.map((bay, index) => (
                     <div
                       key={bay.id || bay._id}
@@ -451,6 +654,7 @@ export default function StaffQueue() {
                       <BayCard
                         bay={bay}
                         disabled={submitLoading}
+                        now={now}
                         selectedCar={selectedCar}
                         hasSelectedCar={!!selectedCar}
                         onComplete={() => handleCompleteWash(bay.id || bay._id)}
