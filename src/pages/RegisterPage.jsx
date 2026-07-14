@@ -219,14 +219,14 @@ export default function RegisterPage() {
     "mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-950 outline-none shadow-inner shadow-cyan-950/[0.03] transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100";
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#eefbff] px-4 py-6 text-slate-950 sm:px-6 lg:px-10">
+    <div className="relative min-h-screen overflow-hidden bg-[#f4fafc] px-4 py-6 text-slate-950 sm:px-6 lg:px-10">
       <div className="pointer-events-none fixed inset-0">
         <img
           src="https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=2400&auto=format&fit=crop"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-24"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(239,253,255,0.96),rgba(225,246,252,0.9)_48%,rgba(255,255,255,0.98)_86%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(239,253,255,0.96),rgba(244,250,252,0.9)_48%,rgba(255,255,255,0.98)_86%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.06)_1px,transparent_1px)] bg-[size:72px_72px]" />
         <div className="absolute right-[-120px] top-[-80px] h-[520px] w-[520px] rounded-full bg-cyan-200/50 blur-3xl" />
         <div className="wash-foam-drift absolute bottom-[-110px] left-[-120px] h-72 w-[78vw] rounded-[50%] bg-white/40 blur-3xl" />
@@ -318,7 +318,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={handleSendOtp}
                   disabled={otpVerified || sendingOtp || cooldown > 0 || registering}
-                  className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_34px_rgba(8,47,73,0.18)] transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_34px_rgba(8,47,73,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-700 active:scale-[0.98] active:translate-y-px disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {sendingOtp ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -356,7 +356,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={handleVerifyOtp}
                   disabled={otpVerified || !otpSent || verifyingOtp || registering}
-                  className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-800 transition hover:-translate-y-0.5 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                  className="mt-7 inline-flex h-[50px] items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-800 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-50 active:scale-[0.98] active:translate-y-px disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                 >
                   {verifyingOtp ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -482,7 +482,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={registering}
-                  className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white active:scale-[0.98] active:translate-y-px disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/45 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
                   {registering && <Loader2 size={18} className="animate-spin" />}

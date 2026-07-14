@@ -35,7 +35,11 @@ export const getWalletTransactions = () =>
       ];
     });
 
+export const verifyWalletPayment = (orderCode) =>
+  api.post(apiPath(`/customer/wallet/verify-payment/${orderCode}`)).then(unwrap);
+
 export default {
   depositWallet,
   getWalletTransactions,
+  verifyWalletPayment,
 };

@@ -10,20 +10,31 @@ export default function PaymentFailed() {
 
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState(null);
+  const [isWalletDeposit, setIsWalletDeposit] = useState(false);
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode");
     if (orderCode) {
-      setVerifying(true);
-      customerBookingApi.verifyPayment(orderCode)
-        .then(() => {
-          setVerifying(false);
-        })
-        .catch((err) => {
-          console.error("Xác thực thanh toán thất bại:", err);
-          setError("Không thể đồng bộ trạng thái thất bại ngay lập tức. Lịch hẹn của bạn sẽ tự động cập nhật sau.");
-          setVerifying(false);
-        });
+      const orderCodeNum = Number(orderCode);
+      const isWallet = !isNaN(orderCodeNum) && orderCodeNum >= 5000000000000000;
+      setIsWalletDeposit(isWallet);
+
+      if (isWallet) {
+        // Nạp tiền ví thất bại, không cần gọi API đồng bộ của booking
+        setVerifying(false);
+        setError("Giao dịch nạp tiền vào ví đã bị hủy hoặc thất bại.");
+      } else {
+        setVerifying(true);
+        customerBookingApi.verifyPayment(orderCode)
+          .then(() => {
+            setVerifying(false);
+          })
+          .catch((err) => {
+            console.error("Xác thực thanh toán thất bại:", err);
+            setError("Không thể đồng bộ trạng thái thất bại ngay lập tức. Lịch hẹn của bạn sẽ tự động cập nhật sau.");
+            setVerifying(false);
+          });
+      }
     } else {
       setVerifying(false);
     }
@@ -69,10 +80,12 @@ export default function PaymentFailed() {
                 </div>
 
                 <h1 className="mt-8 text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-                  Thanh toán thất bại!
+                  {isWalletDeposit ? "Nạp tiền thất bại!" : "Thanh toán thất bại!"}
                 </h1>
                 <p className="mt-4 text-base font-semibold leading-relaxed text-slate-500">
-                  Giao dịch của bạn đã bị hủy bỏ hoặc không thể hoàn tất trên cổng thanh toán PayOS. Lịch hẹn chưa được xác nhận thanh toán.
+                  {isWalletDeposit
+                    ? "Giao dịch nạp tiền vào ví của bạn đã bị hủy bỏ hoặc không thể hoàn tất trên cổng thanh toán PayOS."
+                    : "Giao dịch của bạn đã bị hủy bỏ hoặc không thể hoàn tất trên cổng thanh toán PayOS. Lịch hẹn chưa được xác nhận thanh toán."}
                 </p>
                 {error && (
                   <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-bold text-amber-800 text-left">
@@ -102,13 +115,23 @@ export default function PaymentFailed() {
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => navigate("/booking")}
-                className="flex-1 rounded-2xl bg-cyan-400 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-95"
-              >
-                Đặt lịch lại
-              </button>
+              {isWalletDeposit ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile?tab=wallet")}
+                  className="flex-1 rounded-2xl bg-cyan-400 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-95"
+                >
+                  Nạp tiền lại
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate("/booking")}
+                  className="flex-1 rounded-2xl bg-cyan-400 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-95"
+                >
+                  Đặt lịch lại
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate("/dashboard")}

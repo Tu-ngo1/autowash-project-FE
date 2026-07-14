@@ -89,9 +89,10 @@ const getRecentBookings = (bookings = []) =>
 
 const getPendingQrBookings = (bookings = []) =>
   [...bookings]
-    .filter(
-      (booking) => String(booking?.status || "").toUpperCase() === "PENDING",
-    )
+    .filter((booking) => {
+      const status = String(booking?.status || "").toUpperCase();
+      return status === "PENDING" || status === "CONFIRM";
+    })
     .sort((a, b) => {
       const timeDiff = getBookingTimeValue(b) - getBookingTimeValue(a);
       if (timeDiff !== 0) return timeDiff;
@@ -766,9 +767,9 @@ export default function CustomerProfile() {
     }
   };
   return (
-    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] font-body-md text-slate-950">
+    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#f4fafc] font-body-md text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(244,250,252,0.84)_46%,rgba(70,190,230,0.48))]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
       </div>
 
@@ -786,8 +787,8 @@ export default function CustomerProfile() {
                       <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
                       Hồ sơ khách hàng
                     </p>
-                    <h1 className="mt-7 max-w-4xl whitespace-nowrap text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl xl:text-6xl">
-                      Hồ sơ của {profile.name || "bạn"}
+                    <h1 className="mt-7 max-w-4xl text-balance text-4xl font-black leading-[1.02] tracking-normal text-slate-950 sm:text-5xl xl:text-6xl">
+                      {profile.name || "Hồ sơ của bạn"}
                     </h1>
                     <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
                       Thông tin, xe và ưu đãi
@@ -1022,16 +1023,17 @@ export default function CustomerProfile() {
                           </thead>
                           <tbody className="divide-y divide-cyan-100/50">
                             {transactions.map((tx) => {
+                              const txType = tx.transactionType || tx.type || "";
                               const isAdd =
-                                tx.type === "DEPOSIT" || tx.type === "REFUND";
+                                txType === "DEPOSIT" || txType === "REFUND";
                               const sign = isAdd ? "+" : "-";
                               const colorClass = isAdd
                                 ? "text-emerald-600 font-bold"
                                 : "text-rose-600 font-bold";
                               const typeLabel =
-                                tx.type === "DEPOSIT"
+                                txType === "DEPOSIT"
                                   ? "Nạp tiền"
-                                  : tx.type === "REFUND"
+                                  : txType === "REFUND"
                                     ? "Hoàn tiền"
                                     : "Thanh toán";
 
@@ -1278,8 +1280,10 @@ export default function CustomerProfile() {
                               {item.service || item.serviceName || "-"}
                             </p>
                           </div>
-                          <span className="rounded-full bg-[#0061a5]/10 px-3 py-1 text-xs font-black uppercase text-[#0061a5]">
-                            PENDING
+                          <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
+                            statusStyles[String(item.status).toUpperCase()] || "bg-slate-100 text-slate-700"
+                          }`}>
+                            {item.status}
                           </span>
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-3">
