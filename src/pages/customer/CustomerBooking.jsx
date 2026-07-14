@@ -239,6 +239,12 @@ const mergeVehicles = (...groups) => {
 
 export default function CustomerBooking() {
   const navigate = useNavigate();
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
   const [vehicles, setVehicles] = useState([]);
   const [services, setServices] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
@@ -669,14 +675,14 @@ export default function CustomerBooking() {
   }
 
   return (
-    <div className="customer-motion-root relative min-h-screen bg-[#d9f7ff] font-body-md text-slate-950">
+    <div className="customer-motion-root relative min-h-screen bg-[#f4fafc] font-body-md text-slate-950">
       <div className="pointer-events-none fixed inset-0 z-0 min-h-[100dvh]">
         <img
           src="https://images.unsplash.com/photo-1607860108855-64acf2078ed9?q=80&w=2400&auto=format&fit=crop"
           alt=""
           className="absolute inset-0 h-full min-h-[100dvh] w-full object-cover opacity-[0.18]"
         />
-        <div className="absolute inset-0 min-h-[100dvh] bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 min-h-[100dvh] bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(244,250,252,0.84)_46%,rgba(70,190,230,0.48))]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
         <div className="absolute right-[-140px] top-[-140px] h-[520px] w-[520px] rounded-full bg-cyan-200/40 blur-3xl" />
         <div className="wash-foam-drift absolute bottom-[-120px] left-[-120px] h-72 w-[66vw] rounded-full bg-white/55 blur-3xl" />
@@ -734,33 +740,61 @@ export default function CustomerBooking() {
               )}
               <section className="rounded-[30px] border border-white/75 bg-white/72 p-4 shadow-sm backdrop-blur-2xl md:p-5">
                 <div className="grid gap-3 md:grid-cols-5">
-                  {[
-                    ["01", "Chọn xe", "directions_car"],
-                    ["02", "Dịch vụ chính", "local_car_wash"],
-                    ["03", "Dịch vụ phụ", "add_circle"],
-                    ["04", "Ngày giờ", "schedule"],
-                    ["05", "Thanh toán", "payments"],
-                  ].map(([step, label, icon]) => (
-                    <div
-                      key={step}
-                      className="flex items-center gap-3 rounded-2xl border border-cyan-100 bg-[#e9fbff]/80 px-3 py-3"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#003c5f] text-xs font-black text-cyan-100">
-                        {step}
-                      </span>
-                      <div className="min-w-0">
-                        <span className="material-symbols-outlined block text-[20px] text-cyan-700">
-                          {icon}
-                        </span>
-                        <p className="truncate text-xs font-black text-slate-800">
-                          {label}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const steps = [
+                      { number: "01", label: "Chọn xe", icon: "directions_car", sectionId: "section-car", isCompleted: !!selectedVehicle },
+                      { number: "02", label: "Dịch vụ chính", icon: "local_car_wash", sectionId: "section-main-service", isCompleted: !!selectedVehicle && !!service },
+                      { number: "03", label: "Dịch vụ phụ", icon: "add_circle", sectionId: "section-addon-service", isCompleted: !!selectedVehicle && !!service },
+                      { number: "04", label: "Ngày giờ", icon: "schedule", sectionId: "section-datetime", isCompleted: !!selectedVehicle && !!service && !!date && !!timeSlot },
+                      { number: "05", label: "Thanh toán", icon: "payments", sectionId: "section-payment", isCompleted: !!selectedVehicle && !!service && !!date && !!timeSlot && !!paymentMethod },
+                    ];
+                    const firstIncomplete = steps.findIndex(s => !s.isCompleted);
+                    const activeIndex = firstIncomplete === -1 ? 4 : firstIncomplete;
+
+                    return steps.map((item, index) => {
+                      const isActive = index === activeIndex;
+                      const isCompleted = item.isCompleted;
+                      
+                      let cardStyle = "bg-white/40 border-white/60 opacity-60 hover:opacity-100 hover:bg-white/80 text-slate-500 hover:shadow-sm";
+                      let bubbleStyle = "bg-slate-200/80 text-slate-500";
+                      
+                      if (isCompleted) {
+                        cardStyle = "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15 text-emerald-800";
+                        bubbleStyle = "bg-emerald-600 text-white";
+                      } else if (isActive) {
+                        cardStyle = "bg-cyan-500/10 border-cyan-400 ring-1 ring-cyan-400 shadow-[0_10px_30px_rgba(6,182,212,0.12)] hover:bg-cyan-500/15 text-cyan-800";
+                        bubbleStyle = "bg-cyan-600 text-white animate-pulse shadow-[0_0_12px_rgba(6,182,212,0.5)]";
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          key={item.number}
+                          onClick={() => scrollToSection(item.sectionId)}
+                          className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 active:scale-[0.97] ${cardStyle}`}
+                        >
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${bubbleStyle}`}>
+                            {isCompleted ? (
+                              <span className="material-symbols-outlined text-[16px] font-black">check</span>
+                            ) : (
+                              item.number
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="material-symbols-outlined block text-[20px]">
+                              {item.icon}
+                            </span>
+                            <p className="truncate text-xs font-black">
+                              {item.label}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </section>
-              <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section id="section-car" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">
                     directions_car
@@ -834,7 +868,7 @@ export default function CustomerBooking() {
                 </div>
               </section>
 
-              <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section id="section-main-service" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">layers</span>
                   Chọn Dịch Vụ Rửa Xe
@@ -914,53 +948,57 @@ export default function CustomerBooking() {
                       )}
                     </div>
                   </div>
-
-                  {addonServices.length > 0 && (
-                    <div>
-                      <h3 className="mb-4 text-sm font-black uppercase tracking-[0.16em] text-cyan-700">
-                        Dịch vụ đi kèm (Chọn nhiều)
-                      </h3>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {addonServices.map((item) => {
-                          const active = selectedAddons.includes(item.id);
-                          return (
-                            <label
-                              key={item.id}
-                              className={`flex cursor-pointer items-center gap-4 rounded-[22px] border p-4 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
-                                active
-                                  ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
-                                  : "border-white/80 bg-white/72"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={active}
-                                onChange={() => handleToggleAddon(item.id)}
-                                className="h-5 w-5 rounded border-cyan-200 text-cyan-600 focus:ring-cyan-500"
-                              />
-                              <div className="flex-grow">
-                                <div className="mb-1 flex justify-between gap-4">
-                                  <h4 className="font-black text-slate-950">
-                                    {item.name || "Dịch vụ phụ"}
-                                  </h4>
-                                  <span className="whitespace-nowrap font-black text-cyan-700">
-                                    {formatPrice(item.price)}
-                                  </span>
-                                </div>
-                                <p className="line-clamp-2 text-xs font-semibold text-slate-500">
-                                  {item.description}
-                                </p>
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </section>
 
-              <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+                {addonServices.length > 0 && (
+                  <section id="section-addon-service" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+                    <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
+                      <span className="material-symbols-outlined">add_circle</span>
+                      Dịch vụ phụ (Chọn nhiều)
+                    </h2>
+                    <p className="mb-6 text-base font-medium text-slate-500">
+                      Chọn các dịch vụ đi kèm bổ sung nếu cần thiết.
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {addonServices.map((item) => {
+                        const active = selectedAddons.includes(item.id);
+                        return (
+                          <label
+                            key={item.id}
+                            className={`flex cursor-pointer items-center gap-4 rounded-[22px] border p-4 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
+                              active
+                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                                : "border-white/80 bg-white/72"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => handleToggleAddon(item.id)}
+                              className="h-5 w-5 rounded border-cyan-200 text-cyan-600 focus:ring-cyan-500"
+                            />
+                            <div className="flex-grow">
+                              <div className="mb-1 flex justify-between gap-4">
+                                <h4 className="font-black text-slate-950">
+                                  {item.name || "Dịch vụ phụ"}
+                                </h4>
+                                <span className="whitespace-nowrap font-black text-cyan-700">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </div>
+                              <p className="line-clamp-2 text-xs font-semibold text-slate-500">
+                                {item.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+              <section id="section-datetime" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">schedule</span>
                   Ngày & Giờ
@@ -1028,7 +1066,7 @@ export default function CustomerBooking() {
                 </div>
               </section>
 
-              <section className="rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section id="section-payment" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">payments</span>
                   Thanh toán

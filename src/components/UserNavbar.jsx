@@ -47,7 +47,7 @@ export default function UserNavbar({ active }) {
 
   return (
     <nav className="fixed left-1/2 top-5 z-50 w-[calc(100%-24px)] max-w-[1520px] -translate-x-1/2 font-body-md md:w-[82vw]">
-      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-4 rounded-[24px] border border-cyan-100/80 bg-[#e9fbff]/82 px-4 py-3 shadow-[0_22px_70px_rgba(0,90,130,0.2)] backdrop-blur-2xl lg:h-[76px] lg:px-6 lg:py-0">
+      <div className="mx-auto flex min-h-16 w-full items-center justify-between gap-4 rounded-[24px] border border-cyan-100/80 bg-[#f4fafc]/82 px-4 py-3 shadow-[0_22px_70px_rgba(0,90,130,0.2)] backdrop-blur-2xl lg:h-[76px] lg:px-6 lg:py-0">
         <button
           type="button"
           onClick={() => navigate("/dashboard")}
@@ -109,14 +109,14 @@ export default function UserNavbar({ active }) {
           <button
             type="button"
             onClick={() => navigate("/booking")}
-            className="whitespace-nowrap rounded-xl bg-[#0d99ff] px-3 py-2 text-xs font-black text-[#002f55] transition-all hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-lg active:scale-95 md:px-5 md:py-3"
+            className="whitespace-nowrap rounded-xl bg-[#0d99ff] px-3 py-2 text-xs font-black text-[#002f55] transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-lg active:scale-[0.96] active:translate-y-px md:px-5 md:py-3"
           >
             Đặt lịch ngay
           </button>
           <button
             type="button"
             onClick={handleLogout}
-            className="whitespace-nowrap rounded-xl bg-white px-3 py-2 text-xs font-black text-[#3f4753] shadow-sm transition-colors hover:text-red-600 md:px-4 md:py-3"
+            className="whitespace-nowrap rounded-xl bg-white px-3 py-2 text-xs font-black text-[#3f4753] shadow-sm transition-all duration-200 hover:text-red-600 active:scale-[0.96] active:translate-y-px md:px-4 md:py-3"
           >
             Đăng xuất
           </button>
