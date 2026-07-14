@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import StaffNavbar from "../../components/StaffNavbar";
+import CompleteWashConfirmationModal from "../../components/staff/CompleteWashConfirmationModal";
+import StartWashConfirmationModal from "../../components/staff/StartWashConfirmationModal";
 import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../services/staffQueueApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
@@ -449,6 +451,13 @@ export default function StaffQueue() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [startWashBayTarget, setStartWashBayTarget] = useState(null);
+  const [startWashLoading, setStartWashLoading] = useState(false);
+  const [startWashError, setStartWashError] = useState("");
+  const [completeWashBayTarget, setCompleteWashBayTarget] = useState(null);
+  const [completeWashLoading, setCompleteWashLoading] = useState(false);
+  const [completeWashError, setCompleteWashError] = useState("");
+  const [toast, setToast] = useState("");
 
   const fetchQueueAndBays = async () => {
     setLoading(true);
@@ -504,7 +513,7 @@ export default function StaffQueue() {
       setSelectedCar(null);
       fetchQueueAndBays();
     } catch (err) {
-      alert(
+      setError(
         getFriendlyErrorMessage(
           err,
           "Gặp lỗi khi điều phối xe vào khoang. Vui lòng thử lại.",
@@ -521,43 +530,73 @@ export default function StaffQueue() {
     setSelectedCar(currentKey && currentKey === nextKey ? null : item);
   };
 
-  const handleCompleteWash = async (bayId) => {
-    if (!bayId) return;
-    const ok = window.confirm("Bạn có chắc chắn muốn HOÀN THÀNH quá trình rửa xe và GIẢI PHÓNG khoang rửa này không?");
-    if (!ok) return;
-    setSubmitLoading(true);
+  const openCompleteWashModal = (bay) => {
+    if (!bay?.id && !bay?._id) return;
+    setCompleteWashBayTarget(bay);
+    setCompleteWashError("");
+  };
+
+  const closeCompleteWashModal = () => {
+    if (completeWashLoading) return;
+    setCompleteWashBayTarget(null);
+    setCompleteWashError("");
+  };
+
+  const confirmCompleteWash = async () => {
+    const bayId = completeWashBayTarget?.id || completeWashBayTarget?._id;
+    if (!bayId || completeWashLoading) return;
+    setCompleteWashLoading(true);
+    setCompleteWashError("");
     try {
       await completeBay(bayId);
-      fetchQueueAndBays();
+      setCompleteWashBayTarget(null);
+      setToast("Đã hoàn thành rửa xe và giải phóng khoang");
+      await fetchQueueAndBays();
+      window.setTimeout(() => setToast(""), 2800);
     } catch (err) {
-      alert(
+      setCompleteWashError(
         getFriendlyErrorMessage(
           err,
           "Không thể cập nhật trạng thái hoàn thành. Vui lòng thử lại.",
         ),
       );
     } finally {
-      setSubmitLoading(false);
+      setCompleteWashLoading(false);
     }
   };
 
-  const handleStartWash = async (bayId) => {
-    if (!bayId) return;
-    const ok = window.confirm("Bạn có chắc chắn muốn BẮT ĐẦU rửa xe cho khoang này không?");
-    if (!ok) return;
-    setSubmitLoading(true);
+  const openStartWashModal = (bay) => {
+    if (!bay?.id && !bay?._id) return;
+    setStartWashBayTarget(bay);
+    setStartWashError("");
+  };
+
+  const closeStartWashModal = () => {
+    if (startWashLoading) return;
+    setStartWashBayTarget(null);
+    setStartWashError("");
+  };
+
+  const confirmStartWash = async () => {
+    const bayId = startWashBayTarget?.id || startWashBayTarget?._id;
+    if (!bayId || startWashLoading) return;
+    setStartWashLoading(true);
+    setStartWashError("");
     try {
       await startWashBay(bayId);
-      fetchQueueAndBays();
+      setStartWashBayTarget(null);
+      setToast("Đã bắt đầu rửa xe thành công");
+      await fetchQueueAndBays();
+      window.setTimeout(() => setToast(""), 2800);
     } catch (err) {
-      alert(
+      setStartWashError(
         getFriendlyErrorMessage(
           err,
           "Không thể bắt đầu rửa xe. Vui lòng thử lại.",
         ),
       );
     } finally {
-      setSubmitLoading(false);
+      setStartWashLoading(false);
     }
   };
 
@@ -578,6 +617,13 @@ export default function StaffQueue() {
           {error && (
             <div className="p-4 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
               {error}
+            </div>
+          )}
+
+          {toast && (
+            <div className="fixed right-4 top-4 z-[95] rounded-2xl border border-[#6ff6df]/30 bg-[#071620] px-5 py-3 text-sm font-bold text-[#ecfeff] shadow-[0_18px_48px_rgba(0,0,0,0.35)] sm:right-6 sm:top-6">
+              <span className="mr-2 text-[#6ff6df]">✓</span>
+              {toast}
             </div>
           )}
 
@@ -653,12 +699,12 @@ export default function StaffQueue() {
                     >
                       <BayCard
                         bay={bay}
-                        disabled={submitLoading}
+                        disabled={submitLoading || startWashLoading || completeWashLoading}
                         now={now}
                         selectedCar={selectedCar}
                         hasSelectedCar={!!selectedCar}
-                        onComplete={() => handleCompleteWash(bay.id || bay._id)}
-                        onStartWash={() => handleStartWash(bay.id || bay._id)}
+                        onComplete={() => openCompleteWashModal(bay)}
+                        onStartWash={() => openStartWashModal(bay)}
                         onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
                       />
                     </div>
@@ -669,6 +715,27 @@ export default function StaffQueue() {
           </div>
         </main>
       </div>
+
+      <StartWashConfirmationModal
+        isOpen={!!startWashBayTarget}
+        bay={startWashBayTarget}
+        vehicle={startWashBayTarget?.currentCar}
+        services={startWashBayTarget?.currentCar?.services || []}
+        isLoading={startWashLoading}
+        error={startWashError}
+        onConfirm={confirmStartWash}
+        onClose={closeStartWashModal}
+      />
+      <CompleteWashConfirmationModal
+        isOpen={!!completeWashBayTarget}
+        bay={completeWashBayTarget}
+        vehicle={completeWashBayTarget?.currentCar}
+        services={completeWashBayTarget?.currentCar?.services || []}
+        isLoading={completeWashLoading}
+        error={completeWashError}
+        onConfirm={confirmCompleteWash}
+        onClose={closeCompleteWashModal}
+      />
     </div>
   );
 }
