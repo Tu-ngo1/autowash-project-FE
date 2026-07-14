@@ -60,7 +60,7 @@ const getMetric = (payload, keys, fallback = 0) => {
 function KpiCard({ title, value, icon, children, delay = 0 }) {
   return (
     <div
-      className="admin-reveal group relative min-h-36 overflow-hidden rounded-none border border-zinc-800 bg-zinc-950 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] transition duration-300 hover:-translate-y-1 hover:border-cyan-400/70 hover:bg-[#071014] hover:shadow-[0_22px_70px_rgba(34,211,238,0.08)]"
+      className="admin-reveal group relative min-h-36 overflow-hidden rounded-xl border border-zinc-800 border-t-zinc-700/60 bg-zinc-950 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] transition duration-300 hover:-translate-y-1 hover:border-cyan-400/70 hover:bg-[#071014] hover:shadow-[0_22px_70px_rgba(34,211,238,0.08)]"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="admin-scanline absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-transparent via-cyan-300/10 to-transparent opacity-0 transition group-hover:opacity-100" />

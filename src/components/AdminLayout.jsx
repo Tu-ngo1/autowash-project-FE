@@ -60,7 +60,7 @@ export default function AdminLayout() {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`group relative flex w-full items-center gap-3 overflow-hidden border px-4 py-3 text-left font-mono text-xs font-black uppercase tracking-[0.12em] transition duration-300 ${
+                className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-lg border px-4 py-3 text-left font-mono text-xs font-black uppercase tracking-[0.12em] transition duration-300 ${
                   isActive
                     ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-200 shadow-[0_14px_40px_rgba(34,211,238,0.08)]"
                     : "border-transparent text-zinc-500 hover:border-zinc-800 hover:bg-zinc-950 hover:text-zinc-200"
@@ -80,8 +80,8 @@ export default function AdminLayout() {
 
         <div className="border-t border-zinc-800 p-4">
           {/* Profile Card */}
-          <div className="flex items-center gap-3 border border-zinc-800 bg-zinc-950 p-3">
-            <div className="flex h-10 w-10 items-center justify-center border border-zinc-700 bg-black">
+          <div className="flex items-center gap-3 border border-zinc-800 bg-zinc-950 p-3 rounded-lg">
+            <div className="flex h-10 w-10 items-center justify-center border border-zinc-700 bg-black rounded">
               <span className="material-symbols-outlined">person</span>
             </div>
             <div className="flex-1 min-w-0">
