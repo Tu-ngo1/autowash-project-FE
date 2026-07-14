@@ -5,8 +5,8 @@ const staffBookingsPath = (path = "") =>
 
 export const checkInBookingByQr = (qrContent) =>
   api.post(staffBookingsPath("check-in"), null, {
-    params: { qrContent },
-  });
+        params: { qrContent },
+      });
 
 export const updateStaffBookingStatus = (id, status) =>
   api.put(staffBookingsPath(`${id}/status`), { status });
