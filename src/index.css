@@ -6,6 +6,16 @@
   html,
   body {
     max-width: 100%;
+    font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Be Vietnam Pro', sans-serif;
   }
 
   /* Custom scrollbar */

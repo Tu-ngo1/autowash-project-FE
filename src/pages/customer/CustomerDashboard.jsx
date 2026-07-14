@@ -235,9 +235,9 @@ export default function CustomerDashboard() {
   };
 
   return (
-    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
+    <div className="customer-motion-root min-h-screen overflow-hidden bg-[#f4fafc] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(204,243,255,0.84)_46%,rgba(70,190,230,0.48))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,253,255,0.96),rgba(244,250,252,0.84)_46%,rgba(70,190,230,0.48))]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,116,158,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,116,158,0.1)_1px,transparent_1px)] bg-[size:74px_74px]" />
       </div>
 
@@ -246,7 +246,7 @@ export default function CustomerDashboard() {
 
         {receivedBooking && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-            <section className="w-full max-w-2xl overflow-hidden rounded-[34px] border border-white/80 bg-white shadow-[0_34px_100px_rgba(2,6,23,0.28)]">
+            <section className="w-full max-w-2xl overflow-hidden rounded-[34px] border border-white/40 ring-1 ring-white/10 bg-white/95 shadow-[0_34px_100px_rgba(2,40,70,0.16)] backdrop-blur-2xl">
               <div className="relative bg-[linear-gradient(135deg,rgba(207,250,254,0.96),rgba(240,253,250,0.98))] p-8 sm:p-10">
                 <div className="absolute right-8 top-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
                   <span className="material-symbols-outlined text-[32px]">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import UserNavbar from "../../components/UserNavbar";
-import { customerBookingApi } from "../../services";
+import { customerBookingApi, customerWalletApi } from "../../services";
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
@@ -11,20 +11,37 @@ export default function PaymentSuccess() {
 
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState(null);
+  const [isWalletDeposit, setIsWalletDeposit] = useState(false);
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode");
     if (orderCode) {
+      const orderCodeNum = Number(orderCode);
+      const isWallet = !isNaN(orderCodeNum) && orderCodeNum >= 5000000000000000;
+      setIsWalletDeposit(isWallet);
       setVerifying(true);
-      customerBookingApi.verifyPayment(orderCode)
-        .then(() => {
-          setVerifying(false);
-        })
-        .catch((err) => {
-          console.error("Xác thực thanh toán thất bại:", err);
-          setError("Không thể tự động đồng bộ hóa trạng thái thanh toán ngay lập tức. Lịch hẹn của bạn sẽ được xử lý sớm nhất.");
-          setVerifying(false);
-        });
+
+      if (isWallet) {
+        customerWalletApi.verifyWalletPayment(orderCode)
+          .then(() => {
+            setVerifying(false);
+          })
+          .catch((err) => {
+            console.error("Xác thực nạp tiền ví thất bại:", err);
+            setError("Không thể tự động đồng bộ hóa số dư ví ngay lập tức. Giao dịch nạp ví sẽ được xử lý sớm nhất.");
+            setVerifying(false);
+          });
+      } else {
+        customerBookingApi.verifyPayment(orderCode)
+          .then(() => {
+            setVerifying(false);
+          })
+          .catch((err) => {
+            console.error("Xác thực thanh toán thất bại:", err);
+            setError("Không thể tự động đồng bộ hóa trạng thái thanh toán ngay lập tức. Lịch hẹn của bạn sẽ được xử lý sớm nhất.");
+            setVerifying(false);
+          });
+      }
     } else {
       setVerifying(false);
     }
@@ -70,10 +87,12 @@ export default function PaymentSuccess() {
                 </div>
 
                 <h1 className="mt-8 text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-                  Thanh toán thành công!
+                  {isWalletDeposit ? "Nạp tiền thành công!" : "Thanh toán thành công!"}
                 </h1>
                 <p className="mt-4 text-base font-semibold leading-relaxed text-slate-500">
-                  Cảm ơn bạn đã lựa chọn AutoWash. Lịch đặt của bạn đã được thanh toán trực tuyến qua cổng PayOS và xác nhận thành công.
+                  {isWalletDeposit
+                    ? "Cảm ơn bạn đã sử dụng dịch vụ AutoWash. Số tiền đã được cộng vào ví điện tử của bạn thành công."
+                    : "Cảm ơn bạn đã lựa chọn AutoWash. Lịch đặt của bạn đã được thanh toán trực tuyến qua cổng PayOS và xác nhận thành công."}
                 </p>
                 {error && (
                   <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-bold text-amber-800 text-left">
@@ -105,19 +124,29 @@ export default function PaymentSuccess() {
               <div className="flex justify-between">
                 <span className="text-sm font-bold text-slate-500">Trạng thái</span>
                 <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-                  Đã thanh toán
+                  {isWalletDeposit ? "Nạp tiền thành công" : "Đã thanh toán"}
                 </span>
               </div>
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => navigate("/history")}
-                className="flex-1 rounded-2xl bg-cyan-400 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-95"
-              >
-                Lịch sử đặt lịch
-              </button>
+              {isWalletDeposit ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile?tab=wallet")}
+                  className="flex-1 rounded-2xl bg-cyan-400 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-95"
+                >
+                  Xem ví của bạn
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate("/history")}
+                  className="flex-1 rounded-2xl bg-cyan-400 py-4 text-sm font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 active:scale-95"
+                >
+                  Lịch sử đặt lịch
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate("/dashboard")}

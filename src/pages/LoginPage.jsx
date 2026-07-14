@@ -212,7 +212,7 @@ function LoginPanel() {
           <button
             type="submit"
             disabled={loading}
-            className="group relative h-[60px] w-full overflow-hidden rounded-2xl bg-slate-950 text-base font-black text-white shadow-[0_18px_40px_rgba(8,47,73,0.22)] transition hover:-translate-y-0.5 hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="group relative h-[60px] w-full overflow-hidden rounded-2xl bg-slate-950 text-base font-black text-white shadow-[0_18px_40px_rgba(8,47,73,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-900 active:scale-[0.98] active:translate-y-px disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/25 to-transparent transition duration-700 group-hover:translate-x-[120%]" />
             <span className="relative">
@@ -235,14 +235,14 @@ export default function LoginPage() {
   }, [navigate]);
 
   return (
-    <div className="home-motion-root min-h-screen overflow-hidden bg-[#d9f7ff] text-slate-950">
+    <div className="home-motion-root min-h-screen overflow-hidden bg-[#f4fafc] text-slate-950">
       <div className="pointer-events-none fixed inset-0">
         <img
           src="https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?q=80&w=2400&auto=format&fit=crop"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-42"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(102deg,rgba(2,22,42,0.9),rgba(0,104,151,0.66)_42%,rgba(210,247,255,0.86)_84%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(102deg,rgba(2,22,42,0.9),rgba(0,104,151,0.66)_42%,rgba(244,250,252,0.86)_84%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_32%,rgba(0,210,255,0.48),transparent_30%),radial-gradient(circle_at_20%_76%,rgba(88,231,255,0.22),transparent_28%)]" />
         <div className="absolute left-0 top-0 h-[520px] w-[520px] rounded-full bg-cyan-200/30 blur-3xl" />
         <div className="absolute right-[-120px] top-20 h-[460px] w-[460px] rounded-full bg-blue-300/30 blur-3xl" />

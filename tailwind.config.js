@@ -24,7 +24,7 @@ export default {
         error: "#ffb4ab",
       },
       fontFamily: {
-        "body-md": ["Inter", "sans-serif"],
+        "body-md": ["Be Vietnam Pro", "sans-serif"],
         "data-display": ["JetBrains Mono", "monospace"],
         "label-caps": ["JetBrains Mono", "monospace"],
       },
