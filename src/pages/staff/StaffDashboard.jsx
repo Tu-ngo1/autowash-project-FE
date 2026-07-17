@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import StaffNavbar from "../../components/StaffNavbar";
+import ArrivalConfirmationModal from "../../components/staff/ArrivalConfirmationModal";
 import {
   confirmPendingAppointment,
   getPendingAppointments,
@@ -247,6 +248,9 @@ export default function StaffDashboard() {
   const [scanWarning, setScanWarning] = useState("");
   const [scanStatus, setScanStatus] = useState("");
   const [scannedCode, setScannedCode] = useState("");
+  const [arrivalTarget, setArrivalTarget] = useState(null);
+  const [arrivalError, setArrivalError] = useState("");
+  const [toast, setToast] = useState("");
 
   const fetchPendingAppointments = async () => {
     setLoading(true);
@@ -394,16 +398,33 @@ export default function StaffDashboard() {
 
   useEffect(() => () => stopCamera(), []);
 
-  const handleConfirm = async (id) => {
+  const openArrivalModal = (appointment) => {
+    if (!appointment) return;
+    setArrivalTarget(appointment);
+    setArrivalError("");
+  };
+
+  const closeArrivalModal = () => {
+    if (submitLoading) return;
+    setArrivalTarget(null);
+    setArrivalError("");
+  };
+
+  const handleConfirm = async () => {
+    const id = arrivalTarget?.id || arrivalTarget?._id;
     if (!id) return;
     setSubmitLoading(true);
+    setArrivalError("");
     try {
       await confirmPendingAppointment(id);
 
+      setArrivalTarget(null);
       setScannedResult(null);
-      fetchPendingAppointments();
+      setToast("Đã xác nhận xe đến và chuyển vào hàng đợi");
+      await fetchPendingAppointments();
+      window.setTimeout(() => setToast(""), 2800);
     } catch (err) {
-      alert(
+      setArrivalError(
         getFriendlyErrorMessage(
           err,
           "Gặp lỗi trong quá trình tiếp nhận xe. Vui lòng thử lại.",
@@ -422,6 +443,12 @@ export default function StaffDashboard() {
           {error && (
             <div className="mb-4 rounded border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-300">
               {error}
+            </div>
+          )}
+
+          {toast && (
+            <div className="mb-4 rounded border border-[#6ff6df]/25 bg-[#6ff6df]/10 p-4 text-sm font-bold text-[#6ff6df]">
+              {toast}
             </div>
           )}
 
@@ -560,9 +587,7 @@ export default function StaffDashboard() {
                   <button
                     type="button"
                     disabled={submitLoading}
-                    onClick={() =>
-                      handleConfirm(scannedResult.id || scannedResult._id)
-                    }
+                    onClick={() => openArrivalModal(scannedResult)}
                     className="flex w-full items-center justify-center gap-3 bg-[#72e6ff] px-6 py-4 text-[16px] font-black text-[#061427] transition hover:bg-[#9ff4ff] disabled:bg-slate-700 disabled:text-slate-400"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   >
@@ -579,6 +604,15 @@ export default function StaffDashboard() {
           </section>
         </main>
       </div>
+
+      <ArrivalConfirmationModal
+        isOpen={!!arrivalTarget}
+        appointment={arrivalTarget}
+        isLoading={submitLoading}
+        error={arrivalError}
+        onConfirm={handleConfirm}
+        onClose={closeArrivalModal}
+      />
 
       <style>{`
         @keyframes scan {
