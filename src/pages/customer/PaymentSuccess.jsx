@@ -15,9 +15,23 @@ export default function PaymentSuccess() {
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode");
+    const paymentType = String(
+      searchParams.get("type") ||
+        searchParams.get("source") ||
+        searchParams.get("paymentType") ||
+        searchParams.get("tab") ||
+        "",
+    ).toLowerCase();
+    const hasDepositHint =
+      paymentType.includes("wallet") ||
+      paymentType.includes("deposit") ||
+      searchParams.has("amount");
+
     if (orderCode) {
       const orderCodeNum = Number(orderCode);
-      const isWallet = !isNaN(orderCodeNum) && orderCodeNum >= 5000000000000000;
+      const isWallet =
+        hasDepositHint ||
+        (!isNaN(orderCodeNum) && orderCodeNum >= 5000000000000000);
       setIsWalletDeposit(isWallet);
       setVerifying(true);
 
@@ -43,6 +57,7 @@ export default function PaymentSuccess() {
           });
       }
     } else {
+      setIsWalletDeposit(hasDepositHint);
       setVerifying(false);
     }
   }, [searchParams]);
@@ -59,7 +74,7 @@ export default function PaymentSuccess() {
 
         <main className="mx-auto flex min-h-screen w-full max-w-[600px] flex-col justify-center px-4 pb-14 pt-32 sm:px-6">
           <section className="relative overflow-hidden rounded-[34px] border border-white/75 bg-white/74 p-8 text-center shadow-[0_32px_90px_rgba(2,74,138,0.14)] backdrop-blur-2xl sm:p-10">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(16,185,129,0.15),transparent_40%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(16,185,129,0.15),transparent_40%)]" />
             
             {verifying ? (
               <>
@@ -129,7 +144,7 @@ export default function PaymentSuccess() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="relative z-10 mt-8 flex flex-col gap-3 sm:flex-row">
               {isWalletDeposit ? (
                 <button
                   type="button"

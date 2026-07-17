@@ -6,7 +6,8 @@ import { customerBookingApi } from "../../services";
 export default function PaymentFailed() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const bookingCode = searchParams.get("bookingCode") || searchParams.get("orderCode") || "";
+  const bookingCode =
+    searchParams.get("bookingCode") || searchParams.get("orderCode") || "";
 
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState(null);
@@ -14,9 +15,23 @@ export default function PaymentFailed() {
 
   useEffect(() => {
     const orderCode = searchParams.get("orderCode");
+    const paymentType = String(
+      searchParams.get("type") ||
+        searchParams.get("source") ||
+        searchParams.get("paymentType") ||
+        searchParams.get("tab") ||
+        "",
+    ).toLowerCase();
+    const hasDepositHint =
+      paymentType.includes("wallet") ||
+      paymentType.includes("deposit") ||
+      searchParams.has("amount");
+
     if (orderCode) {
       const orderCodeNum = Number(orderCode);
-      const isWallet = !isNaN(orderCodeNum) && orderCodeNum >= 5000000000000000;
+      const isWallet =
+        hasDepositHint ||
+        (!isNaN(orderCodeNum) && orderCodeNum >= 5000000000000000);
       setIsWalletDeposit(isWallet);
 
       if (isWallet) {
@@ -25,17 +40,24 @@ export default function PaymentFailed() {
         setError("Giao dịch nạp tiền vào ví đã bị hủy hoặc thất bại.");
       } else {
         setVerifying(true);
-        customerBookingApi.verifyPayment(orderCode)
+        customerBookingApi
+          .verifyPayment(orderCode)
           .then(() => {
             setVerifying(false);
           })
           .catch((err) => {
             console.error("Xác thực thanh toán thất bại:", err);
-            setError("Không thể đồng bộ trạng thái thất bại ngay lập tức. Lịch hẹn của bạn sẽ tự động cập nhật sau.");
+            setError(
+              "Không thể đồng bộ trạng thái thất bại ngay lập tức. Lịch hẹn của bạn sẽ tự động cập nhật sau.",
+            );
             setVerifying(false);
           });
       }
     } else {
+      setIsWalletDeposit(hasDepositHint);
+      if (hasDepositHint) {
+        setError("Giao dịch nạp tiền vào ví đã bị hủy hoặc thất bại.");
+      }
       setVerifying(false);
     }
   }, [searchParams]);
@@ -52,8 +74,8 @@ export default function PaymentFailed() {
 
         <main className="mx-auto flex min-h-screen w-full max-w-[600px] flex-col justify-center px-4 pb-14 pt-32 sm:px-6">
           <section className="relative overflow-hidden rounded-[34px] border border-white/75 bg-white/74 p-8 text-center shadow-[0_32px_90px_rgba(2,74,138,0.14)] backdrop-blur-2xl sm:p-10">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(239,68,68,0.15),transparent_40%)]" />
-            
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(239,68,68,0.15),transparent_40%)]" />
+
             {verifying ? (
               <>
                 {/* Loading icon */}
@@ -67,7 +89,8 @@ export default function PaymentFailed() {
                   Đang đồng bộ giao dịch...
                 </h1>
                 <p className="mt-4 text-base font-semibold leading-relaxed text-slate-500">
-                  Hệ thống đang kiểm tra trạng thái hủy/lỗi thanh toán từ cổng PayOS. Xin vui lòng đợi.
+                  Hệ thống đang kiểm tra trạng thái hủy/lỗi thanh toán từ cổng
+                  PayOS. Xin vui lòng đợi.
                 </p>
               </>
             ) : (
@@ -80,7 +103,9 @@ export default function PaymentFailed() {
                 </div>
 
                 <h1 className="mt-8 text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-                  {isWalletDeposit ? "Nạp tiền thất bại!" : "Thanh toán thất bại!"}
+                  {isWalletDeposit
+                    ? "Nạp tiền thất bại!"
+                    : "Thanh toán thất bại!"}
                 </h1>
                 <p className="mt-4 text-base font-semibold leading-relaxed text-slate-500">
                   {isWalletDeposit
@@ -98,23 +123,33 @@ export default function PaymentFailed() {
             <div className="mt-8 space-y-3.5 rounded-[26px] border border-cyan-100 bg-white/50 p-6 text-left">
               {bookingCode && (
                 <div className="flex justify-between border-b border-cyan-50/50 pb-3">
-                  <span className="text-sm font-bold text-slate-500">Mã đơn hàng</span>
-                  <span className="text-sm font-black text-slate-950 font-mono">{bookingCode}</span>
+                  <span className="text-sm font-bold text-slate-500">
+                    Mã đơn hàng
+                  </span>
+                  <span className="text-sm font-black text-slate-950 font-mono">
+                    {bookingCode}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between border-b border-cyan-50/50 pb-3">
-                <span className="text-sm font-bold text-slate-500">Phương thức</span>
-                <span className="text-sm font-black text-slate-950">PayOS (Online Banking/VietQR)</span>
+                <span className="text-sm font-bold text-slate-500">
+                  Phương thức
+                </span>
+                <span className="text-sm font-black text-slate-950">
+                  PayOS (Online Banking/VietQR)
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm font-bold text-slate-500">Trạng thái</span>
+                <span className="text-sm font-bold text-slate-500">
+                  Trạng thái
+                </span>
                 <span className="inline-flex rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
                   Thất bại / Đã hủy
                 </span>
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="relative z-10 mt-8 flex flex-col gap-3 sm:flex-row">
               {isWalletDeposit ? (
                 <button
                   type="button"
@@ -140,10 +175,6 @@ export default function PaymentFailed() {
                 Về trang chủ
               </button>
             </div>
-            
-            <p className="mt-6 text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Hotline hỗ trợ kỹ thuật: 1900-1234
-            </p>
           </section>
         </main>
       </div>

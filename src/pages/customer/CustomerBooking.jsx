@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import UserNavbar from "../../components/UserNavbar";
 import BookingSummary from "../../components/booking/BookingSummary";
-import { getUser, getUserTier, getUserWalletBalance, updateUser } from "../../utils/auth";
+import {
+  getUser,
+  getUserTier,
+  getUserWalletBalance,
+  updateUser,
+} from "../../utils/auth";
 import { getProfile } from "../../services/customerUserApi";
 import {
   createBooking,
@@ -78,7 +83,9 @@ const normalizeHourlySlots = (slots = [], businessHours = {}) => {
       if (endHour !== null && hour >= endHour) return null;
 
       const start = formatTimeFromDateTimeString(startTimeVal);
-      const end = endTimeVal ? formatTimeFromDateTimeString(endTimeVal) : getSlotEndTime(start);
+      const end = endTimeVal
+        ? formatTimeFromDateTimeString(endTimeVal)
+        : getSlotEndTime(start);
 
       return {
         slot: start,
@@ -103,14 +110,13 @@ const getSlotEndTime = (slot, durationMinutes = 60) => {
   if (hour === null) return "";
   const parts = String(slot).split(":");
   const minute = parts.length >= 2 ? Number(parts[1]) : 0;
-  
+
   const totalMinutes = hour * 60 + minute + durationMinutes;
   const endHour = Math.floor(totalMinutes / 60) % 24;
   const endMinute = totalMinutes % 60;
-  
+
   return `${padHour(endHour)}:${padHour(endMinute)}`;
 };
-
 
 const VEHICLE_SIZE_OPTIONS = {
   SMALL: { label: "SMALL", icon: "directions_car" },
@@ -299,22 +305,31 @@ export default function CustomerBooking() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const fetchBookingData = async (carSize, dateParam = "", totalDurationParam = 0, initialConfig = null) => {
+  const fetchBookingData = async (
+    carSize,
+    dateParam = "",
+    totalDurationParam = 0,
+    initialConfig = null,
+  ) => {
     const bookingDataKey = `${carSize || "ALL"}_${dateParam || ""}_${totalDurationParam || 0}`;
     if (bookingDataKeyRef.current === bookingDataKey) return;
     bookingDataKeyRef.current = bookingDataKey;
-    
+
     setLoadingServices(true);
-    
+
     // Reset selected addons ONLY when vehicle carSize changes
     const carSizeChanged = lastCarSizeRef.current !== (carSize || "ALL");
     if (carSizeChanged) {
       lastCarSizeRef.current = carSize || "ALL";
       setSelectedAddons([]);
     }
-    
+
     try {
-      const response = await getBookingData(carSize, dateParam, totalDurationParam);
+      const response = await getBookingData(
+        carSize,
+        dateParam,
+        totalDurationParam,
+      );
       const payload = response.data?.data ?? response.data ?? {};
       const config =
         initialConfig ||
@@ -384,7 +399,9 @@ export default function CustomerBooking() {
     }
   };
 
-  const carSize = selectedVehicle ? normalizeVehicleSize(selectedVehicle) : null;
+  const carSize = selectedVehicle
+    ? normalizeVehicleSize(selectedVehicle)
+    : null;
 
   const mainServices = useMemo(() => {
     const filtered = services.filter((item) => item.isMainService === true);
@@ -395,21 +412,29 @@ export default function CustomerBooking() {
     return services.filter((item) => item.isMainService === false);
   }, [services]);
 
-  const serviceInfo = mainServices.find((item) => String(item.id) === String(service)) || {
+  const serviceInfo = mainServices.find(
+    (item) => String(item.id) === String(service),
+  ) || {
     price: 0,
     name: "",
     description: "",
   };
 
   const addonCost = selectedAddons.reduce((sum, addonId) => {
-    const addon = addonServices.find((item) => String(item.id) === String(addonId));
+    const addon = addonServices.find(
+      (item) => String(item.id) === String(addonId),
+    );
     return sum + (addon?.price || 0);
   }, 0);
 
   const totalDuration = useMemo(() => {
-    const mainServiceDuration = Number(serviceInfo.durationMinutes ?? serviceInfo.duration ?? 0);
+    const mainServiceDuration = Number(
+      serviceInfo.durationMinutes ?? serviceInfo.duration ?? 0,
+    );
     const addonsDuration = selectedAddons.reduce((sum, addonId) => {
-      const addon = addonServices.find((item) => String(item.id) === String(addonId));
+      const addon = addonServices.find(
+        (item) => String(item.id) === String(addonId),
+      );
       return sum + Number(addon?.durationMinutes ?? addon?.duration ?? 0);
     }, 0);
     return mainServiceDuration + addonsDuration;
@@ -424,19 +449,23 @@ export default function CustomerBooking() {
         setUserTier(tier);
         setWalletBalance(balance);
 
-        const [carsPayload, voucherPayload, configPayload, profileRes] = await Promise.all([
-          getMyCars().catch(() => []),
-          getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
-            () => [],
-          ),
-          getCustomerBookingConfig().catch(() => ({})),
-          getProfile().catch(() => null),
-        ]);
+        const [carsPayload, voucherPayload, configPayload, profileRes] =
+          await Promise.all([
+            getMyCars().catch(() => []),
+            getCustomerVouchers(currentUser?.id || currentUser?.userId).catch(
+              () => [],
+            ),
+            getCustomerBookingConfig().catch(() => ({})),
+            getProfile().catch(() => null),
+          ]);
 
         let voucherSourcePayload = voucherPayload;
         if (profileRes) {
           const profileData = profileRes.data?.data ?? profileRes.data ?? {};
-          const freshBalance = Number(profileData.walletBalance ?? profileData.balance ?? balance) || 0;
+          const freshBalance =
+            Number(
+              profileData.walletBalance ?? profileData.balance ?? balance,
+            ) || 0;
           setWalletBalance(freshBalance);
           updateUser({
             id: profileData.id || currentUser?.id,
@@ -445,9 +474,9 @@ export default function CustomerBooking() {
             name: profileData.fullName || profileData.name,
           });
           if (!currentUser?.id && !currentUser?.userId && profileData.id) {
-            voucherSourcePayload = await getCustomerVouchers(profileData.id).catch(
-              () => voucherPayload,
-            );
+            voucherSourcePayload = await getCustomerVouchers(
+              profileData.id,
+            ).catch(() => voucherPayload);
           }
         }
 
@@ -508,7 +537,10 @@ export default function CustomerBooking() {
   }, [totalPrice, walletBalance, paymentMethod]);
 
   const selectedAddonLabels = selectedAddons
-    .map((addonId) => addonServices.find((item) => String(item.id) === String(addonId))?.name)
+    .map(
+      (addonId) =>
+        addonServices.find((item) => String(item.id) === String(addonId))?.name,
+    )
     .filter(Boolean);
 
   const mainServiceLabel = serviceInfo.name || "Chưa chọn";
@@ -536,14 +568,19 @@ export default function CustomerBooking() {
   const maxDate =
     Number.isFinite(advanceBookingDays) && advanceBookingDays > 0
       ? (() => {
-          maxDateValue.setDate(maxDateValue.getDate() + advanceBookingDays);
+          maxDateValue.setDate(maxDateValue.getDate() + advanceBookingDays - 1);
           return formatDateKey(maxDateValue);
         })()
       : undefined;
   const datePickerDays = useMemo(() => {
     const lastDate = maxDate
       ? new Date(`${maxDate}T12:00:00`)
-      : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14, 12);
+      : new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate() + 14,
+          12,
+        );
     const days = [];
     const cursor = new Date(`${minDate}T12:00:00`);
 
@@ -602,9 +639,11 @@ export default function CustomerBooking() {
       const res = await createBooking(booking);
       const raw = res?.data?.data ?? res?.data ?? {};
       const checkoutUrl = raw.checkoutUrl || raw.paymentUrl || raw.url;
-      
+
       if (paymentMethod === "PAYOS" && checkoutUrl) {
-        setSuccess("Đặt lịch thành công! Đang chuyển hướng đến trang thanh toán PayOS...");
+        setSuccess(
+          "Đặt lịch thành công! Đang chuyển hướng đến trang thanh toán PayOS...",
+        );
         window.location.href = checkoutUrl;
         return;
       }
@@ -781,28 +820,74 @@ export default function CustomerBooking() {
                 <div className="grid gap-3 md:grid-cols-5">
                   {(() => {
                     const steps = [
-                      { number: "01", label: "Chọn xe", icon: "directions_car", sectionId: "section-car", isCompleted: !!selectedVehicle },
-                      { number: "02", label: "Dịch vụ chính", icon: "local_car_wash", sectionId: "section-main-service", isCompleted: !!selectedVehicle && !!service },
-                      { number: "03", label: "Dịch vụ phụ", icon: "add_circle", sectionId: "section-addon-service", isCompleted: !!selectedVehicle && !!service },
-                      { number: "04", label: "Ngày giờ", icon: "schedule", sectionId: "section-datetime", isCompleted: !!selectedVehicle && !!service && !!date && !!timeSlot },
-                      { number: "05", label: "Thanh toán", icon: "payments", sectionId: "section-payment", isCompleted: !!selectedVehicle && !!service && !!date && !!timeSlot && !!paymentMethod },
+                      {
+                        number: "01",
+                        label: "Chọn xe",
+                        icon: "directions_car",
+                        sectionId: "section-car",
+                        isCompleted: !!selectedVehicle,
+                      },
+                      {
+                        number: "02",
+                        label: "Dịch vụ chính",
+                        icon: "local_car_wash",
+                        sectionId: "section-main-service",
+                        isCompleted: !!selectedVehicle && !!service,
+                      },
+                      {
+                        number: "03",
+                        label: "Dịch vụ phụ",
+                        icon: "add_circle",
+                        sectionId: "section-addon-service",
+                        isCompleted: !!selectedVehicle && !!service,
+                      },
+                      {
+                        number: "04",
+                        label: "Ngày giờ",
+                        icon: "schedule",
+                        sectionId: "section-datetime",
+                        isCompleted:
+                          !!selectedVehicle &&
+                          !!service &&
+                          !!date &&
+                          !!timeSlot,
+                      },
+                      {
+                        number: "05",
+                        label: "Thanh toán",
+                        icon: "payments",
+                        sectionId: "section-payment",
+                        isCompleted:
+                          !!selectedVehicle &&
+                          !!service &&
+                          !!date &&
+                          !!timeSlot &&
+                          !!paymentMethod,
+                      },
                     ];
-                    const firstIncomplete = steps.findIndex(s => !s.isCompleted);
-                    const activeIndex = firstIncomplete === -1 ? 4 : firstIncomplete;
+                    const firstIncomplete = steps.findIndex(
+                      (s) => !s.isCompleted,
+                    );
+                    const activeIndex =
+                      firstIncomplete === -1 ? 4 : firstIncomplete;
 
                     return steps.map((item, index) => {
                       const isActive = index === activeIndex;
                       const isCompleted = item.isCompleted;
-                      
-                      let cardStyle = "bg-white/40 border-white/60 opacity-60 hover:opacity-100 hover:bg-white/80 text-slate-500 hover:shadow-sm";
+
+                      let cardStyle =
+                        "bg-white/40 border-white/60 opacity-60 hover:opacity-100 hover:bg-white/80 text-slate-500 hover:shadow-sm";
                       let bubbleStyle = "bg-slate-200/80 text-slate-500";
-                      
+
                       if (isCompleted) {
-                        cardStyle = "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15 text-emerald-800";
+                        cardStyle =
+                          "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15 text-emerald-800";
                         bubbleStyle = "bg-emerald-600 text-white";
                       } else if (isActive) {
-                        cardStyle = "bg-cyan-500/10 border-cyan-400 ring-1 ring-cyan-400 shadow-[0_10px_30px_rgba(6,182,212,0.12)] hover:bg-cyan-500/15 text-cyan-800";
-                        bubbleStyle = "bg-cyan-600 text-white animate-pulse shadow-[0_0_12px_rgba(6,182,212,0.5)]";
+                        cardStyle =
+                          "bg-cyan-500/10 border-cyan-400 ring-1 ring-cyan-400 shadow-[0_10px_30px_rgba(6,182,212,0.12)] hover:bg-cyan-500/15 text-cyan-800";
+                        bubbleStyle =
+                          "bg-cyan-600 text-white animate-pulse shadow-[0_0_12px_rgba(6,182,212,0.5)]";
                       }
 
                       return (
@@ -812,9 +897,13 @@ export default function CustomerBooking() {
                           onClick={() => scrollToSection(item.sectionId)}
                           className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 active:scale-[0.97] ${cardStyle}`}
                         >
-                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${bubbleStyle}`}>
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${bubbleStyle}`}
+                          >
                             {isCompleted ? (
-                              <span className="material-symbols-outlined text-[16px] font-black">check</span>
+                              <span className="material-symbols-outlined text-[16px] font-black">
+                                check
+                              </span>
                             ) : (
                               item.number
                             )}
@@ -833,7 +922,10 @@ export default function CustomerBooking() {
                   })()}
                 </div>
               </section>
-              <section id="section-car" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section
+                id="section-car"
+                className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8"
+              >
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">
                     directions_car
@@ -907,7 +999,10 @@ export default function CustomerBooking() {
                 </div>
               </section>
 
-              <section id="section-main-service" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section
+                id="section-main-service"
+                className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8"
+              >
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">layers</span>
                   Chọn Dịch Vụ Rửa Xe
@@ -990,61 +1085,73 @@ export default function CustomerBooking() {
                 </div>
               </section>
 
-                {addonServices.length > 0 && (
-                  <section id="section-addon-service" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
-                    <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
-                      <span className="material-symbols-outlined">add_circle</span>
-                      Dịch vụ phụ (Chọn nhiều)
-                    </h2>
-                    <p className="mb-6 text-base font-medium text-slate-500">
-                      Chọn các dịch vụ đi kèm bổ sung nếu cần thiết.
-                    </p>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {addonServices.map((item) => {
-                        const active = selectedAddons.includes(item.id);
-                        return (
-                          <label
-                            key={item.id}
-                            className={`flex cursor-pointer items-center gap-4 rounded-[22px] border p-4 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
-                              active
-                                ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
-                                : "border-white/80 bg-white/72"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={active}
-                              onChange={() => handleToggleAddon(item.id)}
-                              className="h-5 w-5 rounded border-cyan-200 text-cyan-600 focus:ring-cyan-500"
-                            />
-                            <div className="flex-grow">
-                              <div className="mb-1 flex justify-between gap-4">
-                                <h4 className="font-black text-slate-950">
-                                  {item.name || "Dịch vụ phụ"}
-                                </h4>
-                                <span className="whitespace-nowrap font-black text-cyan-700">
-                                  {formatPrice(item.price)}
-                                </span>
-                              </div>
-                              <p className="line-clamp-2 text-xs font-semibold text-slate-500">
-                                {item.description}
-                              </p>
+              {addonServices.length > 0 && (
+                <section
+                  id="section-addon-service"
+                  className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8"
+                >
+                  <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
+                    <span className="material-symbols-outlined">
+                      add_circle
+                    </span>
+                    Dịch vụ phụ (Chọn nhiều)
+                  </h2>
+                  <p className="mb-6 text-base font-medium text-slate-500">
+                    Chọn các dịch vụ đi kèm bổ sung nếu cần thiết.
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {addonServices.map((item) => {
+                      const active = selectedAddons.includes(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className={`flex cursor-pointer items-center gap-4 rounded-[22px] border p-4 transition-all hover:-translate-y-0.5 hover:bg-cyan-50 ${
+                            active
+                              ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)]"
+                              : "border-white/80 bg-white/72"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={active}
+                            onChange={() => handleToggleAddon(item.id)}
+                            className="h-5 w-5 rounded border-cyan-200 text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <div className="flex-grow">
+                            <div className="mb-1 flex justify-between gap-4">
+                              <h4 className="font-black text-slate-950">
+                                {item.name || "Dịch vụ phụ"}
+                              </h4>
+                              <span className="whitespace-nowrap font-black text-cyan-700">
+                                {formatPrice(item.price)}
+                              </span>
                             </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
+                            <p className="line-clamp-2 text-xs font-semibold text-slate-500">
+                              {item.description}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
-              <section id="section-datetime" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section
+                id="section-datetime"
+                className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8"
+              >
                 <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                      <span className="material-symbols-outlined text-base">calendar_month</span>
+                      <span className="material-symbols-outlined text-base">
+                        calendar_month
+                      </span>
                       Chọn ngày
                     </p>
-                    <h2 className="text-2xl font-black text-slate-950">Ngày & giờ rửa</h2>
+                    <h2 className="text-2xl font-black text-slate-950">
+                      Ngày & giờ rửa
+                    </h2>
                   </div>
                   <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-black text-cyan-700">
                     {date ? formatPickerDate(date).fullLabel : "Chưa chọn ngày"}
@@ -1072,15 +1179,21 @@ export default function CustomerBooking() {
                       <span className="block text-xs font-black uppercase tracking-[0.12em] opacity-75">
                         {item.weekday}
                       </span>
-                      <span className="mt-1 block text-2xl font-black">{item.day}</span>
-                      <span className="mt-1 block text-xs font-bold opacity-75">{item.month}</span>
+                      <span className="mt-1 block text-2xl font-black">
+                        {item.day}
+                      </span>
+                      <span className="mt-1 block text-xs font-bold opacity-75">
+                        {item.month}
+                      </span>
                     </button>
                   ))}
                 </div>
 
                 <div className="mt-7">
                   <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                    <span className="material-symbols-outlined text-base">schedule</span>
+                    <span className="material-symbols-outlined text-base">
+                      schedule
+                    </span>
                     Chọn khung giờ
                   </p>
                   {loadingServices ? (
@@ -1130,15 +1243,22 @@ export default function CustomerBooking() {
 
                 {date && timeSlot && (
                   <div className="mt-5 flex items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/75 px-4 py-3 text-sm font-bold text-slate-700">
-                    <span className="material-symbols-outlined text-cyan-700">event_available</span>
+                    <span className="material-symbols-outlined text-cyan-700">
+                      event_available
+                    </span>
                     <span>
-                      Bạn đã chọn: <strong className="text-slate-950">{timeSlot}</strong> · {formatPickerDate(date).fullLabel}
+                      Bạn đã chọn:{" "}
+                      <strong className="text-slate-950">{timeSlot}</strong> ·{" "}
+                      {formatPickerDate(date).fullLabel}
                     </span>
                   </div>
                 )}
               </section>
 
-              <section id="section-payment" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
+              <section
+                id="section-payment"
+                className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8"
+              >
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
                   <span className="material-symbols-outlined">payments</span>
                   Thanh toán
@@ -1207,8 +1327,8 @@ export default function CustomerBooking() {
                       walletBalance < totalPrice
                         ? "border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed"
                         : paymentMethod === "WALLET"
-                        ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)] cursor-pointer"
-                        : "border-white/80 bg-white/72 hover:-translate-y-0.5 hover:bg-cyan-50 cursor-pointer"
+                          ? "border-cyan-300 bg-cyan-50 shadow-[0_18px_40px_rgba(6,182,212,0.12)] cursor-pointer"
+                          : "border-white/80 bg-white/72 hover:-translate-y-0.5 hover:bg-cyan-50 cursor-pointer"
                     }`}
                   >
                     <div className="mb-2 flex items-start gap-3">
