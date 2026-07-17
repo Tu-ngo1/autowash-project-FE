@@ -85,7 +85,7 @@ export default function UserNavbar({ active }) {
           ))}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-4">
+        <div className="flex min-w-0 shrink items-center gap-2 sm:gap-3 lg:gap-4">
           {authenticated && balance !== null && (
             <div
               onClick={() => navigate("/profile?tab=wallet")}
@@ -98,12 +98,15 @@ export default function UserNavbar({ active }) {
           {authenticated && (
             <div
               onClick={() => navigate("/profile")}
-              className="hidden items-center gap-2 cursor-pointer hover:opacity-80 sm:flex"
+              className="hidden min-w-0 max-w-[150px] cursor-pointer items-center gap-2 hover:opacity-80 sm:flex lg:max-w-[190px] 2xl:max-w-[260px]"
+              title={userName}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-600 text-white font-black text-xs uppercase">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-600 text-white font-black text-xs uppercase">
                 {userName.charAt(0)}
               </div>
-              <span className="hidden text-xs font-black text-[#314c5f] xl:inline">{userName}</span>
+              <span className="hidden min-w-0 truncate text-xs font-black text-[#314c5f] xl:inline">
+                {userName}
+              </span>
             </div>
           )}
           <button
