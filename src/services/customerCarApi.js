@@ -1,11 +1,12 @@
 import api, { apiPath } from "./apiClient";
+import { formatLicensePlate } from "../utils/licensePlate";
 
 const unwrap = (response) => response?.data?.data ?? response?.data ?? response ?? {};
 const customerCarsPath = (path = "") =>
   apiPath(`/customer/cars${path ? `/${String(path).replace(/^\/+/, "")}` : ""}`);
 
 export const normalizeCustomerCar = (car = {}) => {
-  const licensePlate = car.licensePlate || car.plate || "";
+  const licensePlate = formatLicensePlate(car.licensePlate || car.plate || "");
   const vehicleSize = String(
     car.vehicleSize || car.vehicle_size || car.size || car.type || "",
   ).toUpperCase();
