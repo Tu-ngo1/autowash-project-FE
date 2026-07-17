@@ -43,6 +43,24 @@
     background: #4f7883;
     border-radius: 10px;
   }
+
+  .booking-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(8, 145, 178, 0.35) transparent;
+  }
+
+  .booking-scrollbar::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .booking-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .booking-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(8, 145, 178, 0.35);
+    border-radius: 999px;
+  }
 }
 
 @layer components {
