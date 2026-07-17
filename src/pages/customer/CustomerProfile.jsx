@@ -74,7 +74,10 @@ const sortNewestFirst = (items = []) =>
   [...items].sort((a, b) => {
     const newestDiff = getNewestValue(b) - getNewestValue(a);
     if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.transactionId || 0) - Number(a?.id || a?.transactionId || 0);
+    return (
+      Number(b?.id || b?.transactionId || 0) -
+      Number(a?.id || a?.transactionId || 0)
+    );
   });
 
 const getRecentBookings = (bookings = []) =>
@@ -118,18 +121,20 @@ const getBookingQrValue = (booking) => {
 
 const mergeVehicles = (...groups) => {
   const seen = new Set();
-  return sortNewestFirst(groups
-    .flat()
-    .filter(Boolean)
-    .map(normalizeCustomerCar)
-    .filter((vehicle) => {
-      const key = String(
-        vehicle.licensePlate || vehicle.plate || vehicle.id || "",
-      ).toUpperCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }));
+  return sortNewestFirst(
+    groups
+      .flat()
+      .filter(Boolean)
+      .map(normalizeCustomerCar)
+      .filter((vehicle) => {
+        const key = String(
+          vehicle.licensePlate || vehicle.plate || vehicle.id || "",
+        ).toUpperCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
+  );
 };
 
 const unwrapPayload = (payload) =>
@@ -395,7 +400,11 @@ export default function CustomerProfile() {
 
         setRecentBookings(getRecentBookings(bookings));
         setPendingQrBookings(getPendingQrBookings(bookings));
-        setVouchers(sortNewestFirst(Array.isArray(loyalty.vouchers) ? loyalty.vouchers : []));
+        setVouchers(
+          sortNewestFirst(
+            Array.isArray(loyalty.vouchers) ? loyalty.vouchers : [],
+          ),
+        );
       } catch {
         if (isMounted) {
           setRecentBookings([]);
@@ -980,7 +989,7 @@ export default function CustomerProfile() {
                       <button
                         type="submit"
                         disabled={depositLoading}
-                        className="w-full h-13 rounded-2xl bg-cyan-400 font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="min-h-[58px] w-full rounded-[22px] bg-cyan-400 px-6 py-4 text-lg font-black text-slate-950 shadow-[0_18px_40px_rgba(6,182,212,0.22)] transition hover:-translate-y-0.5 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {depositLoading ? "Đang xử lý..." : "Nạp tiền ngay"}
                       </button>
@@ -1023,7 +1032,8 @@ export default function CustomerProfile() {
                           </thead>
                           <tbody className="divide-y divide-cyan-100/50">
                             {transactions.map((tx) => {
-                              const txType = tx.transactionType || tx.type || "";
+                              const txType =
+                                tx.transactionType || tx.type || "";
                               const isAdd =
                                 txType === "DEPOSIT" || txType === "REFUND";
                               const sign = isAdd ? "+" : "-";
@@ -1280,9 +1290,12 @@ export default function CustomerProfile() {
                               {item.service || item.serviceName || "-"}
                             </p>
                           </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-                            statusStyles[String(item.status).toUpperCase()] || "bg-slate-100 text-slate-700"
-                          }`}>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
+                              statusStyles[String(item.status).toUpperCase()] ||
+                              "bg-slate-100 text-slate-700"
+                            }`}
+                          >
                             {item.status}
                           </span>
                         </div>
@@ -1666,8 +1679,8 @@ export default function CustomerProfile() {
       {selectedQrBooking && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xl">
           <div className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/75 bg-white/82 shadow-[0_32px_90px_rgba(2,74,138,0.18)] backdrop-blur-2xl">
-            <div className="flex items-center justify-between border-b border-cyan-100 px-6 py-5">
-              <h2 className="text-xl font-black text-slate-950">
+            <div className="flex items-center justify-between border-b border-white/15 bg-slate-950 px-6 py-5">
+              <h2 className="text-xl font-black text-white">
                 Mã QR lịch đặt
               </h2>
               <button
@@ -1711,7 +1724,9 @@ export default function CustomerProfile() {
                     <span className="animate-spin text-cyan-500 material-symbols-outlined text-4xl mb-2">
                       sync
                     </span>
-                    <span className="text-xs font-bold text-slate-500 font-sans">Đang tải mã QR...</span>
+                    <span className="text-xs font-bold text-slate-500 font-sans">
+                      Đang tải mã QR...
+                    </span>
                   </div>
                 ) : qrCodeError ? (
                   <div className="flex flex-col items-center justify-center p-2 text-center text-rose-500 text-xs font-sans">

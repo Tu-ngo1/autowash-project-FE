@@ -18,6 +18,30 @@ import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const formatPrice = (price) => Number(price || 0).toLocaleString("vi-VN") + "đ";
 
+const formatDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatPickerDate = (dateKey) => {
+  const date = new Date(`${dateKey}T12:00:00`);
+  return {
+    weekday: new Intl.DateTimeFormat("vi-VN", { weekday: "short" })
+      .format(date)
+      .replace(".", ""),
+    day: String(date.getDate()).padStart(2, "0"),
+    month: `Th${String(date.getMonth() + 1).padStart(2, "0")}`,
+    fullLabel: new Intl.DateTimeFormat("vi-VN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date),
+  };
+};
+
 const padHour = (hour) => String(hour).padStart(2, "0");
 
 const getHourFromTime = (value) => {
@@ -502,7 +526,7 @@ export default function CustomerBooking() {
   };
 
   const today = new Date();
-  const minDate = today.toISOString().slice(0, 10);
+  const minDate = formatDateKey(today);
   const maxDateValue = new Date(today);
   const advanceBookingDays = Number(
     tierRule.advanceBookingDays ??
@@ -513,9 +537,24 @@ export default function CustomerBooking() {
     Number.isFinite(advanceBookingDays) && advanceBookingDays > 0
       ? (() => {
           maxDateValue.setDate(maxDateValue.getDate() + advanceBookingDays);
-          return maxDateValue.toISOString().slice(0, 10);
+          return formatDateKey(maxDateValue);
         })()
       : undefined;
+  const datePickerDays = useMemo(() => {
+    const lastDate = maxDate
+      ? new Date(`${maxDate}T12:00:00`)
+      : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14, 12);
+    const days = [];
+    const cursor = new Date(`${minDate}T12:00:00`);
+
+    while (cursor <= lastDate && days.length < 31) {
+      const value = formatDateKey(cursor);
+      days.push({ value, ...formatPickerDate(value) });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return days;
+  }, [maxDate, minDate, today]);
   const slotDurationMinutes = Number(bookingConfig.slotDurationMinutes) || 60;
   const businessStartTime = bookingConfig.businessHours?.startTime || "-";
   const businessEndTime = bookingConfig.businessHours?.endTime || "-";
@@ -999,71 +1038,104 @@ export default function CustomerBooking() {
                 )}
 
               <section id="section-datetime" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
-                <h2 className="mb-6 flex items-center gap-3 text-2xl font-black text-slate-950">
-                  <span className="material-symbols-outlined">schedule</span>
-                  Ngày & Giờ
-                </h2>
-
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                    <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                      <span className="material-symbols-outlined text-base">calendar_month</span>
                       Chọn ngày
-                    </label>
-                    <input
-                      type="date"
-                      value={date}
-                      min={minDate}
-                      max={maxDate}
-                      onChange={(event) => setDate(event.target.value)}
-                      className="w-full rounded-2xl border border-cyan-100 bg-white/80 p-4 font-bold outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                    />
+                    </p>
+                    <h2 className="text-2xl font-black text-slate-950">Ngày & giờ rửa</h2>
                   </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                      Chọn khung giờ
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {loadingServices ? (
-                        <div className="col-span-3 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-4 text-center text-xs font-semibold text-slate-500">
-                          Đang tải khung giờ...
-                        </div>
-                      ) : timeSlots.length === 0 ? (
-                        <div className="col-span-3 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-4 text-center text-xs font-semibold text-slate-500">
-                          Chưa có khung giờ nào.
-                        </div>
-                      ) : (
-                        (availableSlots.length
-                          ? availableSlots
-                          : timeSlots.map((item) => ({
-                              slot: item.slot,
-                              endTime: item.endTime,
-                              label: item.label,
-                              available: true,
-                            }))
-                        ).map((item) => (
-                          <button
-                            key={item.slot}
-                            type="button"
-                            disabled={!item.available}
-                            onClick={() => {
-                              if (!date) setDate(minDate);
-                              setTimeSlot(item.slot);
-                            }}
-                            className={`rounded-2xl border p-3 text-xs font-black transition-all ${
-                              !item.available
-                                ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400"
-                                : timeSlot === item.slot
-                                  ? "border-cyan-400 bg-cyan-400 text-slate-950 shadow-[0_14px_30px_rgba(6,182,212,0.2)]"
-                                  : "border-white/80 bg-white/80 hover:-translate-y-0.5 hover:bg-cyan-50"
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                  <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-black text-cyan-700">
+                    {date ? formatPickerDate(date).fullLabel : "Chưa chọn ngày"}
+                  </span>
                 </div>
+
+                <div
+                  className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7"
+                  aria-label="Danh sách ngày có thể đặt lịch"
+                >
+                  {datePickerDays.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => {
+                        setDate(item.value);
+                        setTimeSlot("");
+                      }}
+                      className={`min-h-[88px] rounded-2xl border px-3 py-3 text-left transition duration-200 active:scale-[0.98] ${
+                        date === item.value
+                          ? "border-cyan-400 bg-cyan-400 text-slate-950 shadow-[0_14px_30px_rgba(6,182,212,0.2)]"
+                          : "border-white/80 bg-white/75 text-slate-600 hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-50"
+                      }`}
+                    >
+                      <span className="block text-xs font-black uppercase tracking-[0.12em] opacity-75">
+                        {item.weekday}
+                      </span>
+                      <span className="mt-1 block text-2xl font-black">{item.day}</span>
+                      <span className="mt-1 block text-xs font-bold opacity-75">{item.month}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-7">
+                  <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                    <span className="material-symbols-outlined text-base">schedule</span>
+                    Chọn khung giờ
+                  </p>
+                  {loadingServices ? (
+                    <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-5 text-center text-sm font-semibold text-slate-500">
+                      Đang tải khung giờ...
+                    </div>
+                  ) : timeSlots.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-5 text-center text-sm font-semibold text-slate-500">
+                      Chưa có khung giờ nào cho ngày này.
+                    </div>
+                  ) : (
+                    <div
+                      className="grid max-h-[248px] grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4"
+                      aria-label="Danh sách khung giờ"
+                    >
+                      {(availableSlots.length
+                        ? availableSlots
+                        : timeSlots.map((item) => ({
+                            slot: item.slot,
+                            endTime: item.endTime,
+                            label: item.label,
+                            available: true,
+                          }))
+                      ).map((item) => (
+                        <button
+                          key={item.slot}
+                          type="button"
+                          disabled={!item.available}
+                          onClick={() => {
+                            if (!date) setDate(minDate);
+                            setTimeSlot(item.slot);
+                          }}
+                          className={`min-h-[54px] rounded-xl border px-3 py-3 text-sm font-black transition duration-200 active:scale-[0.98] ${
+                            !item.available
+                              ? "cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400 opacity-60"
+                              : timeSlot === item.slot
+                                ? "border-cyan-400 bg-cyan-400 text-slate-950 shadow-[0_14px_30px_rgba(6,182,212,0.2)]"
+                                : "border-white/80 bg-white/80 text-slate-700 hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-50"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {date && timeSlot && (
+                  <div className="mt-5 flex items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/75 px-4 py-3 text-sm font-bold text-slate-700">
+                    <span className="material-symbols-outlined text-cyan-700">event_available</span>
+                    <span>
+                      Bạn đã chọn: <strong className="text-slate-950">{timeSlot}</strong> · {formatPickerDate(date).fullLabel}
+                    </span>
+                  </div>
+                )}
               </section>
 
               <section id="section-payment" className="scroll-mt-32 rounded-[30px] border border-white/75 bg-white/72 p-6 shadow-sm backdrop-blur-2xl md:p-8">
