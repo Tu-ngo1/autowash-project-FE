@@ -10,8 +10,11 @@ export const checkInBookingByQr = (qrContent) =>
 
 export const updateStaffBookingStatus = (id, status) =>
   api.put(staffBookingsPath(`${id}/status`), { status });
+export const requestCancelBooking = (id, reason) =>
+  api.post(staffBookingsPath(`${id}/cancel-request`), { reason });
 
 export default {
   checkInBookingByQr,
   updateStaffBookingStatus,
+  requestCancelBooking,
 };
