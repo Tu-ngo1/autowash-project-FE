@@ -52,8 +52,31 @@ function StatusBadge({ status }) {
   );
 }
 
+function CancelRequestBadge({ status }) {
+  const normalizedStatus = String(status || "").toUpperCase();
+  if (!normalizedStatus) return null;
+  const styles = {
+    PENDING: "border-amber-300/50 text-amber-200 bg-amber-300/10",
+    APPROVED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
+    REJECTED: "border-red-400/50 text-red-300 bg-red-400/10",
+  };
+  const labels = {
+    PENDING: "Chờ duyệt hủy",
+    APPROVED: "Đã duyệt hủy",
+    REJECTED: "Bác bỏ yêu cầu hủy",
+  };
+  return (
+    <span
+      className={`mt-1 inline-block border px-2 py-1 font-mono text-[9px] font-black uppercase tracking-[0.12em] ${styles[normalizedStatus] || styles.PENDING}`}
+    >
+      {labels[normalizedStatus] || normalizedStatus}
+    </span>
+  );
+}
+
 const canDeleteBooking = (booking) =>
-  String(booking?.status || "").toUpperCase() !== "COMPLETED";
+  String(booking?.status || "").toUpperCase() !== "COMPLETED" &&
+  String(booking?.cancelRequestStatus || "").toUpperCase() !== "PENDING";
 
 export default function AdminBookingsTable({
   bookings,
@@ -61,6 +84,8 @@ export default function AdminBookingsTable({
   loading,
   onDeleteBooking,
   onEditBooking,
+  onApproveCancelRequest,
+  onRejectCancelRequest,
 }) {
   if (loading) {
     return (
@@ -102,7 +127,10 @@ export default function AdminBookingsTable({
                   {booking.vehicleLicensePlate || booking.plate || "-"}
                 </p>
               </div>
-              <StatusBadge status={booking.status} />
+              <div className="shrink-0 text-right">
+                <StatusBadge status={booking.status} />
+                <CancelRequestBadge status={booking.cancelRequestStatus} />
+              </div>
             </div>
 
             <div className="space-y-2 text-xs text-zinc-500">
@@ -154,6 +182,30 @@ export default function AdminBookingsTable({
                     </span>
                     Xóa
                   </button>
+                )}
+                {String(booking.cancelRequestStatus || "").toUpperCase() === "PENDING" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onApproveCancelRequest?.(booking);
+                      }}
+                      className="flex flex-1 items-center justify-center gap-2 border border-emerald-400/50 bg-emerald-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300"
+                    >
+                      Duyệt hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRejectCancelRequest?.(booking);
+                      }}
+                      className="flex flex-1 items-center justify-center gap-2 border border-amber-400/50 bg-amber-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-amber-200"
+                    >
+                      Từ chối
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -237,6 +289,7 @@ export default function AdminBookingsTable({
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 align-middle">
                   <StatusBadge status={booking.status} />
+                  <CancelRequestBadge status={booking.cancelRequestStatus} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
@@ -272,6 +325,36 @@ export default function AdminBookingsTable({
                           delete
                         </span>
                       </button>
+                    )}
+                    {String(booking.cancelRequestStatus || "").toUpperCase() === "PENDING" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onApproveCancelRequest?.(booking);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center border border-emerald-400/40 bg-emerald-400/10 text-emerald-300 transition hover:bg-emerald-400/20"
+                          title="Duyệt yêu cầu hủy"
+                        >
+                          <span className="material-symbols-outlined text-[17px]">
+                            check
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onRejectCancelRequest?.(booking);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center border border-amber-400/40 bg-amber-400/10 text-amber-200 transition hover:bg-amber-400/20"
+                          title="Bác bỏ yêu cầu hủy"
+                        >
+                          <span className="material-symbols-outlined text-[17px]">
+                            close
+                          </span>
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>

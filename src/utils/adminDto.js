@@ -71,6 +71,11 @@ export const normalizeAdminBooking = (booking = {}) => {
     booking.vehicle?.model ??
     [booking.vehicle?.brand, booking.vehicle?.modelName].filter(Boolean).join(" ");
   const rawTier = booking.tierLevel ?? booking.tier ?? booking.customer?.tier ?? "MEMBER";
+  const cancelRequestedBy =
+    booking.cancelRequestedBy ??
+    booking.cancelRequestedByUser ??
+    booking.cancelRequestUser ??
+    null;
 
   return {
     ...booking,
@@ -98,6 +103,33 @@ export const normalizeAdminBooking = (booking = {}) => {
     paymentMethod: booking.paymentMethod ?? booking.method,
     paymentStatus: booking.paymentStatus ?? booking.payStatus,
     scheduledStartTime: scheduled,
+    cancelRequestStatus:
+      booking.cancelRequestStatus ??
+      booking.cancelStatus ??
+      booking.cancellationRequestStatus ??
+      "",
+    cancelRequestReason:
+      booking.cancelRequestReason ??
+      booking.cancelReason ??
+      booking.cancellationReason ??
+      "",
+    cancelRequestAdminNote:
+      booking.cancelRequestAdminNote ??
+      booking.adminNote ??
+      booking.cancelAdminNote ??
+      "",
+    cancelRequestedAt:
+      booking.cancelRequestedAt ??
+      booking.cancelRequestCreatedAt ??
+      booking.cancellationRequestedAt ??
+      "",
+    cancelRequestedBy,
+    cancelRequestedByName:
+      booking.cancelRequestedByName ??
+      cancelRequestedBy?.fullName ??
+      cancelRequestedBy?.name ??
+      cancelRequestedBy?.username ??
+      "",
   };
 };
 

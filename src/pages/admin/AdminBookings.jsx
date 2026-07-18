@@ -2,9 +2,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import AdminBookingsTable from "../../components/admin/AdminBookingsTable";
 import {
+  approveCancelRequest,
   deleteAdminBooking,
   getAdminBooking,
   getAdminBookings,
+  rejectCancelRequest,
   updateAdminBookingStatus,
 } from "../../services/adminBookingApi";
 import { asArrayPayload, normalizeAdminBooking } from "../../utils/adminDto";
@@ -81,6 +83,10 @@ export default function AdminBookings() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState("view");
   const [actionMessage, setActionMessage] = useState("");
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [rejectAction, setRejectAction] = useState(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     total: 0,
@@ -111,6 +117,9 @@ export default function AdminBookings() {
       const matchSearch = !keyword || haystack.includes(keyword);
       const matchStatus =
         statusFilter === "all" ||
+        (statusFilter === "cancel_pending" &&
+          String(booking.cancelRequestStatus || "").toUpperCase() ===
+            "PENDING") ||
         String(booking.status || "").toUpperCase() ===
           statusFilter.toUpperCase();
 
@@ -156,7 +165,12 @@ export default function AdminBookings() {
       const res = await getAdminBookings({
         page: pagination.page,
         limit: pagination.limit,
-        status: statusFilter !== "all" ? statusFilter : undefined,
+        status:
+          statusFilter !== "all" && statusFilter !== "cancel_pending"
+            ? statusFilter
+            : undefined,
+        cancelRequestStatus:
+          statusFilter === "cancel_pending" ? "PENDING" : undefined,
         search: search || undefined,
         ...parseDateRange(dateRange),
       });
@@ -220,11 +234,21 @@ export default function AdminBookings() {
   const handleDeleteBooking = async (booking) => {
     const id = booking.id;
     if (!id) return;
-    const ok = window.confirm(
-      `Xóa booking ${booking.bookingCode || `#${id}`}?`
-    );
-    if (!ok) return;
+    setConfirmAction({
+      type: "direct-cancel",
+      booking,
+      title: "Hủy đơn trực tiếp",
+      message:
+        "Hủy trực tiếp đơn này đồng nghĩa hệ thống sẽ tự động hoàn trả 100% tiền cọc vào ví của khách hàng. Bạn có chắc chắn muốn tiếp tục?",
+      confirmLabel: "Hủy đơn",
+    });
+  };
+
+  const executeDeleteBooking = async (booking) => {
+    const id = booking.id;
+    if (!id) return;
     setActionMessage("");
+    setActionLoading(true);
     try {
       await deleteAdminBooking(id);
       setActionMessage("ĐÃ XÓA ĐƠN ĐẶT LỊCH");
@@ -234,6 +258,59 @@ export default function AdminBookings() {
     setAllBookings((current) =>
       current.filter((item) => (item.id || item.bookingId) !== id)
     );
+    setActionLoading(false);
+    setConfirmAction(null);
+  };
+
+  const handleApproveCancelRequest = (booking) => {
+    setConfirmAction({
+      type: "approve-cancel",
+      booking,
+      title: "Duyệt yêu cầu hủy",
+      message:
+        "Bạn có chắc chắn muốn duyệt yêu cầu hủy lịch đặt này? Khách hàng sẽ được hoàn lại 100% tiền vào ví.",
+      confirmLabel: "Duyệt hủy",
+    });
+  };
+
+  const executeApproveCancelRequest = async (booking) => {
+    const id = booking.id || booking.bookingId;
+    if (!id) return;
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      await approveCancelRequest(id);
+      setActionMessage("ĐÃ DUYỆT YÊU CẦU HỦY");
+      await fetchBookings();
+    } catch {
+      setActionMessage("KHÔNG THỂ DUYỆT YÊU CẦU HỦY");
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleRejectCancelRequest = (booking) => {
+    setRejectAction(booking);
+    setRejectNote("");
+  };
+
+  const executeRejectCancelRequest = async () => {
+    const id = rejectAction?.id || rejectAction?.bookingId;
+    if (!id) return;
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      await rejectCancelRequest(id, rejectNote);
+      setActionMessage("ĐÃ BÁC BỎ YÊU CẦU HỦY");
+      await fetchBookings();
+    } catch {
+      setActionMessage("KHÔNG THỂ BÁC BỎ YÊU CẦU HỦY");
+    } finally {
+      setActionLoading(false);
+      setRejectAction(null);
+      setRejectNote("");
+    }
   };
 
   const exportBookings = () => {
@@ -389,6 +466,9 @@ export default function AdminBookings() {
                 <option className="bg-black text-zinc-100" value="all">
                   TẤT CẢ TRẠNG THÁI
                 </option>
+                <option className="bg-black text-zinc-100" value="cancel_pending">
+                  YÊU CẦU HỦY CHỜ DUYỆT
+                </option>
                 <option className="bg-black text-zinc-100" value="PENDING">
                   PENDING
                 </option>
@@ -428,6 +508,8 @@ export default function AdminBookings() {
           bookings={bookings}
           onDeleteBooking={handleDeleteBooking}
           onEditBooking={openEditBooking}
+          onApproveCancelRequest={handleApproveCancelRequest}
+          onRejectCancelRequest={handleRejectCancelRequest}
           fetchBookingDetails={fetchBookingDetails}
           loading={loading}
         />
@@ -567,6 +649,45 @@ export default function AdminBookings() {
                       CANCELLED
                     </option>
                   </select>
+                </section>
+              )}
+              {selectedBooking.cancelRequestStatus && (
+                <section className="border border-amber-300/40 bg-amber-300/10 p-4">
+                  <h3 className="mb-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
+                    Yêu cầu hủy
+                  </h3>
+                  <div className="space-y-3 text-sm text-zinc-200">
+                    <div>
+                      <span className="text-zinc-500">Trạng thái: </span>
+                      <span className="font-mono font-black uppercase text-amber-200">
+                        {selectedBooking.cancelRequestStatus}
+                      </span>
+                    </div>
+                    {selectedBooking.cancelRequestReason && (
+                      <div>
+                        <span className="text-zinc-500">Lý do Staff: </span>
+                        <span>{selectedBooking.cancelRequestReason}</span>
+                      </div>
+                    )}
+                    {selectedBooking.cancelRequestedByName && (
+                      <div>
+                        <span className="text-zinc-500">Người yêu cầu: </span>
+                        <span>{selectedBooking.cancelRequestedByName}</span>
+                      </div>
+                    )}
+                    {selectedBooking.cancelRequestedAt && (
+                      <div>
+                        <span className="text-zinc-500">Thời gian: </span>
+                        <span>{new Date(selectedBooking.cancelRequestedAt).toLocaleString("vi-VN")}</span>
+                      </div>
+                    )}
+                    {selectedBooking.cancelRequestAdminNote && (
+                      <div>
+                        <span className="text-zinc-500">Ghi chú Admin: </span>
+                        <span>{selectedBooking.cancelRequestAdminNote}</span>
+                      </div>
+                    )}
+                  </div>
                 </section>
               )}
               {/* Customer & Vehicle Info */}
@@ -731,6 +852,101 @@ export default function AdminBookings() {
             </div>
           </div>
         </>
+      )}
+      {confirmAction && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => !actionLoading && setConfirmAction(null)}
+        >
+          <div
+            className="w-full max-w-lg border border-cyan-400/30 bg-zinc-950 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <span className="material-symbols-outlined text-4xl text-amber-300">
+                warning
+              </span>
+              <div>
+                <h3 className="font-mono text-xl font-black uppercase text-zinc-50">
+                  {confirmAction.title}
+                </h3>
+                <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
+                  {confirmAction.message}
+                </p>
+                <p className="mt-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
+                  {confirmAction.booking?.bookingCode ||
+                    `#${confirmAction.booking?.id || ""}`}{" "}
+                  • {confirmAction.booking?.vehicleLicensePlate || "-"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setConfirmAction(null)}
+                className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-400 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() =>
+                  confirmAction.type === "approve-cancel"
+                    ? executeApproveCancelRequest(confirmAction.booking)
+                    : executeDeleteBooking(confirmAction.booking)
+                }
+                className="border border-cyan-400/50 bg-cyan-400/15 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-200 transition hover:bg-cyan-400/25 disabled:opacity-50"
+              >
+                {actionLoading ? "Đang xử lý..." : confirmAction.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {rejectAction && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => !actionLoading && setRejectAction(null)}
+        >
+          <div
+            className="w-full max-w-lg border border-amber-300/30 bg-zinc-950 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="font-mono text-xl font-black uppercase text-zinc-50">
+              Bác bỏ yêu cầu hủy
+            </h3>
+            <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
+              Nhập ghi chú phản hồi cho Staff nếu cần.
+            </p>
+            <textarea
+              value={rejectNote}
+              onChange={(event) => setRejectNote(event.target.value)}
+              rows={4}
+              className="mt-5 w-full border border-zinc-700 bg-black p-3 text-sm font-semibold text-zinc-100 outline-none focus:border-amber-300"
+              placeholder="Ghi chú phản hồi..."
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setRejectAction(null)}
+                className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-400 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={executeRejectCancelRequest}
+                className="border border-amber-300/50 bg-amber-300/15 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-amber-200 transition hover:bg-amber-300/25 disabled:opacity-50"
+              >
+                {actionLoading ? "Đang xử lý..." : "Bác bỏ yêu cầu"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

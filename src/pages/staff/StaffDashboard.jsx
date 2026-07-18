@@ -6,7 +6,10 @@ import {
   confirmPendingAppointment,
   getPendingAppointments,
 } from "../../services/staffDashboardApi";
-import { checkInBookingByQr } from "../../services/staffBookingApi";
+import {
+  checkInBookingByQr,
+  requestCancelBooking,
+} from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_STYLES = {
@@ -81,16 +84,17 @@ const normalizeStaffBooking = (booking = {}) => {
       services.join(", "),
     services,
     tier: booking.tier || booking.tierLevel || booking.status || "Member",
+    cancelRequestStatus: booking.cancelRequestStatus || "",
+    cancelRequestReason: booking.cancelRequestReason || "",
   };
 };
 
-function PendingCard({ item, onSelect, active }) {
+function PendingCard({ item, onSelect, onRequestCancel, active }) {
   const tierStyle = TIER_STYLES[item.tier] || TIER_STYLES.Member;
+  const cancelPending = item.cancelRequestStatus === "PENDING";
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(item)}
+    <div
       className={`group w-full rounded-md border p-3 text-left transition active:scale-[0.99] ${
         active
           ? "border-[#72f3ff] bg-[#102e3f] shadow-[0_0_0_1px_rgba(114,243,255,0.4),0_18px_44px_rgba(34,211,238,0.12)]"
@@ -110,6 +114,11 @@ function PendingCard({ item, onSelect, active }) {
           <p className="mt-1 text-[10px] font-bold text-[#9fb7c9]">
             {item.time || "--:--"} AM
           </p>
+          {cancelPending ? (
+            <p className="mt-2 inline-flex border border-amber-300/50 bg-amber-300/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-amber-200">
+              Chờ duyệt hủy
+            </p>
+          ) : null}
         </div>
         <span
           className={`shrink-0 border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${tierStyle}`}
@@ -119,23 +128,32 @@ function PendingCard({ item, onSelect, active }) {
       </div>
 
       <div className="mt-3 border-t border-[#2b4058] pt-2">
-        {active ? (
-          <div className="flex items-center justify-center gap-2 bg-[#72e6ff] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#061427]">
-            <span className="material-symbols-outlined text-[14px]">
-              check_circle
-            </span>
-            Đã nhận mã quét
-          </div>
-        ) : (
-          <div className="flex items-center justify-center gap-2 bg-white/8 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#9fb7c9]">
-            <span className="material-symbols-outlined text-[14px]">
-              qr_code_scanner
-            </span>
-            Chưa quét QR
-          </div>
-        )}
+        <button
+          type="button"
+          disabled={cancelPending}
+          onClick={() => onSelect(item)}
+          className={`flex w-full items-center justify-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            active
+              ? "bg-[#72e6ff] text-[#061427]"
+              : "bg-white/8 text-[#9fb7c9] hover:bg-white/12"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[14px]">
+            {active ? "check_circle" : "qr_code_scanner"}
+          </span>
+          {active ? "Đã nhận mã quét" : "Chưa quét QR"}
+        </button>
+        <button
+          type="button"
+          disabled={cancelPending}
+          onClick={() => onRequestCancel(item)}
+          className="mt-2 flex w-full items-center justify-center gap-2 border border-rose-300/40 bg-rose-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-200 transition hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="material-symbols-outlined text-[14px]">cancel</span>
+          {cancelPending ? "Đang chờ duyệt" : "Yêu cầu hủy"}
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -250,6 +268,10 @@ export default function StaffDashboard() {
   const [scannedCode, setScannedCode] = useState("");
   const [arrivalTarget, setArrivalTarget] = useState(null);
   const [arrivalError, setArrivalError] = useState("");
+  const [cancelRequestTarget, setCancelRequestTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelRequestError, setCancelRequestError] = useState("");
+  const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
   const [toast, setToast] = useState("");
 
   const fetchPendingAppointments = async () => {
@@ -435,6 +457,50 @@ export default function StaffDashboard() {
     }
   };
 
+  const openCancelRequestModal = (appointment) => {
+    if (!appointment || appointment.cancelRequestStatus === "PENDING") return;
+    setCancelRequestTarget(appointment);
+    setCancelReason("");
+    setCancelRequestError("");
+  };
+
+  const closeCancelRequestModal = () => {
+    if (cancelRequestLoading) return;
+    setCancelRequestTarget(null);
+    setCancelReason("");
+    setCancelRequestError("");
+  };
+
+  const submitCancelRequest = async () => {
+    const id = cancelRequestTarget?.id || cancelRequestTarget?._id;
+    const reason = cancelReason.trim();
+    if (!id) return;
+    if (!reason) {
+      setCancelRequestError("Vui lòng nhập lý do yêu cầu hủy lịch.");
+      return;
+    }
+
+    setCancelRequestLoading(true);
+    setCancelRequestError("");
+    try {
+      await requestCancelBooking(id, reason);
+      setToast("Đã gửi yêu cầu hủy lịch cho admin duyệt");
+      setCancelRequestTarget(null);
+      setCancelReason("");
+      await fetchPendingAppointments();
+      window.setTimeout(() => setToast(""), 2800);
+    } catch (err) {
+      setCancelRequestError(
+        getFriendlyErrorMessage(
+          err,
+          "Không thể gửi yêu cầu hủy lịch. Vui lòng thử lại.",
+        ),
+      );
+    } finally {
+      setCancelRequestLoading(false);
+    }
+  };
+
   return (
     <div className="staff-motion-root min-h-screen text-white lg:pl-64">
       <StaffNavbar />
@@ -509,6 +575,7 @@ export default function StaffDashboard() {
                             (item.id || item._id)
                         }
                         onSelect={(target) => setScannedResult(target)}
+                        onRequestCancel={openCancelRequestModal}
                       />
                     </div>
                   ))}
@@ -613,6 +680,58 @@ export default function StaffDashboard() {
         onConfirm={handleConfirm}
         onClose={closeArrivalModal}
       />
+
+      {cancelRequestTarget ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCancelRequestModal();
+          }}
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-[#72f3ff]/25 bg-[#10192b] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.4)]">
+            <p className="font-mono text-[11px] font-black uppercase tracking-[0.22em] text-[#72f3ff]">
+              Yêu cầu hủy lịch
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-white">
+              Gửi yêu cầu cho admin duyệt
+            </h3>
+            <p className="mt-2 text-sm text-[#9fb7c9]">
+              {cancelRequestTarget.plate || "Chưa có biển số"} ·{" "}
+              {cancelRequestTarget.service || "Chưa có dịch vụ"}
+            </p>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={4}
+              placeholder="Nhập lý do hủy lịch..."
+              className="mt-5 w-full resize-none rounded-lg border border-[#31475e] bg-[#0b1220] p-4 text-sm font-semibold text-white outline-none placeholder:text-[#64748b] focus:border-[#72f3ff]"
+            />
+            {cancelRequestError ? (
+              <div className="mt-4 rounded-lg border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-200">
+                {cancelRequestError}
+              </div>
+            ) : null}
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCancelRequestModal}
+                disabled={cancelRequestLoading}
+                className="rounded-xl border border-[#31475e] px-5 py-3 text-sm font-black text-[#c8d8e8] transition hover:border-[#72f3ff]/60 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={submitCancelRequest}
+                disabled={cancelRequestLoading}
+                className="rounded-xl bg-rose-400 px-5 py-3 text-sm font-black text-white shadow-lg shadow-rose-950/30 transition hover:bg-rose-300 disabled:opacity-60"
+              >
+                {cancelRequestLoading ? "Đang gửi..." : "Gửi yêu cầu hủy"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <style>{`
         @keyframes scan {
