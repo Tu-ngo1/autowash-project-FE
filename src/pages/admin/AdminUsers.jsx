@@ -65,6 +65,9 @@ export default function AdminUsers() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [addError, setAddError] = useState("");
+  const [vehicleFormTarget, setVehicleFormTarget] = useState(null);
+  const [vehicleForm, setVehicleForm] = useState({ plate: "", model: "" });
+  const [vehicleFormError, setVehicleFormError] = useState("");
   const [stats, setStats] = useState({
     customers: 0,
     staff: 0,
@@ -202,6 +205,37 @@ export default function AdminUsers() {
     } catch (err) {
       console.error("Failed to add vehicle:", err);
     }
+  };
+
+  const openVehicleForm = (customer) => {
+    setVehicleFormTarget(customer);
+    setVehicleForm({ plate: "", model: "" });
+    setVehicleFormError("");
+  };
+
+  const closeVehicleForm = () => {
+    setVehicleFormTarget(null);
+    setVehicleForm({ plate: "", model: "" });
+    setVehicleFormError("");
+  };
+
+  const submitVehicleForm = async () => {
+    const plate = vehicleForm.plate.trim().toUpperCase();
+    const model = vehicleForm.model.trim();
+    if (!vehicleFormTarget?.id) return;
+    if (!plate) {
+      setVehicleFormError("Vui lòng nhập biển số xe.");
+      return;
+    }
+
+    setVehicleFormError("");
+    await addVehicle(vehicleFormTarget.id, {
+      plate,
+      licensePlate: plate,
+      model,
+      modelName: model,
+    });
+    closeVehicleForm();
   };
 
   const deleteVehicle = async (customerId, vehicleId) => {
@@ -811,12 +845,7 @@ export default function AdminUsers() {
                       QUẢN LÝ PHƯƠNG TIỆN
                     </h3>
                     <button
-                      onClick={() => {
-                        const plate = prompt("Nhập biển số xe:");
-                        const model = prompt("Nhập model xe:");
-                        if (plate)
-                          addVehicle(selectedCustomer.id, { plate, model });
-                      }}
+                      onClick={() => openVehicleForm(selectedCustomer)}
                       className="flex items-center gap-1 text-cyan-300 transition-colors hover:text-cyan-100"
                     >
                       <span className="material-symbols-outlined text-[18px]">
@@ -895,6 +924,79 @@ export default function AdminUsers() {
           />
         </>
       )}
+
+      {vehicleFormTarget ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeVehicleForm();
+          }}
+        >
+          <div className="w-full max-w-md border border-cyan-400/35 bg-zinc-950 p-6 shadow-2xl">
+            <p className="font-mono text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300">
+              Thêm phương tiện
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-zinc-50">
+              Thêm xe cho {vehicleFormTarget.name}
+            </h3>
+            <div className="mt-5 grid gap-4">
+              <div>
+                <label className="mb-2 block font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Biển số xe
+                </label>
+                <input
+                  value={vehicleForm.plate}
+                  onChange={(event) =>
+                    setVehicleForm((prev) => ({
+                      ...prev,
+                      plate: event.target.value,
+                    }))
+                  }
+                  placeholder="50A123456"
+                  className="h-11 w-full border border-zinc-800 bg-black px-4 font-mono text-sm font-black uppercase text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  Dòng xe
+                </label>
+                <input
+                  value={vehicleForm.model}
+                  onChange={(event) =>
+                    setVehicleForm((prev) => ({
+                      ...prev,
+                      model: event.target.value,
+                    }))
+                  }
+                  placeholder="Toyota Vios"
+                  className="h-11 w-full border border-zinc-800 bg-black px-4 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
+                />
+              </div>
+            </div>
+            {vehicleFormError ? (
+              <div className="mt-4 border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-200">
+                {vehicleFormError}
+              </div>
+            ) : null}
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeVehicleForm}
+                className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={submitVehicleForm}
+                className="border border-cyan-400/60 bg-cyan-400/10 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-200 transition hover:bg-cyan-400/20"
+              >
+                Thêm xe
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

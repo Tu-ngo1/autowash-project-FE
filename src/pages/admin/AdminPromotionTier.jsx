@@ -131,6 +131,7 @@ export default function AdminPromotions() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tierDrafts, setTierDrafts] = useState({});
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     fetchTiers();
@@ -206,16 +207,15 @@ export default function AdminPromotions() {
 
   const deleteVoucher = async (voucherId) => {
     if (!voucherId) return;
-    if (window.confirm("Bạn có chắc muốn xóa voucher này?")) {
-      try {
-        await deleteVoucherApi(voucherId);
-        setVouchers((prev) =>
-          prev.filter((voucher) => getVoucherId(voucher) !== voucherId),
-        );
-        fetchVouchers();
-      } catch (err) {
-        console.error("Failed to delete voucher:", err);
-      }
+    try {
+      await deleteVoucherApi(voucherId);
+      setVouchers((prev) =>
+        prev.filter((voucher) => getVoucherId(voucher) !== voucherId),
+      );
+      setDeleteTarget(null);
+      fetchVouchers();
+    } catch (err) {
+      console.error("Failed to delete voucher:", err);
     }
   };
 
@@ -656,7 +656,7 @@ export default function AdminPromotions() {
                             </span>
                           </button>
                           <button
-                            onClick={() => deleteVoucher(voucherId)}
+                            onClick={() => setDeleteTarget(voucher)}
                             className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
                           >
                             <span className="material-symbols-outlined text-[18px]">
@@ -684,6 +684,44 @@ export default function AdminPromotions() {
           </div>
         </div>
       </div>
+
+      {deleteTarget ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDeleteTarget(null);
+          }}
+        >
+          <div className="w-full max-w-md border border-red-400/35 bg-zinc-950 p-6 shadow-2xl">
+            <p className="font-mono text-[10px] font-black uppercase tracking-[0.22em] text-red-300">
+              Xóa voucher
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-zinc-50">
+              Xác nhận xóa ưu đãi
+            </h3>
+            <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
+              Bạn có chắc muốn xóa{" "}
+              <span className="text-cyan-200">{deleteTarget.name}</span> không?
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteVoucher(getVoucherId(deleteTarget))}
+                className="border border-red-400/60 bg-red-400/10 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-red-200 transition hover:bg-red-400/20"
+              >
+                Xóa voucher
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Edit Voucher Drawer */}
       {isDrawerOpen && selectedVoucher && (

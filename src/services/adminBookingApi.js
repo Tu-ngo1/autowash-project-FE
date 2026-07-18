@@ -8,10 +8,18 @@ export const updateAdminBookingStatus = (id, status) =>
   api.put(apiPath(`/admin/bookings/${id}/status`), { status });
 export const deleteAdminBooking = (id) =>
   api.delete(apiPath(`/admin/bookings/${id}`));
+export const approveCancelRequest = (id) =>
+  api.post(apiPath(`/admin/bookings/${id}/cancel-request/approve`));
+export const rejectCancelRequest = (id, adminNote = "") =>
+  api.post(apiPath(`/admin/bookings/${id}/cancel-request/reject`), {
+    adminNote,
+  });
 
 export default {
   getAdminBookings,
   getAdminBooking,
   updateAdminBookingStatus,
   deleteAdminBooking,
+  approveCancelRequest,
+  rejectCancelRequest,
 };

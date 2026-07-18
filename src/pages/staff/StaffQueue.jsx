@@ -3,6 +3,7 @@ import StaffNavbar from "../../components/StaffNavbar";
 import CompleteWashConfirmationModal from "../../components/staff/CompleteWashConfirmationModal";
 import StartWashConfirmationModal from "../../components/staff/StartWashConfirmationModal";
 import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../services/staffQueueApi";
+import { requestCancelBooking } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_BADGE = {
@@ -149,6 +150,16 @@ const normalizeQueueBooking = (booking = {}) => ({
     booking.estimatedEndTime ||
     booking.endTime ||
     booking.scheduledEndTime,
+  cancelRequestStatus:
+    booking.cancelRequestStatus ||
+    booking.cancelStatus ||
+    booking.cancellationRequestStatus ||
+    "",
+  cancelRequestReason:
+    booking.cancelRequestReason ||
+    booking.cancelReason ||
+    booking.cancellationReason ||
+    "",
 });
 
 const normalizeBay = (bay = {}) => {
@@ -181,17 +192,19 @@ const getQueueItemKey = (item) => {
   return String(item.id ?? item._id ?? item.bookingId ?? item.queueId ?? item.plate ?? "");
 };
 
-function QueueCard({ item, onSelect, isSelected }) {
+function QueueCard({ item, onSelect, isSelected, onRequestCancel }) {
   const badgeClass =
     TIER_BADGE[item.tier] || "border-[#4f7883] text-[#b8d8de] bg-[#123746]";
+  const cancelPending =
+    String(item.cancelRequestStatus || "").toUpperCase() === "PENDING";
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`staff-panel w-full rounded-2xl p-4 text-left transition-all active:scale-[0.99] ${
-        isSelected
-          ? "border-[#6ff6df] bg-[#6ff6df]/10 shadow-[0_0_24px_rgba(94,234,212,0.14)]"
-          : "hover:border-[#6ff6df]/70 hover:bg-[#6ff6df]/5"
+    <div
+      className={`staff-panel w-full rounded-2xl p-4 text-left transition-all ${
+        cancelPending
+          ? "border-amber-300/50 bg-amber-300/5"
+          : isSelected
+            ? "border-[#6ff6df] bg-[#6ff6df]/10 shadow-[0_0_24px_rgba(94,234,212,0.14)]"
+            : "hover:border-[#6ff6df]/70 hover:bg-[#6ff6df]/5"
       }`}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -218,17 +231,39 @@ function QueueCard({ item, onSelect, isSelected }) {
           local_car_wash
         </span>
       </div>
-      <div
-        className={`w-full rounded-xl py-2 text-center text-[11px] font-bold uppercase tracking-widest transition-colors ${
-          isSelected
-            ? "bg-[#6ff6df] text-[#06343a]"
-            : "border border-[#244653] text-[#b8d8de]"
-        }`}
-        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-      >
-        {isSelected ? "Đang chọn" : "Chọn điều phối"}
+      {cancelPending && (
+        <div
+          className="mb-2 rounded-xl border border-amber-300/40 bg-amber-300/10 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-amber-200"
+          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        >
+          Chờ duyệt hủy
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={cancelPending}
+          onClick={onSelect}
+          className={`w-full rounded-xl py-2 text-center text-[11px] font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+            isSelected
+              ? "bg-[#6ff6df] text-[#06343a]"
+              : "border border-[#244653] text-[#b8d8de]"
+          }`}
+          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        >
+          {isSelected ? "Đang chọn" : "Chọn điều phối"}
+        </button>
+        <button
+          type="button"
+          disabled={cancelPending}
+          onClick={onRequestCancel}
+          className="w-full rounded-xl border border-rose-300/40 bg-rose-300/10 py-2 text-center text-[11px] font-bold uppercase tracking-widest text-rose-200 transition-colors hover:bg-rose-300/15 disabled:cursor-not-allowed disabled:opacity-45"
+          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        >
+          Yêu cầu hủy
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -457,6 +492,10 @@ export default function StaffQueue() {
   const [completeWashBayTarget, setCompleteWashBayTarget] = useState(null);
   const [completeWashLoading, setCompleteWashLoading] = useState(false);
   const [completeWashError, setCompleteWashError] = useState("");
+  const [cancelRequestTarget, setCancelRequestTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
+  const [cancelRequestError, setCancelRequestError] = useState("");
   const [toast, setToast] = useState("");
 
   const fetchQueueAndBays = async () => {
@@ -525,6 +564,7 @@ export default function StaffQueue() {
   };
 
   const handleSelectCar = (item) => {
+    if (String(item?.cancelRequestStatus || "").toUpperCase() === "PENDING") return;
     const currentKey = getQueueItemKey(selectedCar);
     const nextKey = getQueueItemKey(item);
     setSelectedCar(currentKey && currentKey === nextKey ? null : item);
@@ -534,6 +574,43 @@ export default function StaffQueue() {
     if (!bay?.id && !bay?._id) return;
     setCompleteWashBayTarget(bay);
     setCompleteWashError("");
+  };
+
+  const openCancelRequestModal = (item) => {
+    setCancelRequestTarget(item);
+    setCancelReason("");
+    setCancelRequestError("");
+  };
+
+  const closeCancelRequestModal = () => {
+    if (cancelRequestLoading) return;
+    setCancelRequestTarget(null);
+    setCancelReason("");
+    setCancelRequestError("");
+  };
+
+  const submitCancelRequest = async () => {
+    const bookingId = cancelRequestTarget?.id || cancelRequestTarget?.bookingId;
+    if (!bookingId || !cancelReason.trim() || cancelRequestLoading) return;
+    setCancelRequestLoading(true);
+    setCancelRequestError("");
+    try {
+      await requestCancelBooking(bookingId, cancelReason.trim());
+      setToast("Đã gửi yêu cầu hủy lịch cho Admin");
+      setCancelRequestTarget(null);
+      setCancelReason("");
+      await fetchQueueAndBays();
+      window.setTimeout(() => setToast(""), 2800);
+    } catch (err) {
+      setCancelRequestError(
+        getFriendlyErrorMessage(
+          err,
+          "Không thể gửi yêu cầu hủy lịch. Vui lòng thử lại.",
+        ),
+      );
+    } finally {
+      setCancelRequestLoading(false);
+    }
   };
 
   const closeCompleteWashModal = () => {
@@ -664,6 +741,7 @@ export default function StaffQueue() {
                       item={item}
                       isSelected={getQueueItemKey(selectedCar) === getQueueItemKey(item)}
                       onSelect={() => handleSelectCar(item)}
+                      onRequestCancel={() => openCancelRequestModal(item)}
                     />
                   </div>
                 ))
@@ -736,6 +814,73 @@ export default function StaffQueue() {
         onConfirm={confirmCompleteWash}
         onClose={closeCompleteWashModal}
       />
+      {cancelRequestTarget && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={closeCancelRequestModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl border border-[#6ff6df]/25 bg-[#071620] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <span className="material-symbols-outlined text-4xl text-amber-300">
+                report
+              </span>
+              <div>
+                <h3
+                  className="text-xl font-black uppercase tracking-wide text-[#ecfeff]"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  Yêu cầu hủy lịch hẹn
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#b8d8de]">
+                  Hành động này cần được Admin phê duyệt. Vui lòng nhập lý do hủy chi tiết.
+                </p>
+                <p
+                  className="mt-3 text-xs font-black uppercase tracking-widest text-[#6ff6df]"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  {cancelRequestTarget.plate || "-"} • {cancelRequestTarget.time || "--:--"}
+                </p>
+              </div>
+            </div>
+            <label className="mt-5 block text-[11px] font-black uppercase tracking-widest text-[#8df9ef]">
+              Lý do hủy
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={4}
+              className="mt-2 w-full rounded-2xl border border-[#244653] bg-[#07111b] p-4 text-sm font-semibold text-[#ecfeff] outline-none transition focus:border-[#6ff6df]"
+              placeholder="Nhập lý do hủy (ví dụ: Khoang chuyên sâu gặp sự cố kĩ thuật...)"
+            />
+            {cancelRequestError && (
+              <div className="mt-3 rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm font-semibold text-rose-200">
+                {cancelRequestError}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={cancelRequestLoading}
+                onClick={closeCancelRequestModal}
+                className="rounded-2xl border border-[#244653] px-5 py-3 text-xs font-black uppercase tracking-widest text-[#b8d8de] transition hover:border-[#6ff6df] disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={cancelRequestLoading || !cancelReason.trim()}
+                onClick={submitCancelRequest}
+                className="rounded-2xl bg-[#6ff6df] px-5 py-3 text-xs font-black uppercase tracking-widest text-[#06343a] transition hover:bg-[#9fffee] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancelRequestLoading ? "Đang gửi..." : "Gửi yêu cầu"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

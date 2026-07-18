@@ -5,6 +5,7 @@ import {
   deleteService as deleteServiceApi,
   getAdminServices,
   updateService as updateServiceApi,
+  updateServiceStatus as updateServiceStatusApi,
 } from "../../services/adminServiceApi";
 const VEHICLE_SIZE_LABELS = {
   SMALL: "Small",
@@ -124,6 +125,8 @@ export default function AdminServices() {
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
   useEffect(() => {
     fetchServices();
@@ -169,13 +172,27 @@ export default function AdminServices() {
 
   const deleteService = async (id) => {
     if (!id) return;
-    if (window.confirm("Bạn có chắc muốn xóa gói dịch vụ này?")) {
-      try {
-        await deleteServiceApi(id);
-        fetchServices();
-      } catch (err) {
-        console.error("Failed to delete service:", err);
-      }
+    try {
+      await deleteServiceApi(id);
+      setDeleteTarget(null);
+      fetchServices();
+    } catch (err) {
+      console.error("Failed to delete service:", err);
+    }
+  };
+
+  const toggleServiceStatus = async (service) => {
+    const id = getServiceId(service);
+    if (!id) return;
+    const nextActive = getServiceStatus(service) !== "ACTIVE";
+    setStatusUpdatingId(id);
+    try {
+      await updateServiceStatusApi(id, nextActive);
+      fetchServices();
+    } catch (err) {
+      console.error("Failed to update service status:", err);
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -185,6 +202,7 @@ export default function AdminServices() {
       service.name,
       service.description,
       service.status,
+      getServiceStatus(service),
       ...getServicePrices(service).map((price) => getVehicleLabel(price)),
     ]
       .filter(Boolean)
@@ -193,7 +211,7 @@ export default function AdminServices() {
     const matchSearch = !keyword || haystack.includes(keyword);
     const matchStatus =
       statusFilter === "all" ||
-      String(service.status || "").toUpperCase() === statusFilter;
+      getServiceStatus(service) === statusFilter;
     return matchSearch && matchStatus;
   });
 
@@ -326,6 +344,7 @@ export default function AdminServices() {
                   const serviceId = getServiceId(service);
                   const expanded = expandedServiceId === serviceId;
                   const prices = getServicePrices(service);
+                  const isActive = getServiceStatus(service) === "ACTIVE";
 
                   return (
                     <Fragment key={serviceId}>
@@ -373,20 +392,25 @@ export default function AdminServices() {
                           </span>
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={statusUpdatingId === serviceId}
+                            onClick={() => toggleServiceStatus(service)}
+                            className="flex items-center gap-2 transition hover:text-cyan-200 disabled:cursor-wait disabled:opacity-60"
+                          >
                             <div
                               className={`h-2 w-2 rounded-full ${
-                                service.status === "ACTIVE"
+                                isActive
                                   ? "bg-emerald-300"
                                   : "bg-red-300"
                               }`}
                             />
                             <span className="whitespace-nowrap font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
-                              {service.status === "ACTIVE"
+                              {isActive
                                 ? "ĐANG BẬT"
                                 : "ĐÃ TẮT"}
                             </span>
-                          </div>
+                          </button>
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex items-center justify-end gap-3">
@@ -402,7 +426,7 @@ export default function AdminServices() {
                               </span>
                             </button>
                             <button
-                              onClick={() => deleteService(serviceId)}
+                              onClick={() => setDeleteTarget(service)}
                               className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
                             >
                               <span className="material-symbols-outlined text-[20px]">
@@ -489,6 +513,45 @@ export default function AdminServices() {
           />
         </>
       )}
+
+      {deleteTarget ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDeleteTarget(null);
+          }}
+        >
+          <div className="w-full max-w-md border border-red-400/35 bg-zinc-950 p-6 shadow-2xl">
+            <p className="font-mono text-[10px] font-black uppercase tracking-[0.22em] text-red-300">
+              Xóa dịch vụ
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-zinc-50">
+              Xác nhận xóa gói dịch vụ
+            </h3>
+            <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
+              Bạn có chắc muốn xóa{" "}
+              <span className="text-cyan-200">{deleteTarget.name}</span> không?
+              Hành động này sẽ gửi yêu cầu xóa lên backend.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-500"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteService(getServiceId(deleteTarget))}
+                className="border border-red-400/60 bg-red-400/10 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-red-200 transition hover:bg-red-400/20"
+              >
+                Xóa dịch vụ
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -522,6 +585,8 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
   const handleSubmit = () => {
     onSave({
       ...formData,
+      active: formData.status === "ACTIVE",
+      isActive: formData.status === "ACTIVE",
       isMainService: Boolean(formData.isMainService),
       servicePrices: formData.servicePrices.map((item) => ({
         ...item,

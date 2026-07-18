@@ -8,8 +8,8 @@ export const updateService = (id, data) =>
   api.put(apiPath(`/admin/services/${id}`), data);
 export const deleteService = (id) =>
   api.delete(apiPath(`/admin/services/${id}`));
-export const updateServiceStatus = (id, status) =>
-  api.patch(apiPath(`/admin/services/${id}/status`), { status });
+export const updateServiceStatus = (id, isActive) =>
+  api.patch(apiPath(`/admin/services/${id}/status`), { isActive });
 
 export default {
   getAdminServices,
