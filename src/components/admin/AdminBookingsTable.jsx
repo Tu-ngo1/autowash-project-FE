@@ -67,7 +67,7 @@ function CancelRequestBadge({ status }) {
   };
   return (
     <span
-      className={`mt-1 inline-block border px-2 py-1 font-mono text-[9px] font-black uppercase tracking-[0.12em] ${styles[normalizedStatus] || styles.PENDING}`}
+      className={`inline-block border px-2 py-1 font-mono text-[9px] font-black uppercase tracking-[0.12em] ${styles[normalizedStatus] || styles.PENDING}`}
     >
       {labels[normalizedStatus] || normalizedStatus}
     </span>
@@ -127,7 +127,7 @@ export default function AdminBookingsTable({
                   {booking.vehicleLicensePlate || booking.plate || "-"}
                 </p>
               </div>
-              <div className="shrink-0 text-right">
+              <div className="flex shrink-0 flex-col items-end gap-1 text-right">
                 <StatusBadge status={booking.status} />
                 <CancelRequestBadge status={booking.cancelRequestStatus} />
               </div>
@@ -233,13 +233,13 @@ export default function AdminBookingsTable({
               <th className="w-40 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THANH TOÁN
               </th>
-              <th className="w-32 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-36 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TRẠNG THÁI
               </th>
               <th className="w-28 whitespace-nowrap px-3 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TỔNG TIỀN
               </th>
-              <th className="w-24 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-32 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THAO TÁC
               </th>
             </tr>
@@ -287,9 +287,11 @@ export default function AdminBookingsTable({
                 <td className="whitespace-nowrap px-3 py-3 align-middle">
                   <PaymentBadge method={booking.paymentMethod} status={booking.paymentStatus} />
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 align-middle">
-                  <StatusBadge status={booking.status} />
-                  <CancelRequestBadge status={booking.cancelRequestStatus} />
+                <td className="px-3 py-3 align-middle">
+                  <div className="flex flex-col items-start gap-1">
+                    <StatusBadge status={booking.status} />
+                    <CancelRequestBadge status={booking.cancelRequestStatus} />
+                  </div>
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
