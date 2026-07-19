@@ -567,7 +567,7 @@ export default function StaffCustomers() {
       return;
     }
 
-    const phoneRegex = /^0\d{9,10}$/;
+    const phoneRegex = /^0\d{9}$/;
     const compactedPlate = compactLicensePlate(query);
     const plateRegex = /^\d{2}[A-Z]{1,2}\d{4,6}$/i;
 
@@ -575,7 +575,7 @@ export default function StaffCustomers() {
     const isPlate = plateRegex.test(compactedPlate);
 
     if (!isPhone && !isPlate) {
-      setError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10-11 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 30A12345).");
+      setError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 30A12345).");
       return;
     }
 
