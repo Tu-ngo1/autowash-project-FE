@@ -336,20 +336,20 @@ export default function AdminPromotions() {
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                    Hạng {tier.name}
+                    Hạng {getTierName(tier)}
                   </span>
                   <span
                     className={`material-symbols-outlined text-[20px] ${
-                      tier.name === "Gold"
+                      getTierName(tier).toUpperCase() === "GOLD"
                         ? "text-yellow-200"
-                        : tier.name === "Platinum"
+                        : getTierName(tier).toUpperCase() === "PLATINUM"
                           ? "text-cyan-200"
                           : "text-cyan-300"
                     }`}
                   >
-                    {tier.name === "Platinum"
+                    {getTierName(tier).toUpperCase() === "PLATINUM"
                       ? "diamond"
-                      : tier.name === "Gold"
+                      : getTierName(tier).toUpperCase() === "GOLD"
                         ? "workspace_premium"
                         : "star"}
                   </span>
@@ -390,21 +390,21 @@ export default function AdminPromotions() {
                 <div className="md:col-span-3 flex items-center gap-3">
                   <div
                     className={`flex h-10 w-10 items-center justify-center border ${
-                      tier.name === "Gold"
+                      getTierName(tier).toUpperCase() === "GOLD"
                         ? "border-yellow-300/60 bg-yellow-300/10"
                         : "border-cyan-400/40 bg-cyan-400/10"
                     }`}
                   >
                     <span
                       className={`material-symbols-outlined ${
-                        tier.name === "Gold"
+                        getTierName(tier).toUpperCase() === "GOLD"
                           ? "text-yellow-200"
                           : "text-cyan-300"
                       }`}
                     >
-                      {tier.name === "Platinum"
+                      {getTierName(tier).toUpperCase() === "PLATINUM"
                         ? "diamond"
-                        : tier.name === "Gold"
+                        : getTierName(tier).toUpperCase() === "GOLD"
                         ? "workspace_premium"
                         : "star"}
                     </span>
@@ -412,14 +412,14 @@ export default function AdminPromotions() {
                   <div>
                     <div
                       className={`font-mono text-sm font-black uppercase tracking-[0.12em] ${
-                        tier.name === "Gold"
+                        getTierName(tier).toUpperCase() === "GOLD"
                           ? "text-yellow-200"
-                          : tier.name === "Platinum"
+                          : getTierName(tier).toUpperCase() === "PLATINUM"
                           ? "text-cyan-200"
                           : "text-zinc-100"
                       }`}
                     >
-                      Hạng {tier.name}
+                      Hạng {getTierName(tier)}
                     </div>
                     <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">
                       {tier.description}
