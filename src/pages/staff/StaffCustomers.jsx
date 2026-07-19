@@ -561,21 +561,35 @@ export default function StaffCustomers() {
   };
 
   const handleLookup = async () => {
-    if (!lookup.trim()) {
+    const query = lookup.trim();
+    if (!query) {
       setError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
       return;
     }
+
+    const phoneRegex = /^0\d{9,10}$/;
+    const compactedPlate = compactLicensePlate(query);
+    const plateRegex = /^\d{2}[A-Z]{1,2}\d{4,6}$/i;
+
+    const isPhone = phoneRegex.test(query);
+    const isPlate = plateRegex.test(compactedPlate);
+
+    if (!isPhone && !isPlate) {
+      setError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10-11 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 30A12345).");
+      return;
+    }
+
     setLookupLoading(true);
     setError("");
     setMessage("");
     try {
-      const foundCustomer = await searchWalkInCustomer(lookup.trim());
+      const foundCustomer = await searchWalkInCustomer(query);
       if (!foundCustomer) {
         throw new Error("CUSTOMER_NOT_FOUND");
       }
       const result = normalizeCustomer(foundCustomer);
       const vehicles = result.registeredVehicles || [];
-      const lookupPlate = normalizePlate(lookup);
+      const lookupPlate = normalizePlate(query);
       const selectedVehicle =
         vehicles.find((vehicle) => vehicle.licensePlate === lookupPlate) ||
         vehicles[0] ||
@@ -632,12 +646,8 @@ export default function StaffCustomers() {
       setForm((prev) => ({
         ...prev,
         customerName: "",
-        customerPhone: /^\d{8,12}$/.test(lookup.trim())
-          ? lookup.trim()
-          : prev.customerPhone,
-        licensePlate: /^\d{2}/.test(compactLicensePlate(lookup))
-          ? normalizePlate(lookup)
-          : prev.licensePlate,
+        customerPhone: isPhone ? query : prev.customerPhone,
+        licensePlate: isPlate ? normalizePlate(query) : prev.licensePlate,
         vehicleBrand: "",
         vehicleModelId: "",
         vehicleModelName: "",
