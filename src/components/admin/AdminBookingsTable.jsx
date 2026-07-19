@@ -157,17 +157,29 @@ export default function AdminBookingsTable({
                 </span>
               </div>
               <div className="flex gap-2 border-t border-zinc-800 pt-3">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEditBooking?.(booking);
-                  }}
-                  className="flex flex-1 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300"
-                >
-                  <span className="material-symbols-outlined text-[16px]">edit</span>
-                  Sửa
-                </button>
+                {booking.status !== "COMPLETED" ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEditBooking?.(booking);
+                    }}
+                    className="flex flex-1 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    Sửa
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex flex-1 items-center justify-center gap-2 border border-zinc-800 bg-zinc-950/50 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600 cursor-not-allowed"
+                    title="Lịch hẹn đã hoàn thành (Không thể sửa)"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">lock</span>
+                    Đã khóa
+                  </button>
+                )}
                 {canDeleteBooking(booking) && (
                   <button
                     type="button"
@@ -300,19 +312,30 @@ export default function AdminBookingsTable({
                 </td>
                 <td className="px-3 py-3 text-center align-middle">
                   <div className="flex justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEditBooking?.(booking);
-                      }}
-                      className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
-                      title="Chỉnh sửa booking"
-                    >
-                      <span className="material-symbols-outlined text-[17px]">
-                        edit
-                      </span>
-                    </button>
+                    {booking.status !== "COMPLETED" ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditBooking?.(booking);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                        title="Chỉnh sửa booking"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">
+                          edit
+                        </span>
+                      </button>
+                    ) : (
+                      <div
+                        className="flex h-8 w-8 items-center justify-center border border-zinc-800 bg-zinc-950/50 text-zinc-600 cursor-not-allowed"
+                        title="Lịch hẹn đã hoàn thành (Không thể sửa)"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">
+                          lock
+                        </span>
+                      </div>
+                    )}
                     {canDeleteBooking(booking) && (
                       <button
                         type="button"
