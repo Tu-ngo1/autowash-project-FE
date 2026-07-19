@@ -281,6 +281,7 @@ export default function StaffCustomers() {
   const [selectedVehicleKey, setSelectedVehicleKey] = useState("new");
   const [vehicleLocked, setVehicleLocked] = useState(false);
   const [lookupState, setLookupState] = useState("idle");
+  const [lookupType, setLookupType] = useState("");
   const [loadingData, setLoadingData] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -585,6 +586,8 @@ export default function StaffCustomers() {
       return;
     }
 
+    setLookupType(isPhone ? "phone" : "plate");
+
     setLookupLoading(true);
     setError("");
     setMessage("");
@@ -686,6 +689,15 @@ export default function StaffCustomers() {
     }
     if (!form.customerName.trim()) {
       triggerError("Vui lòng nhập họ tên khách hàng.");
+      return;
+    }
+    if (!form.customerPhone.trim()) {
+      triggerError("Vui lòng nhập số điện thoại khách hàng.");
+      return;
+    }
+    const customerPhoneRegex = /^0\d{9}$/;
+    if (!customerPhoneRegex.test(form.customerPhone.trim())) {
+      triggerError("Số điện thoại khách hàng phải đúng 10 số bắt đầu bằng 0.");
       return;
     }
     if (!form.licensePlate.trim()) {
@@ -795,6 +807,7 @@ export default function StaffCustomers() {
                       onChange={(event) => {
                         setLookup(event.target.value);
                         setLookupState("idle");
+                        setLookupType("");
                         setRegisteredVehicles([]);
                         setSelectedVehicleKey("new");
                         setVehicleLocked(false);
@@ -891,7 +904,7 @@ export default function StaffCustomers() {
                     </Field>
                     <Field label="Số điện thoại">
                       <input
-                        readOnly={isExistingCustomer}
+                        readOnly={isExistingCustomer || (lookupState === "not-found" && lookupType === "phone")}
                         value={form.customerPhone}
                         onChange={(event) =>
                           setForm({ ...form, customerPhone: event.target.value })
@@ -903,7 +916,7 @@ export default function StaffCustomers() {
                     <Field label="Biển số xe">
                       <input
                         required
-                        readOnly={isExistingCustomer || vehicleLocked}
+                        readOnly={isExistingCustomer || vehicleLocked || (lookupState === "not-found" && lookupType === "plate")}
                         value={form.licensePlate}
                         onChange={(event) =>
                           setForm({
