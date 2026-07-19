@@ -287,11 +287,10 @@ export default function StaffCustomers() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (error) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [error]);
+  const triggerError = (msg) => {
+    setError(msg);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const vehicleBrands = useMemo(
     () => getVehicleBrands(vehicleModels),
@@ -570,7 +569,7 @@ export default function StaffCustomers() {
   const handleLookup = async () => {
     const query = lookup.trim();
     if (!query) {
-      setError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
+      triggerError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
       return;
     }
 
@@ -582,7 +581,7 @@ export default function StaffCustomers() {
     const isPlate = plateRegex.test(compactedPlate);
 
     if (!isPhone && !isPlate) {
-      setError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 30A12345).");
+      triggerError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 30A12345).");
       return;
     }
 
@@ -682,32 +681,32 @@ export default function StaffCustomers() {
     setMessage("");
 
     if (lookupState === "idle") {
-      setError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
+      triggerError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
       return;
     }
     if (!form.customerName.trim()) {
-      setError("Vui lòng nhập họ tên khách hàng.");
+      triggerError("Vui lòng nhập họ tên khách hàng.");
       return;
     }
     if (!form.licensePlate.trim()) {
-      setError("Vui lòng nhập biển số xe.");
+      triggerError("Vui lòng nhập biển số xe.");
       return;
     }
     const normalizedPlate = normalizePlate(form.licensePlate);
     if (!isValidVietnamLicensePlate(normalizedPlate)) {
-      setError("Biển số xe phải đúng dạng 50A12345.");
+      triggerError("Biển số xe phải đúng dạng 50A12345.");
       return;
     }
     if (!form.vehicleModelId || !form.vehicleSize) {
-      setError("Vui lòng chọn hãng xe và mẫu xe để xác định kích thước xe.");
+      triggerError("Vui lòng chọn hãng xe và mẫu xe để xác định kích thước xe.");
       return;
     }
     if (!mainServiceId) {
-      setError("Vui lòng chọn một dịch vụ chính.");
+      triggerError("Vui lòng chọn một dịch vụ chính.");
       return;
     }
     if (!selectedSlot) {
-      setError("Vui lòng chọn một khung giờ còn trống.");
+      triggerError("Vui lòng chọn một khung giờ còn trống.");
       return;
     }
 
@@ -731,7 +730,7 @@ export default function StaffCustomers() {
       );
       setTimeout(() => navigate("/staff/queue"), 700);
     } catch (err) {
-      setError(
+      triggerError(
         getFriendlyErrorMessage(
           err,
           "Không thể tạo lịch tiếp nhận. Vui lòng kiểm tra lại dữ liệu.",
