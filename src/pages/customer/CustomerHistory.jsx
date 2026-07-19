@@ -203,10 +203,12 @@ export default function CustomerHistory() {
       (item) => String(item.status || "").toUpperCase() === "CANCELLED",
     ).length;
     const total = history.length;
-    const spent = history.reduce(
-      (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
-      0,
-    );
+    const spent = history
+      .filter((item) => String(item.status || "").toUpperCase() === "COMPLETED")
+      .reduce(
+        (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
+        0,
+      );
     return { completed, pending, cancelled, total, spent };
   }, [history]);
 
