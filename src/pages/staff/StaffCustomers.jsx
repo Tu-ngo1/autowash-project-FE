@@ -286,6 +286,13 @@ export default function StaffCustomers() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (error) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [error]);
+
   const vehicleBrands = useMemo(
     () => getVehicleBrands(vehicleModels),
     [vehicleModels],
