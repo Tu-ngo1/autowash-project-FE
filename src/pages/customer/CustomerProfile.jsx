@@ -376,7 +376,11 @@ export default function CustomerProfile() {
             apiProfile.nextTierTarget ??
             prev.nextTierTarget,
           progress: loyalty.progress ?? apiProfile.progress ?? prev.progress,
-          washes: apiProfile.washes ?? prev.washes,
+          washes:
+            apiProfile.washes ??
+            bookings.filter(
+              (b) => String(b?.status || "").toUpperCase() === "COMPLETED",
+            ).length,
           vehicles: mergeVehicles(
             Array.isArray(carsRes) ? carsRes : [],
             Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],

@@ -148,6 +148,15 @@ export const normalizeAdminCustomer = (customer = {}) => ({
   carCount: customer.carCount ?? customer.carsCount ?? 0,
   bookingsCount: customer.bookingsCount ?? customer.bookingCount ?? 0,
   bookingCount: customer.bookingCount ?? customer.bookingsCount ?? 0,
+  vehicles: (customer.vehicles || []).map((vehicle) => ({
+    ...vehicle,
+    id: vehicle.id,
+    plate: vehicle.licensePlate || vehicle.plate || "",
+    licensePlate: vehicle.licensePlate || vehicle.plate || "",
+    model: vehicle.model || [vehicle.brand, vehicle.modelName].filter(Boolean).join(" ") || "",
+    brand: vehicle.brand || "",
+    modelName: vehicle.modelName || "",
+  })),
 });
 
 export const normalizeTopVoucher = (voucher = {}) => ({
