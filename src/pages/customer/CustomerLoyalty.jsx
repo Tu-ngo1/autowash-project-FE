@@ -420,26 +420,30 @@ export default function CustomerLoyalty() {
 
   const tier = profile?.tier || profile?.tierLevel || "";
   const nextTier = useMemo(() => {
-    const idx = tierConfigs.findIndex(
-      (item) => getTierName(item).toUpperCase() === String(tier).toUpperCase(),
+    return (
+      tierConfigs.find(
+        (item) => getTierMinPoints(item) > (profile?.points ?? 0),
+      ) || null
     );
-    return idx >= 0 ? tierConfigs[idx + 1] || null : null;
-  }, [tierConfigs, tier]);
+  }, [tierConfigs, profile?.points]);
+
   const progress = useMemo(() => {
     if (!profile) return 0;
     if (!tierConfigs.length) return Number(profile.progress ?? 0);
     if (!nextTier) return 100;
-    const currentTier = tierConfigs.find(
-      (item) => getTierName(item).toUpperCase() === String(tier).toUpperCase(),
-    );
+
+    const nextTierIdx = tierConfigs.findIndex((item) => item === nextTier);
+    const currentTier =
+      nextTierIdx > 0 ? tierConfigs[nextTierIdx - 1] : tierConfigs[0];
+
     const cur = getTierMinPoints(currentTier);
     const nxt = getTierMinPoints(nextTier);
     if (nxt === cur) return 100;
     return Math.max(
       0,
-      Math.min(100, ((profile.points - cur) / (nxt - cur)) * 100),
+      Math.min(100, (((profile?.points ?? 0) - cur) / (nxt - cur)) * 100),
     );
-  }, [profile, nextTier, tierConfigs, tier]);
+  }, [profile, nextTier, tierConfigs]);
 
   const myVouchers = mergeUniqueVouchers(
     ownedVouchers,

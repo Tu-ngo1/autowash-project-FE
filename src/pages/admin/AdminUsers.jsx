@@ -12,6 +12,43 @@ import {
 } from "../../services/adminUserApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import { normalizeAdminCustomer } from "../../utils/adminDto";
+import { getVehicleModels } from "../../services/vehicleModelApi";
+
+const getVehicleBrands = (vehicleModels) =>
+  Array.from(new Set(vehicleModels.map((model) => model.brand))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+const getVehicleModelById = (vehicleModels, id) =>
+  vehicleModels.find((model) => String(model.id) === String(id));
+
+const compactLicensePlate = (value = "") =>
+  String(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const formatVietnamLicensePlate = (value = "") => {
+  const raw = compactLicensePlate(value);
+  const province = raw.slice(0, 2);
+  const rest = raw.slice(2);
+  const seriesMatch = rest.match(/^[A-Z]{0,2}/);
+  const series = seriesMatch?.[0] || "";
+  const serial = rest.slice(series.length, series.length + 5);
+
+  if (!province) return "";
+  if (province.length < 2) return province;
+  if (!series) return province;
+
+  const plateHead = `${province}${series}`;
+  if (!serial) return plateHead;
+
+  const formattedSerial =
+    serial.length > 3 ? `${serial.slice(0, 3)}.${serial.slice(3)}` : serial;
+  return `${plateHead} - ${formattedSerial}`;
+};
+
+const isValidVietnamLicensePlate = (value = "") =>
+  /^\d{2}[A-Z]{1,2}\d{4,5}$/.test(compactLicensePlate(value));
 
 const TIER_STYLES = {
   PLATINUM:
@@ -66,8 +103,11 @@ export default function AdminUsers() {
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [addError, setAddError] = useState("");
   const [vehicleFormTarget, setVehicleFormTarget] = useState(null);
-  const [vehicleForm, setVehicleForm] = useState({ plate: "", model: "" });
+  const [vehicleForm, setVehicleForm] = useState({ plate: "", brand: "", modelId: "" });
   const [vehicleFormError, setVehicleFormError] = useState("");
+  const [vehicleModels, setVehicleModels] = useState([]);
+  const [vehicleModelsLoading, setVehicleModelsLoading] = useState(false);
+  const [drawerForm, setDrawerForm] = useState({ fullName: "", phone: "", rankPointsDelta: 0, redeemPointsDelta: 0 });
   const [stats, setStats] = useState({
     customers: 0,
     staff: 0,
@@ -75,8 +115,66 @@ export default function AdminUsers() {
     locked: 0,
   });
 
+  const vehicleBrands = useMemo(() => getVehicleBrands(vehicleModels), [vehicleModels]);
+  const currentBrandModels = useMemo(() => {
+    return vehicleModels.filter((model) => model.brand === vehicleForm.brand);
+  }, [vehicleModels, vehicleForm.brand]);
+
   useEffect(() => {
     fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      setDrawerForm({
+        fullName: selectedCustomer.fullName || "",
+        phone: selectedCustomer.phone || "",
+        rankPointsDelta: 0,
+        redeemPointsDelta: 0,
+      });
+    }
+  }, [selectedCustomer]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadVehicleModels = async () => {
+      setVehicleModelsLoading(true);
+      try {
+        const payload = await getVehicleModels();
+        const rawList = Array.isArray(payload)
+          ? payload
+          : payload?.vehicleModels ||
+            payload?.vehicle_models ||
+            payload?.models ||
+            payload?.items ||
+            [];
+        const activeModels = rawList
+          .filter((model) => model?.isActive ?? model?.is_active ?? model?.active ?? true)
+          .map((model) => ({
+            id: model.id,
+            brand: model.brand,
+            modelName: model.modelName || model.model_name || model.name,
+            vehicleSize: String(
+              model.vehicleSize || model.vehicle_size || "",
+            ).toUpperCase(),
+          }))
+          .filter((model) => model.id && model.brand && model.modelName);
+
+        if (isMounted) {
+          setVehicleModels(activeModels);
+        }
+      } catch (err) {
+        console.error("Failed to load vehicle models:", err);
+      } finally {
+        if (isMounted) {
+          setVehicleModelsLoading(false);
+        }
+      }
+    };
+    loadVehicleModels();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const fetchCustomers = async () => {
@@ -135,12 +233,15 @@ export default function AdminUsers() {
 
   const fetchCustomerDetails = async (id, fallbackCustomer = null) => {
     try {
+      console.log("FETCHING CUSTOMER DETAILS FOR ID:", id);
       const res = await getAdminUser(id);
+      console.log("GET ADMIN USER RESPONSE:", res.data);
       setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       setIsDrawerOpen(true);
     } catch (err) {
-      console.error("Failed to load customer details:", err);
+      console.error("Failed to load customer details:", err, err.response?.data ?? err.message);
       if (fallbackCustomer) {
+        console.warn("FALLING BACK TO CUSTOMER LIST ITEM:", fallbackCustomer);
         setSelectedCustomer(normalizeAdminCustomer(fallbackCustomer));
         setIsDrawerOpen(true);
       }
@@ -165,6 +266,45 @@ export default function AdminUsers() {
       await fetchCustomers();
     } catch (err) {
       console.error("Failed to update points:", err);
+    }
+  };
+
+  const handleSaveDrawer = async () => {
+    if (!selectedCustomer) return;
+    
+    // Tắt Drawer ngay lập tức để tạo cảm giác mượt mà
+    setIsDrawerOpen(false);
+
+    try {
+      const nameChanged = drawerForm.fullName.trim() !== (selectedCustomer.fullName || "").trim();
+      const phoneChanged = drawerForm.phone.trim() !== (selectedCustomer.phone || "").trim();
+      
+      const updatePromises = [];
+      if (nameChanged || phoneChanged) {
+        updatePromises.push(
+          updateAdminUser(selectedCustomer.id, {
+            fullName: drawerForm.fullName.trim(),
+            phone: drawerForm.phone.trim(),
+          })
+        );
+      }
+
+      if (drawerForm.rankPointsDelta !== 0 || drawerForm.redeemPointsDelta !== 0) {
+        updatePromises.push(
+          updateAdminUserPoints(selectedCustomer.id, {
+            rankPointsDelta: drawerForm.rankPointsDelta,
+            redeemPointsDelta: drawerForm.redeemPointsDelta,
+          })
+        );
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+      
+      fetchCustomers();
+    } catch (err) {
+      console.error("Failed to save drawer changes:", err);
     }
   };
 
@@ -196,58 +336,71 @@ export default function AdminUsers() {
 
   const addVehicle = async (customerId, vehicleData) => {
     try {
+      console.log("ADDING VEHICLE FOR CUSTOMER:", customerId, vehicleData);
       await addAdminUserVehicle(customerId, vehicleData);
-      await fetchCustomers();
       if (selectedCustomer?.id === customerId) {
         const res = await getAdminUser(customerId);
+        console.log("REFETCH CUSTOMER RESPONSE:", res.data);
         setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       }
+      fetchCustomers();
     } catch (err) {
-      console.error("Failed to add vehicle:", err);
+      console.error("Failed to add vehicle:", err, err.response?.data ?? err.message);
     }
   };
 
   const openVehicleForm = (customer) => {
     setVehicleFormTarget(customer);
-    setVehicleForm({ plate: "", model: "" });
+    setVehicleForm({ plate: "", brand: "", modelId: "" });
     setVehicleFormError("");
   };
 
   const closeVehicleForm = () => {
     setVehicleFormTarget(null);
-    setVehicleForm({ plate: "", model: "" });
+    setVehicleForm({ plate: "", brand: "", modelId: "" });
     setVehicleFormError("");
   };
 
   const submitVehicleForm = async () => {
-    const plate = vehicleForm.plate.trim().toUpperCase();
-    const model = vehicleForm.model.trim();
+    const rawPlate = vehicleForm.plate.trim();
+    const modelId = vehicleForm.modelId;
     if (!vehicleFormTarget?.id) return;
-    if (!plate) {
+    if (!rawPlate) {
       setVehicleFormError("Vui lòng nhập biển số xe.");
+      return;
+    }
+
+    const normalizedPlate = formatVietnamLicensePlate(rawPlate);
+    if (!isValidVietnamLicensePlate(normalizedPlate)) {
+      setVehicleFormError("Biển số xe phải đúng dạng 59A - 123.45.");
+      return;
+    }
+
+    if (!modelId) {
+      setVehicleFormError("Vui lòng chọn dòng xe.");
       return;
     }
 
     setVehicleFormError("");
     await addVehicle(vehicleFormTarget.id, {
-      plate,
-      licensePlate: plate,
-      model,
-      modelName: model,
+      licensePlate: normalizedPlate,
+      vehicleModelId: Number(modelId),
     });
     closeVehicleForm();
   };
 
   const deleteVehicle = async (customerId, vehicleId) => {
     try {
+      console.log("DELETING VEHICLE:", vehicleId, "FOR CUSTOMER:", customerId);
       await deleteAdminUserVehicle(customerId, vehicleId);
-      await fetchCustomers();
       if (selectedCustomer?.id === customerId) {
         const res = await getAdminUser(customerId);
+        console.log("REFETCH CUSTOMER RESPONSE (AFTER DELETE):", res.data);
         setSelectedCustomer(normalizeAdminCustomer(res.data?.data ?? res.data));
       }
+      fetchCustomers();
     } catch (err) {
-      console.error("Failed to delete vehicle:", err);
+      console.error("Failed to delete vehicle:", err, err.response?.data ?? err.message);
     }
   };
 
@@ -536,11 +689,14 @@ export default function AdminUsers() {
                               customer.fullName?.charAt(0).toUpperCase() || "U"
                             )}
                           </div>
-                          <div>
-                            <p className="font-bold text-zinc-100">
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-zinc-100" title={customer.fullName}>
                               {customer.fullName}
                             </p>
-                            <p className="font-mono text-[12px] text-zinc-500">
+                            <p
+                              className="max-w-[180px] truncate font-mono text-[12px] text-zinc-500"
+                              title={customer.email || customer.phone || ""}
+                            >
                               {customer.email || customer.phone || "-"}
                             </p>
                           </div>
@@ -749,11 +905,12 @@ export default function AdminUsers() {
                     <input
                       className="w-full border border-zinc-800 bg-black px-4 py-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                       type="text"
-                      defaultValue={selectedCustomer.fullName}
-                      onBlur={(e) =>
-                        updateCustomer(selectedCustomer.id, {
+                      value={drawerForm.fullName}
+                      onChange={(e) =>
+                        setDrawerForm((prev) => ({
+                          ...prev,
                           fullName: e.target.value,
-                        })
+                        }))
                       }
                     />
                   </div>
@@ -764,11 +921,12 @@ export default function AdminUsers() {
                     <input
                       className="w-full border border-zinc-800 bg-black px-4 py-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                       type="text"
-                      defaultValue={selectedCustomer.phone}
-                      onBlur={(e) =>
-                        updateCustomer(selectedCustomer.id, {
+                      value={drawerForm.phone}
+                      onChange={(e) =>
+                        setDrawerForm((prev) => ({
+                          ...prev,
                           phone: e.target.value,
-                        })
+                        }))
                       }
                     />
                   </div>
@@ -799,11 +957,13 @@ export default function AdminUsers() {
                         type="number"
                         placeholder="0"
                         className="w-full border border-zinc-800 bg-black px-4 py-2 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                        onBlur={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (value !== 0)
-                            updateCustomerPoints(selectedCustomer.id, value, 0);
-                          e.target.value = "";
+                        value={drawerForm.rankPointsDelta || ""}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setDrawerForm((prev) => ({
+                            ...prev,
+                            rankPointsDelta: val,
+                          }));
                         }}
                       />
                     </div>
@@ -815,11 +975,13 @@ export default function AdminUsers() {
                         type="number"
                         placeholder="0"
                         className="w-full border border-zinc-800 bg-black px-4 py-2 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                        onBlur={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (value !== 0)
-                            updateCustomerPoints(selectedCustomer.id, 0, value);
-                          e.target.value = "";
+                        value={drawerForm.redeemPointsDelta || ""}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setDrawerForm((prev) => ({
+                            ...prev,
+                            redeemPointsDelta: val,
+                          }));
                         }}
                       />
                     </div>
@@ -870,7 +1032,7 @@ export default function AdminUsers() {
                           </div>
                           <div>
                             <div className="font-mono font-black text-zinc-100">
-                              {vehicle.plate}
+                              {formatVietnamLicensePlate(vehicle.plate)}
                             </div>
                             <div className="text-[12px] text-zinc-500">
                               {vehicle.model}
@@ -902,7 +1064,7 @@ export default function AdminUsers() {
                 HỦY
               </button>
               <button
-                onClick={() => setIsDrawerOpen(false)}
+                onClick={handleSaveDrawer}
                 className="w-full border border-cyan-400/60 bg-cyan-400/10 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300 transition hover:bg-cyan-400/20"
               >
                 LƯU THAY ĐỔI
@@ -956,21 +1118,58 @@ export default function AdminUsers() {
                   className="h-11 w-full border border-zinc-800 bg-black px-4 font-mono text-sm font-black uppercase text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
                 />
               </div>
-              <div>
-                <label className="mb-2 block font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Dòng xe
-                </label>
-                <input
-                  value={vehicleForm.model}
-                  onChange={(event) =>
-                    setVehicleForm((prev) => ({
-                      ...prev,
-                      model: event.target.value,
-                    }))
-                  }
-                  placeholder="Toyota Vios"
-                  className="h-11 w-full border border-zinc-800 bg-black px-4 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Hãng xe
+                  </label>
+                  <select
+                    value={vehicleForm.brand}
+                    onChange={(event) =>
+                      setVehicleForm((prev) => ({
+                        ...prev,
+                        brand: event.target.value,
+                        modelId: "",
+                      }))
+                    }
+                    disabled={vehicleModelsLoading || vehicleBrands.length === 0}
+                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                  >
+                    <option className="bg-black text-zinc-100" value="">
+                      {vehicleModelsLoading ? "Đang tải..." : "Chọn hãng"}
+                    </option>
+                    {vehicleBrands.map((brand) => (
+                      <option key={brand} className="bg-black text-zinc-100" value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Mẫu xe
+                  </label>
+                  <select
+                    value={vehicleForm.modelId}
+                    onChange={(event) =>
+                      setVehicleForm((prev) => ({
+                        ...prev,
+                        modelId: event.target.value,
+                      }))
+                    }
+                    disabled={!vehicleForm.brand || currentBrandModels.length === 0}
+                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                  >
+                    <option className="bg-black text-zinc-100" value="">
+                      Chọn mẫu
+                    </option>
+                    {currentBrandModels.map((model) => (
+                      <option key={model.id} className="bg-black text-zinc-100" value={model.id}>
+                        {model.modelName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             {vehicleFormError ? (
