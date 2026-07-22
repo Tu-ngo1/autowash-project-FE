@@ -1,14 +1,27 @@
 const STATUS_STYLES = {
   COMPLETED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
-  PENDING:
-    "border-zinc-700 text-zinc-400 bg-zinc-900",
-  "IN PROGRESS": "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
-  IN_PROGRESS: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
-  CONFIRM: "border-yellow-300/50 text-yellow-200 bg-yellow-300/10",
-  ARRIVED: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  PENDING: "border-amber-400/50 text-amber-300 bg-amber-400/10",
+  "IN PROGRESS": "border-blue-400/50 text-blue-300 bg-blue-400/10",
+  IN_PROGRESS: "border-blue-400/50 text-blue-300 bg-blue-400/10",
+  CONFIRM: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  ARRIVED: "border-sky-400/50 text-sky-300 bg-sky-400/10",
   WASHED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
-  WASHING: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
+  WASHING: "border-blue-400/50 text-blue-300 bg-blue-400/10",
+  CANCEL_REQUESTED: "border-orange-400/50 text-orange-300 bg-orange-400/10",
   CANCELLED: "border-red-400/50 text-red-300 bg-red-400/10",
+};
+
+const STATUS_LABELS = {
+  PENDING: "CHỜ XÁC NHẬN",
+  CONFIRM: "ĐÃ XÁC NHẬN",
+  ARRIVED: "ĐÃ CHECK-IN",
+  WASHING: "ĐANG RỬA",
+  IN_PROGRESS: "ĐANG RỬA",
+  "IN PROGRESS": "ĐANG RỬA",
+  WASHED: "ĐÃ RỬA XONG",
+  COMPLETED: "HOÀN THÀNH",
+  CANCEL_REQUESTED: "YÊU CẦU HỦY",
+  CANCELLED: "ĐÃ HỦY",
 };
 
 function PaymentBadge({ method, status }) {
@@ -17,24 +30,33 @@ function PaymentBadge({ method, status }) {
   const isPaid = normalizedStatus === "PAID";
 
   let text = normalizedMethod;
-  if (normalizedMethod === "PAYOS") {
-    text = isPaid ? "PAYOS (PAID)" : "PAYOS (UNPAID)";
-  } else if (normalizedMethod === "CASH") {
-    text = isPaid ? "CASH (PAID)" : "CASH (UNPAID)";
-  } else if (normalizedMethod === "UNPAID") {
-    text = "UNPAID";
-  }
+  let icon = null;
+  let styleClass = "border-zinc-700 text-zinc-400 bg-zinc-900";
 
-  const styleClass = isPaid
-    ? "border-emerald-400/50 text-emerald-300 bg-emerald-400/10"
-    : normalizedMethod === "PAYOS"
-      ? "border-cyan-400/50 text-cyan-300 bg-cyan-400/10"
-      : "border-zinc-700 text-zinc-400 bg-zinc-900";
+  if (normalizedMethod === "PAYOS") {
+    text = isPaid ? "PAYOS (ĐÃ TT)" : "PAYOS (CHƯA TT)";
+    icon = "credit_card";
+    styleClass = isPaid
+      ? "border-purple-400/50 text-purple-300 bg-purple-400/10"
+      : "border-amber-400/50 text-amber-300 bg-amber-400/10";
+  } else if (normalizedMethod === "CASH" || normalizedMethod.includes("TIỀN MẶT")) {
+    text = isPaid ? "TIỀN MẶT (ĐÃ TT)" : "TIỀN MẶT (CHƯA TT)";
+    icon = "payments";
+    styleClass = isPaid
+      ? "border-emerald-400/50 text-emerald-300 bg-emerald-400/10"
+      : "border-amber-400/50 text-amber-300 bg-amber-400/10";
+  } else {
+    text = isPaid ? `${normalizedMethod} (ĐÃ TT)` : `${normalizedMethod} (CHƯA TT)`;
+    styleClass = isPaid
+      ? "border-emerald-400/50 text-emerald-300 bg-emerald-400/10"
+      : "border-amber-400/50 text-amber-300 bg-amber-400/10";
+  }
 
   return (
     <span
-      className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${styleClass}`}
+      className={`inline-flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${styleClass}`}
     >
+      {icon && <span className="material-symbols-outlined text-[13px]">{icon}</span>}
       {text}
     </span>
   );
@@ -42,7 +64,7 @@ function PaymentBadge({ method, status }) {
 
 function StatusBadge({ status }) {
   const normalizedStatus = String(status || "PENDING").toUpperCase();
-  const label = normalizedStatus.replaceAll("_", " ");
+  const label = STATUS_LABELS[normalizedStatus] || normalizedStatus.replaceAll("_", " ");
   return (
     <span
       className={`inline-block border px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.14em] ${STATUS_STYLES[normalizedStatus] || STATUS_STYLES.PENDING}`}
