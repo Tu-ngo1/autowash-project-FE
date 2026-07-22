@@ -102,6 +102,7 @@ const canDeleteBooking = (booking) =>
 
 export default function AdminBookingsTable({
   bookings,
+  pagination = { page: 1, limit: 10 },
   fetchBookingDetails,
   loading,
   onDeleteBooking,
@@ -129,8 +130,9 @@ export default function AdminBookingsTable({
   return (
     <>
       <div className="grid gap-3 lg:hidden">
-        {bookings.map((booking) => {
+        {bookings.map((booking, index) => {
           const bookingId = booking.id || booking.bookingId || booking._id;
+          const sttNumber = ((pagination?.page || 1) - 1) * (pagination?.limit || 10) + index + 1;
           return (
           <button
             key={bookingId}
@@ -141,7 +143,7 @@ export default function AdminBookingsTable({
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-mono font-black text-cyan-300">
-                  {booking.bookingCode || booking.code || `#B-${bookingId}`}
+                  #{sttNumber}
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold text-zinc-100">
                   {booking.customerName || "-"}
@@ -242,8 +244,8 @@ export default function AdminBookingsTable({
         <table className="w-full min-w-[960px] table-fixed border-collapse text-left text-xs">
           <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-black shadow-[0_1px_0_0_rgba(34,211,238,0.25)]">
             <tr>
-              <th className="w-[100px] whitespace-nowrap px-2 py-3 font-mono text-[10.5px] font-black uppercase tracking-wider text-zinc-500">
-                MÃ ĐƠN
+              <th className="w-[50px] whitespace-nowrap px-2 py-3 text-center font-mono text-[10.5px] font-black uppercase tracking-wider text-zinc-500">
+                NO.
               </th>
               <th className="w-[110px] whitespace-nowrap px-2 py-3 font-mono text-[10.5px] font-black uppercase tracking-wider text-zinc-500">
                 THỜI GIAN
@@ -278,10 +280,8 @@ export default function AdminBookingsTable({
                 style={{ animationDelay: `${260 + index * 40}ms` }}
                 onClick={() => fetchBookingDetails(bookingId)}
               >
-                <td className="whitespace-nowrap px-2 py-2.5 align-middle">
-                  <span className="font-black text-cyan-300">
-                    {booking.bookingCode || booking.code || `#B-${bookingId}`}
-                  </span>
+                <td className="whitespace-nowrap px-2 py-2.5 text-center align-middle font-mono font-black text-cyan-300">
+                  {((pagination?.page || 1) - 1) * (pagination?.limit || 10) + index + 1}
                 </td>
                 <td className="whitespace-nowrap px-2 py-2.5 align-middle">
                   <span className="text-zinc-100">

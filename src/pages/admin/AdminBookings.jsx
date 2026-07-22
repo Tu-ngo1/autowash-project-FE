@@ -143,8 +143,6 @@ export default function AdminBookings() {
 
     return allBookings.filter((booking) => {
       const haystack = [
-        booking.bookingCode,
-        booking.code,
         booking.customerName,
         booking.customerPhone,
         booking.customerEmail,
@@ -500,7 +498,7 @@ export default function AdminBookings() {
                   setSearch(e.target.value);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                placeholder="Tìm biển số, mã đơn..."
+                placeholder="Tìm tên khách hàng, số điện thoại, biển số xe..."
                 className="h-full w-full border-none bg-transparent pl-10 pr-3 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:ring-0"
               />
             </div>
@@ -538,13 +536,13 @@ export default function AdminBookings() {
                   setStatusFilter(e.target.value);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                className="h-full w-full cursor-pointer appearance-none border-none bg-black pl-3 pr-10 font-mono text-sm text-zinc-100 focus:ring-0"
+                className="h-full w-full appearance-none border-none bg-transparent pl-3 pr-8 font-mono text-xs font-bold uppercase text-zinc-100 outline-none focus:ring-0"
               >
                 <option className="bg-black text-zinc-100" value="all">
                   TẤT CẢ TRẠNG THÁI
                 </option>
-                <option className="bg-black text-zinc-100" value="cancel_pending">
-                  YÊU CẦU HỦY CHỜ DUYỆT
+                <option className="bg-black text-amber-300 font-bold" value="cancel_pending">
+                  ⚠️ CHỜ DUYỆT HỦY
                 </option>
                 <option className="bg-black text-zinc-100" value="PENDING">
                   PENDING
@@ -583,6 +581,7 @@ export default function AdminBookings() {
 
         <AdminBookingsTable
           bookings={bookings}
+          pagination={pagination}
           onDeleteBooking={handleDeleteBooking}
           onCancelBooking={handleDirectCancel}
           onEditBooking={openEditBooking}
