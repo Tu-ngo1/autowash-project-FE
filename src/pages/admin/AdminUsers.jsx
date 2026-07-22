@@ -141,6 +141,7 @@ export default function AdminUsers() {
   const [vehicleModelsLoading, setVehicleModelsLoading] = useState(false);
   const [drawerForm, setDrawerForm] = useState({ fullName: "", phone: "", rankPointsDelta: 0, redeemPointsDelta: 0 });
   const [stats, setStats] = useState({
+    total: 0,
     customers: 0,
     staff: 0,
     active: 0,
@@ -249,17 +250,23 @@ export default function AdminUsers() {
     const staffCount = normalizedCustomers.filter(
       (c) => (c.role || "").toUpperCase() === "STAFF",
     ).length;
-    const banned = normalizedCustomers.filter(
-      (c) =>
-        c.status === "INACTIVE" ||
-        c.status === "LOCKED" ||
-        c.status === "DISABLED",
+    const activeCount = normalizedCustomers.filter(
+      (c) => String(c.status || "ACTIVE").toUpperCase() === "ACTIVE",
     ).length;
+    const lockedCount = normalizedCustomers.filter(
+      (c) =>
+        String(c.status || "").toUpperCase() === "INACTIVE" ||
+        String(c.status || "").toUpperCase() === "LOCKED" ||
+        String(c.status || "").toUpperCase() === "DISABLED" ||
+        c.status === false,
+    ).length;
+
     setStats({
       total: normalizedCustomers.length,
       customers: customerCount,
       staff: staffCount,
-      banned,
+      active: activeCount,
+      locked: lockedCount,
     });
   };
 
@@ -526,7 +533,7 @@ export default function AdminUsers() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="admin-reveal border border-zinc-800 bg-zinc-950 p-5">
             <p className="mb-2 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
               Tổng User
