@@ -222,17 +222,6 @@ export default function AdminBookingsTable({
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onEditBooking?.(booking);
-                      }}
-                      className="flex flex-1 items-center justify-center gap-1.5 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300 transition hover:bg-cyan-400/20"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">edit</span>
-                      Sửa
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
                         onCancelBooking?.(booking);
                       }}
                       className="flex flex-1 items-center justify-center gap-1.5 border border-rose-400/50 bg-rose-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-rose-300 transition hover:bg-rose-400/20"
@@ -374,18 +363,7 @@ export default function AdminBookingsTable({
                     }
 
                     return (
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onEditBooking?.(booking);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
-                          title="Chỉnh sửa trạng thái"
-                        >
-                          <span className="material-symbols-outlined text-[17px]">edit</span>
-                        </button>
+                      <div className="flex items-center justify-center">
                         <button
                           type="button"
                           onClick={(event) => {
