@@ -609,6 +609,16 @@ export default function CustomerHistory() {
                   </p>
                 </div>
               ))}
+              {(detailBooking.cancelRequestAdminNote || detailBooking.cancelRequestReason) && (
+                <div className="col-span-full rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-700">
+                    Lý do hủy đơn
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-rose-950">
+                    {detailBooking.cancelRequestAdminNote || detailBooking.cancelRequestReason}
+                  </p>
+                </div>
+              )}
             </div>
 
           </div>
