@@ -90,6 +90,34 @@ const getNewestValue = (item = {}) => {
   const parsedDate = rawDate ? new Date(rawDate).getTime() : NaN;
   if (Number.isFinite(parsedDate)) return parsedDate;
   return Number(item.id || item.userId || 0);
+const getPageNumbers = (currentPage, totalPages) => {
+  if (totalPages <= 1) return [1];
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [
+      1,
+      "...",
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+  return [
+    1,
+    "...",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "...",
+    totalPages,
+  ];
 };
 
 export default function AdminUsers() {
@@ -98,6 +126,8 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
@@ -434,7 +464,14 @@ export default function AdminUsers() {
         return matchSearch && matchTier && matchRole;
       }),
     [customers, roleFilter, search, tierFilter],
-  );
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, tierFilter, roleFilter]);
+
+  const paginatedCustomers = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredCustomers.slice(startIndex, startIndex + pageSize);
+  }, [filteredCustomers, currentPage, pageSize]);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-[#05070a] text-zinc-100">
@@ -606,79 +643,79 @@ export default function AdminUsers() {
 
         {/* Data Table */}
         <div
-          className="admin-reveal overflow-x-auto border border-zinc-800 bg-zinc-950"
+          className="admin-reveal overflow-x-auto border border-zinc-800 bg-zinc-950 custom-scrollbar"
           style={{ animationDelay: "280ms" }}
         >
-          <table className="w-full min-w-[980px] border-collapse text-left">
-            <thead className="bg-black">
+          <table className="w-full table-fixed border-collapse text-left text-xs">
+            <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-black shadow-[0_1px_0_0_rgba(34,211,238,0.25)] font-mono">
               <tr>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                <th className="w-12 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                   ID
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  User
+                <th className="w-48 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  USER
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Role
+                <th className="w-24 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  ROLE
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Hạng Thẻ
+                <th className="w-28 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  HẠNG THẺ
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Điểm Xét Hạng
+                <th className="w-28 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  ĐIỂM HẠNG
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Điểm Quy Đổi
+                <th className="w-28 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  ĐIỂM ĐỔI
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Số Xe
+                <th className="w-16 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  SỐ XE
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Booking
+                <th className="w-20 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  BOOKING
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Trạng thái
+                <th className="w-28 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  TRẠNG THÁI
                 </th>
-                <th className="border-b border-zinc-800 px-6 py-4 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                  Thao Tác
+                <th className="w-24 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                  THAO TÁC
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-900 font-mono text-sm">
+            <tbody className="divide-y divide-zinc-900 font-mono text-xs">
               {loading ? (
                 <tr>
                   <td
                     colSpan="10"
-                    className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
+                    className="px-3 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Đang tải...
                   </td>
                 </tr>
-              ) : filteredCustomers.length === 0 ? (
+              ) : paginatedCustomers.length === 0 ? (
                 <tr>
                   <td
                     colSpan="10"
-                    className="px-6 py-12 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
+                    className="px-3 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                   >
                     Không có dữ liệu
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((customer, index) => {
+                paginatedCustomers.map((customer, index) => {
                   const role = (customer.role || "CUSTOMER").toUpperCase();
                   return (
                     <tr
                       key={customer.id}
                       className="admin-reveal group cursor-pointer transition duration-200 hover:translate-x-1 hover:bg-cyan-400/[0.04]"
-                      style={{ animationDelay: `${340 + index * 45}ms` }}
+                      style={{ animationDelay: `${260 + index * 35}ms` }}
                       onClick={() => fetchCustomerDetails(customer.id, customer)}
                     >
-                      <td className="px-6 py-4 font-mono text-zinc-400">
+                      <td className="px-3 py-3 align-middle font-mono text-zinc-400">
                         {customer.id}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center border border-zinc-700 bg-black font-bold text-zinc-400">
+                      <td className="px-3 py-3 align-middle min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-zinc-700 bg-black font-bold text-zinc-400">
                             {customer.avatar ? (
                               <img
                                 src={customer.avatar}
@@ -690,11 +727,11 @@ export default function AdminUsers() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-bold text-zinc-100" title={customer.fullName}>
+                            <p className="truncate font-semibold text-zinc-100" title={customer.fullName}>
                               {customer.fullName}
                             </p>
                             <p
-                              className="max-w-[180px] truncate font-mono text-[12px] text-zinc-500"
+                              className="truncate font-mono text-[11px] text-zinc-500"
                               title={customer.email || customer.phone || ""}
                             >
                               {customer.email || customer.phone || "-"}
@@ -702,24 +739,24 @@ export default function AdminUsers() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-3 align-middle">
                         <span
-                          className={`inline-flex items-center gap-1.5 border px-2 py-1 text-[11px] font-black uppercase tracking-[0.14em] ${
+                          className={`inline-flex items-center gap-1 border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] ${
                             role === "STAFF"
                               ? "border-yellow-300/50 bg-yellow-300/10 text-yellow-200"
                               : "border-cyan-300/50 bg-cyan-300/10 text-cyan-200"
                           }`}
                         >
-                          <span className="material-symbols-outlined text-[14px]">
+                          <span className="material-symbols-outlined text-[13px]">
                             {role === "STAFF" ? "engineering" : "person"}
                           </span>
                           {role}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-3 align-middle">
                         {role === "CUSTOMER" ? (
                           <span
-                            className={`inline-block px-3 py-1 text-[10px] font-bold uppercase ${getTierStyle(
+                            className={`inline-block px-2.5 py-0.5 text-[10px] font-bold uppercase ${getTierStyle(
                               customer.tierLevel
                             )}`}
                           >
@@ -729,46 +766,42 @@ export default function AdminUsers() {
                           <span className="text-zinc-600">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-mono text-zinc-100">
+                      <td className="px-3 py-3 align-middle font-mono text-zinc-100">
                         {role === "CUSTOMER"
                           ? `${customer.tierPoints?.toLocaleString() || 0} pts`
                           : "-"}
                       </td>
-                      <td className="px-6 py-4 font-mono font-bold text-cyan-300">
+                      <td className="px-3 py-3 align-middle font-mono font-bold text-cyan-300">
                         {role === "CUSTOMER"
-                          ? `${
-                              customer.rewardPoints?.toLocaleString() || 0
-                            } pts`
+                          ? `${customer.rewardPoints?.toLocaleString() || 0} pts`
                           : "-"}
                       </td>
-                      <td className="px-6 py-4 font-mono text-zinc-100">
+                      <td className="px-3 py-3 align-middle text-center font-mono text-zinc-100">
                         {role === "CUSTOMER" ? customer.carCount ?? 0 : "-"}
                       </td>
-                      <td className="px-6 py-4 font-mono text-zinc-100">
+                      <td className="px-3 py-3 align-middle text-center font-mono text-zinc-100">
                         {role === "CUSTOMER" ? customer.bookingCount ?? 0 : "-"}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-3 align-middle">
                         <span
-                          className={`inline-flex min-w-[86px] items-center justify-center gap-1.5 whitespace-nowrap px-2 py-0.5 text-[11px] font-bold ${
-                            STATUS_STYLES[customer.status] ||
-                            STATUS_STYLES.ACTIVE
+                          className={`inline-flex min-w-[76px] items-center justify-center gap-1 whitespace-nowrap px-2 py-0.5 text-[10px] font-bold ${
+                            STATUS_STYLES[customer.status] || STATUS_STYLES.ACTIVE
                           }`}
                         >
-                          {customer.status === "ACTIVE"
-                            ? "Hoạt động"
-                            : "Bị khóa"}
+                          {customer.status === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-3 py-3 align-middle text-center">
                         <div
-                          className="flex items-center justify-end gap-2"
+                          className="flex items-center justify-center gap-1.5"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             onClick={() => fetchCustomerDetails(customer.id, customer)}
-                            className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                            className="flex h-7 w-7 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                            title="Chỉnh sửa người dùng"
                           >
-                            <span className="material-symbols-outlined text-sm">
+                            <span className="material-symbols-outlined text-[15px]">
                               edit
                             </span>
                           </button>
@@ -776,9 +809,10 @@ export default function AdminUsers() {
                             onClick={() =>
                               toggleCustomerStatus(customer.id, customer.status)
                             }
-                            className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
+                            className="flex h-7 w-7 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
+                            title={customer.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
                           >
-                            <span className="material-symbols-outlined text-sm">
+                            <span className="material-symbols-outlined text-[15px]">
                               {customer.status === "ACTIVE" ? "block" : "undo"}
                             </span>
                           </button>
@@ -793,19 +827,69 @@ export default function AdminUsers() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-2">
           <p className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-            Đang hiển thị{" "}
-            <span className="font-bold text-zinc-100">
-              {filteredCustomers.length}
+            ĐANG HIỂN THỊ{" "}
+            <span className="text-zinc-100">
+              {filteredCustomers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}
             </span>{" "}
-            trong số{" "}
-            <span className="font-bold text-zinc-100">{customers.length}</span>{" "}
-            người dùng
+            -{" "}
+            <span className="text-zinc-100">
+              {Math.min(currentPage * pageSize, filteredCustomers.length)}
+            </span>{" "}
+            TRONG <span className="text-zinc-100">{filteredCustomers.length}</span> NGUỜI DÙNG
           </p>
-          <span className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-            Tổng: {customers.length}
-          </span>
+
+          {/* Pagination Buttons */}
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              TRƯỚC
+            </button>
+            {(() => {
+              const totalPages = Math.ceil(filteredCustomers.length / pageSize) || 1;
+              const pageItems = getPageNumbers(currentPage, totalPages);
+
+              return pageItems.map((item, idx) => {
+                if (item === "...") {
+                  return (
+                    <span
+                      key={`dots-${idx}`}
+                      className="flex h-9 w-7 items-center justify-center font-mono text-xs font-bold text-zinc-600 select-none"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+
+                const isActive = item === currentPage;
+
+                return (
+                  <button
+                    key={`page-${item}`}
+                    onClick={() => setCurrentPage(item)}
+                    className={`h-9 min-w-9 px-2 font-mono text-xs font-black transition ${
+                      isActive
+                        ? "border border-cyan-400/60 bg-cyan-400/10 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                        : "border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              });
+            })()}
+            <button
+              disabled={currentPage * pageSize >= filteredCustomers.length}
+              onClick={() => setCurrentPage((prev) => prev + 1)}
+              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              SAU
+            </button>
+          </div>
         </div>
       </div>
 
