@@ -20,6 +20,28 @@ const DEFAULT_SERVICE_PRICES = [
   { vehicleSize: "LARGE", price: "", duration: "" },
 ];
 
+function ToggleSwitch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+        checked ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.35)]" : "bg-zinc-800"
+      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
 const getServicePrices = (service = {}) => {
   if (Array.isArray(service.servicePrices)) return service.servicePrices;
   if (Array.isArray(service.prices)) return service.prices;
@@ -172,25 +194,42 @@ export default function AdminServices() {
 
   const deleteService = async (id) => {
     if (!id) return;
+    // Optimistic UI state update to set status to INACTIVE immediately
+    setServices((prev) =>
+      prev.map((s) =>
+        getServiceId(s) === id ? { ...s, active: false, isActive: false, status: "INACTIVE" } : s
+      )
+    );
     try {
       await deleteServiceApi(id);
       setDeleteTarget(null);
-      fetchServices();
     } catch (err) {
       console.error("Failed to delete service:", err);
+      fetchServices();
     }
   };
 
-  const toggleServiceStatus = async (service) => {
+  const toggleServiceStatus = async (service, overrideActive) => {
     const id = getServiceId(service);
     if (!id) return;
-    const nextActive = getServiceStatus(service) !== "ACTIVE";
+    const currentActive = getServiceStatus(service) === "ACTIVE";
+    const nextActive = typeof overrideActive === "boolean" ? overrideActive : !currentActive;
+
+    // Optimistic UI state update in 0ms for 60fps smooth toggle transition
+    setServices((prev) =>
+      prev.map((s) =>
+        getServiceId(s) === id
+          ? { ...s, active: nextActive, isActive: nextActive, status: nextActive ? "ACTIVE" : "INACTIVE" }
+          : s
+      )
+    );
+
     setStatusUpdatingId(id);
     try {
       await updateServiceStatusApi(id, nextActive);
-      fetchServices();
     } catch (err) {
       console.error("Failed to update service status:", err);
+      fetchServices();
     } finally {
       setStatusUpdatingId(null);
     }
@@ -392,25 +431,16 @@ export default function AdminServices() {
                           </span>
                         </td>
                         <td className="px-6 py-5">
-                          <button
-                            type="button"
-                            disabled={statusUpdatingId === serviceId}
-                            onClick={() => toggleServiceStatus(service)}
-                            className="flex items-center gap-2 transition hover:text-cyan-200 disabled:cursor-wait disabled:opacity-60"
-                          >
-                            <div
-                              className={`h-2 w-2 rounded-full ${
-                                isActive
-                                  ? "bg-emerald-300"
-                                  : "bg-red-300"
-                              }`}
+                          <div className="flex items-center gap-3">
+                            <ToggleSwitch
+                              checked={isActive}
+                              disabled={statusUpdatingId === serviceId}
+                              onChange={(val) => toggleServiceStatus(service, val)}
                             />
-                            <span className="whitespace-nowrap font-mono text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
-                              {isActive
-                                ? "ĐANG BẬT"
-                                : "ĐÃ TẮT"}
+                            <span className={`font-mono text-[10px] font-black uppercase tracking-[0.14em] ${isActive ? "text-emerald-300" : "text-zinc-500"}`}>
+                              {isActive ? "ĐANG BẬT" : "ĐÃ TẮT"}
                             </span>
-                          </button>
+                          </div>
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex items-center justify-end gap-3">
@@ -529,9 +559,9 @@ export default function AdminServices() {
               Xác nhận xóa gói dịch vụ
             </h3>
             <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
-              Bạn có chắc muốn xóa{" "}
+              Bạn có chắc muốn xóa / ngưng hoạt động gói{" "}
               <span className="text-cyan-200">{deleteTarget.name}</span> không?
-              Hành động này sẽ gửi yêu cầu xóa lên backend.
+              Dịch vụ sẽ chuyển sang trạng thái <span className="text-amber-300 font-bold">ĐÃ TẮT (INACTIVE)</span> để bảo toàn lịch sử đặt xe của khách hàng.
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
@@ -744,29 +774,15 @@ function ServiceDrawer({ mode, service, onClose, onSave }) {
               Hiển thị gói này trên ứng dụng khách hàng
             </p>
           </div>
-          <button
-            type="button"
-            aria-pressed={formData.status === "ACTIVE"}
-            onClick={() =>
+          <ToggleSwitch
+            checked={formData.status === "ACTIVE"}
+            onChange={(val) =>
               setFormData((prev) => ({
                 ...prev,
-                status: prev.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                status: val ? "ACTIVE" : "INACTIVE",
               }))
             }
-            className={`relative h-7 w-14 rounded-full border transition-all duration-200 ${
-              formData.status === "ACTIVE"
-                ? "border-emerald-300/70 bg-emerald-300/20 shadow-[0_0_18px_rgba(110,231,183,0.18)]"
-                : "border-zinc-700 bg-zinc-900"
-            }`}
-          >
-            <span
-              className={`absolute left-1 top-1 h-5 w-5 rounded-full border transition-all duration-200 ${
-                formData.status === "ACTIVE"
-                  ? "translate-x-7 border-emerald-100 bg-emerald-200"
-                  : "translate-x-0 border-zinc-600 bg-zinc-950"
-              }`}
-            />
-          </button>
+          />
         </div>
       </div>
 
