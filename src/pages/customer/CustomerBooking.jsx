@@ -347,7 +347,9 @@ export default function CustomerBooking() {
         "services",
         "items",
         "data",
-      ]).map(normalizeServiceOption);
+      ])
+        .map(normalizeServiceOption)
+        .filter((item) => item.active !== false && String(item.status || "").toUpperCase() !== "INACTIVE");
       const fetchedSlots = normalizeHourlySlots(
         payload.timeSlots ||
           payload.availableSlots ||
