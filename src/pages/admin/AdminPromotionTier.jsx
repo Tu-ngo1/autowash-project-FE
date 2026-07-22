@@ -85,11 +85,24 @@ function ToggleSwitch({ checked, onChange, disabled }) {
 }
 
 const normalizeVoucher = (voucher = {}) => {
+  const rawDiscountType = String(
+    voucher.discountType || voucher.type || ""
+  ).toLowerCase();
+
   const discountPercent = voucher.discountPercent ?? voucher.percent;
-  const discountAmount =
-    voucher.discountAmount ?? voucher.amount ?? voucher.value;
+  const discountAmount = voucher.discountAmount ?? voucher.amount;
+
+  const isPercentType =
+    rawDiscountType.includes("percent") ||
+    (discountPercent !== null && discountPercent !== undefined);
+
+  const discountValue = isPercentType
+    ? (discountPercent ?? voucher.discountValue ?? 0)
+    : (discountAmount ?? voucher.discountValue ?? 0);
+
   const maxDiscountAmount =
     voucher.maxDiscountAmount ?? voucher.maxDiscountValue ?? voucher.maxAmount ?? null;
+
   const rawTier = String(
     voucher.tier || voucher.targetTier || voucher.tierLevel || "all",
   );
@@ -109,14 +122,14 @@ const normalizeVoucher = (voucher = {}) => {
     pointCost: voucher.pointCost ?? voucher.pointsRequired ?? 0,
     tier,
     targetTier: voucher.targetTier || (tier === "all" ? "MEMBER" : tier),
-    discountType:
-      discountPercent !== null && discountPercent !== undefined
-        ? "percentage"
-        : "fixed",
-    discountValue: discountPercent ?? discountAmount ?? 0,
-    discountAmount,
-    discountPercent,
-    maxDiscountAmount: maxDiscountAmount !== null && maxDiscountAmount !== undefined && maxDiscountAmount !== "" ? Number(maxDiscountAmount) : null,
+    discountType: isPercentType ? "percentage" : "fixed",
+    discountValue: Number(discountValue) || 0,
+    discountAmount: isPercentType ? null : Number(discountValue),
+    discountPercent: isPercentType ? Number(discountValue) : null,
+    maxDiscountAmount:
+      maxDiscountAmount !== null && maxDiscountAmount !== undefined && maxDiscountAmount !== ""
+        ? Number(maxDiscountAmount)
+        : null,
     isActive: Boolean(isActive),
     startDate: toDateInputValue(voucher.startDate || voucher.startAt),
     endDate: toDateInputValue(voucher.endDate || voucher.endAt),
