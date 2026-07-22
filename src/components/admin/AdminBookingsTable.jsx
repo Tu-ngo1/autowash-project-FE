@@ -179,70 +179,70 @@ export default function AdminBookingsTable({
                   {(booking.finalPrice ?? booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                 </span>
               </div>
-              <div className="flex gap-2 border-t border-zinc-800 pt-3">
-                {booking.status !== "COMPLETED" ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onEditBooking?.(booking);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">edit</span>
-                    Sửa
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="flex flex-1 items-center justify-center gap-2 border border-zinc-800 bg-zinc-950/50 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600 cursor-not-allowed"
-                    title="Lịch hẹn đã hoàn thành (Không thể sửa)"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">lock</span>
-                    Đã khóa
-                  </button>
-                )}
-                {canDeleteBooking(booking) && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDeleteBooking?.(booking);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 border border-red-400/50 bg-red-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-red-300"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      delete
-                    </span>
-                    Xóa
-                  </button>
-                )}
-                {String(booking.cancelRequestStatus || "").toUpperCase() === "PENDING" && (
-                  <>
+              {(() => {
+                const normStatus = String(booking.status || "").toUpperCase();
+                const isCancelPending = String(booking.cancelRequestStatus || "").toUpperCase() === "PENDING";
+
+                if (normStatus === "CANCELLED" || normStatus === "COMPLETED") {
+                  return null;
+                }
+
+                if (isCancelPending) {
+                  return (
+                    <div className="flex gap-2 border-t border-zinc-800 pt-3">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onApproveCancelRequest?.(booking);
+                        }}
+                        className="flex flex-1 items-center justify-center gap-1.5 border border-emerald-400/50 bg-emerald-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300 transition hover:bg-emerald-400/20"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                        Xác nhận
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRejectCancelRequest?.(booking);
+                        }}
+                        className="flex flex-1 items-center justify-center gap-1.5 border border-rose-400/50 bg-rose-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-rose-300 transition hover:bg-rose-400/20"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">cancel</span>
+                        Từ chối
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex gap-2 border-t border-zinc-800 pt-3">
                     <button
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onApproveCancelRequest?.(booking);
+                        onEditBooking?.(booking);
                       }}
-                      className="flex flex-1 items-center justify-center gap-2 border border-emerald-400/50 bg-emerald-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300"
+                      className="flex flex-1 items-center justify-center gap-1.5 border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-cyan-300 transition hover:bg-cyan-400/20"
                     >
-                      Duyệt hủy
+                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      Sửa
                     </button>
                     <button
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onRejectCancelRequest?.(booking);
+                        onCancelBooking?.(booking);
                       }}
-                      className="flex flex-1 items-center justify-center gap-2 border border-amber-400/50 bg-amber-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-amber-200"
+                      className="flex flex-1 items-center justify-center gap-1.5 border border-rose-400/50 bg-rose-400/10 px-3 py-2 font-mono text-[10px] font-black uppercase tracking-[0.14em] text-rose-300 transition hover:bg-rose-400/20"
                     >
-                      Từ chối
+                      <span className="material-symbols-outlined text-[16px]">block</span>
+                      Hủy đơn
                     </button>
-                  </>
-                )}
-              </div>
+                  </div>
+                );
+              })()}
             </div>
           </button>
         );
@@ -334,92 +334,72 @@ export default function AdminBookingsTable({
                   </span>
                 </td>
                 <td className="px-2.5 py-3 text-center align-middle">
-                  <div className="flex justify-center gap-2">
-                    {booking.status !== "COMPLETED" ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onEditBooking?.(booking);
-                        }}
-                        className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
-                        title="Chỉnh sửa booking"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">
-                          edit
-                        </span>
-                      </button>
-                    ) : (
-                      <div
-                        className="flex h-8 w-8 items-center justify-center border border-zinc-800 bg-zinc-950/50 text-zinc-600 cursor-not-allowed"
-                        title="Lịch hẹn đã hoàn thành (Không thể sửa)"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">
-                          lock
-                        </span>
+                  {(() => {
+                    const normStatus = String(booking.status || "").toUpperCase();
+                    const isCancelPending = String(booking.cancelRequestStatus || "").toUpperCase() === "PENDING";
+
+                    if (normStatus === "CANCELLED" || normStatus === "COMPLETED") {
+                      return <span className="font-mono text-xs font-semibold text-zinc-600">—</span>;
+                    }
+
+                    if (isCancelPending) {
+                      return (
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onApproveCancelRequest?.(booking);
+                            }}
+                            className="flex h-7 items-center gap-1 border border-emerald-400/50 bg-emerald-400/10 px-2 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300 transition hover:bg-emerald-400/20"
+                            title="Duyệt yêu cầu hủy từ Staff"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                            Xác nhận
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onRejectCancelRequest?.(booking);
+                            }}
+                            className="flex h-7 items-center gap-1 border border-rose-400/50 bg-rose-400/10 px-2 font-mono text-[10px] font-bold uppercase tracking-wider text-rose-300 transition hover:bg-rose-400/20"
+                            title="Từ chối yêu cầu hủy"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">cancel</span>
+                            Từ chối
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEditBooking?.(booking);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                          title="Chỉnh sửa trạng thái"
+                        >
+                          <span className="material-symbols-outlined text-[17px]">edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onCancelBooking?.(booking);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center border border-rose-400/40 bg-rose-400/10 text-rose-300 transition hover:bg-rose-400/20"
+                          title="Hủy đơn đặt lịch"
+                        >
+                          <span className="material-symbols-outlined text-[17px]">block</span>
+                        </button>
                       </div>
-                    )}
-                    {booking.status !== "COMPLETED" && booking.status !== "CANCELLED" && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onCancelBooking?.(booking);
-                        }}
-                        className="flex h-8 w-8 items-center justify-center border border-amber-400/40 bg-amber-400/10 text-amber-300 transition hover:bg-amber-400/20"
-                        title="Hủy đơn đặt lịch"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">
-                          block
-                        </span>
-                      </button>
-                    )}
-                    {canDeleteBooking(booking) && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onDeleteBooking?.(booking);
-                        }}
-                        className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
-                        title="Xóa booking"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">
-                          delete
-                        </span>
-                      </button>
-                    )}
-                    {String(booking.cancelRequestStatus || "").toUpperCase() === "PENDING" && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onApproveCancelRequest?.(booking);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center border border-emerald-400/40 bg-emerald-400/10 text-emerald-300 transition hover:bg-emerald-400/20"
-                          title="Duyệt yêu cầu hủy"
-                        >
-                          <span className="material-symbols-outlined text-[17px]">
-                            check
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onRejectCancelRequest?.(booking);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center border border-amber-400/40 bg-amber-400/10 text-amber-200 transition hover:bg-amber-400/20"
-                          title="Bác bỏ yêu cầu hủy"
-                        >
-                          <span className="material-symbols-outlined text-[17px]">
-                            close
-                          </span>
-                        </button>
-                      </>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </td>
               </tr>
             );
