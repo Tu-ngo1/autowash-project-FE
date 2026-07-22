@@ -248,32 +248,32 @@ export default function AdminBookingsTable({
         })}
       </div>
 
-      <div className="admin-reveal hidden w-full overflow-x-auto border border-zinc-800 bg-zinc-950 custom-scrollbar lg:block" style={{ animationDelay: "200ms" }}>
-        <table className="w-full table-fixed min-w-[1150px] border-collapse text-left text-xs">
+      <div className="admin-reveal hidden w-full overflow-hidden border border-zinc-800 bg-zinc-950 lg:block" style={{ animationDelay: "200ms" }}>
+        <table className="w-full table-fixed border-collapse text-left text-xs">
           <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-black shadow-[0_1px_0_0_rgba(34,211,238,0.25)]">
             <tr>
-              <th className="w-32 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-24 whitespace-nowrap px-2.5 py-3 font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 MÃ ĐƠN
               </th>
-              <th className="w-32 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-28 whitespace-nowrap px-2.5 py-3 font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 THỜI GIAN
               </th>
-              <th className="w-64 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-[22%] whitespace-nowrap px-2.5 py-3 font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 KHÁCH HÀNG & XE
               </th>
-              <th className="w-56 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-[18%] whitespace-nowrap px-2.5 py-3 font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 DỊCH VỤ
               </th>
-              <th className="w-44 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-36 whitespace-nowrap px-2.5 py-3 font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 THANH TOÁN
               </th>
-              <th className="w-36 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-28 whitespace-nowrap px-2.5 py-3 font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 TRẠNG THÁI
               </th>
-              <th className="w-28 whitespace-nowrap px-3 py-3.5 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-24 whitespace-nowrap px-2.5 py-3 text-right font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 TỔNG TIỀN
               </th>
-              <th className="w-24 whitespace-nowrap px-3 py-3.5 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-20 whitespace-nowrap px-2.5 py-3 text-center font-mono text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 THAO TÁC
               </th>
             </tr>
@@ -288,12 +288,12 @@ export default function AdminBookingsTable({
                 style={{ animationDelay: `${260 + index * 40}ms` }}
                 onClick={() => fetchBookingDetails(bookingId)}
               >
-                <td className="whitespace-nowrap px-3 py-3 align-middle">
+                <td className="whitespace-nowrap px-2.5 py-3 align-middle">
                   <span className="font-black text-cyan-300">
                     {booking.bookingCode || booking.code || `#B-${bookingId}`}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 align-middle">
+                <td className="whitespace-nowrap px-2.5 py-3 align-middle">
                   <span className="text-zinc-100">
                     {booking.date || "-"}
                   </span>
@@ -302,7 +302,7 @@ export default function AdminBookingsTable({
                   </span>
                 </td>
                 <td
-                  className="truncate whitespace-nowrap px-3 py-3 align-middle"
+                  className="truncate whitespace-nowrap px-2.5 py-3 align-middle"
                   title={`${booking.customerName || "-"} • ${booking.vehicleLicensePlate || booking.plate || "-"}`}
                 >
                   <span className="font-semibold text-zinc-100">
@@ -313,26 +313,26 @@ export default function AdminBookingsTable({
                   </span>
                 </td>
                 <td
-                  className="truncate whitespace-nowrap px-3 py-3 align-middle text-zinc-300"
+                  className="truncate whitespace-nowrap px-2.5 py-3 align-middle text-zinc-300"
                   title={booking.service || booking.services?.join(", ")}
                 >
                   {booking.service || booking.services?.join(", ") || "-"}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 align-middle">
+                <td className="whitespace-nowrap px-2.5 py-3 align-middle">
                   <PaymentBadge method={booking.paymentMethod} status={booking.paymentStatus} />
                 </td>
-                <td className="px-3 py-3 align-middle">
+                <td className="px-2.5 py-3 align-middle">
                   <div className="flex flex-col items-start gap-1">
                     <StatusBadge status={booking.status} />
                     <CancelRequestBadge status={booking.cancelRequestStatus} />
                   </div>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-right align-middle">
+                <td className="whitespace-nowrap px-2.5 py-3 text-right align-middle">
                   <span className="font-black text-zinc-100">
                     {(booking.finalPrice ?? booking.totalPrice ?? booking.total ?? 0).toLocaleString()} ₫
                   </span>
                 </td>
-                <td className="px-3 py-3 text-center align-middle">
+                <td className="px-2.5 py-3 text-center align-middle">
                   <div className="flex justify-center gap-2">
                     {booking.status !== "COMPLETED" ? (
                       <button
