@@ -127,6 +127,7 @@ export default function AdminBookings() {
   const [drawerMode, setDrawerMode] = useState("view");
   const [actionMessage, setActionMessage] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [actionNote, setActionNote] = useState("");
   const [rejectAction, setRejectAction] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -274,21 +275,34 @@ export default function AdminBookings() {
     setIsDrawerOpen(true);
   };
 
-  const handleDeleteBooking = async (booking) => {
-    const id = booking.id;
+  const handleDeleteBooking = (booking) => {
+    const id = booking.id || booking.bookingId;
     if (!id) return;
+    setActionNote("");
+    setConfirmAction({
+      type: "delete",
+      booking,
+      title: "Xóa vĩnh viễn đơn đặt lịch",
+      message:
+        "Hành động này sẽ xóa vĩnh viễn đơn đặt lịch khỏi hệ thống. Bạn có chắc chắn muốn xóa?",
+      confirmLabel: "Xóa đơn",
+    });
+  };
+
+  const handleDirectCancel = (booking) => {
+    setActionNote("");
     setConfirmAction({
       type: "direct-cancel",
       booking,
-      title: "Hủy đơn trực tiếp",
+      title: "Hủy đơn đặt lịch",
       message:
-        "Hủy trực tiếp đơn này đồng nghĩa hệ thống sẽ tự động hoàn trả 100% tiền cọc vào ví của khách hàng. Bạn có chắc chắn muốn tiếp tục?",
-      confirmLabel: "Hủy đơn",
+        "Bạn có chắc chắn muốn hủy trực tiếp đơn đặt lịch này? Hệ thống sẽ cập nhật trạng thái đơn thành ĐÃ HỦY và tự động hoàn tiền vào ví khách hàng (nếu có).",
+      confirmLabel: "Xác nhận Hủy đơn",
     });
   };
 
   const executeDeleteBooking = async (booking) => {
-    const id = booking.id;
+    const id = booking.id || booking.bookingId;
     if (!id) return;
     setActionMessage("");
     setActionLoading(true);
@@ -305,31 +319,51 @@ export default function AdminBookings() {
     setConfirmAction(null);
   };
 
-  const handleApproveCancelRequest = (booking) => {
-    setConfirmAction({
-      type: "approve-cancel",
-      booking,
-      title: "Duyệt yêu cầu hủy",
-      message:
-        "Bạn có chắc chắn muốn duyệt yêu cầu hủy lịch đặt này? Khách hàng sẽ được hoàn lại 100% tiền vào ví.",
-      confirmLabel: "Duyệt hủy",
-    });
-  };
-
-  const executeApproveCancelRequest = async (booking) => {
+  const executeDirectCancel = async (booking, note) => {
     const id = booking.id || booking.bookingId;
     if (!id) return;
     setActionLoading(true);
     setActionMessage("");
     try {
-      await approveCancelRequest(id);
-      setActionMessage("ĐÃ DUYỆT YÊU CẦU HỦY");
+      await updateAdminBookingStatus(id, "CANCELLED", note);
+      setActionMessage("ĐÃ HỦY ĐƠN ĐẶT LỊCH THÀNH CÔNG");
+      await fetchBookings();
+    } catch {
+      setActionMessage("KHÔNG THỂ HỦY ĐƠN ĐẶT LỊCH");
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+      setActionNote("");
+    }
+  };
+
+  const handleApproveCancelRequest = (booking) => {
+    setActionNote("");
+    setConfirmAction({
+      type: "approve-cancel",
+      booking,
+      title: "Duyệt yêu cầu hủy đơn",
+      message:
+        "Bạn có chắc chắn muốn duyệt yêu cầu hủy lịch đặt này? Khách hàng sẽ được hoàn lại 100% tiền vào ví.",
+      confirmLabel: "Duyệt hủy đơn",
+    });
+  };
+
+  const executeApproveCancelRequest = async (booking, note) => {
+    const id = booking.id || booking.bookingId;
+    if (!id) return;
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      await approveCancelRequest(id, note);
+      setActionMessage("ĐÃ DUYỆT YÊU CẦU HỦY ĐƠN");
       await fetchBookings();
     } catch {
       setActionMessage("KHÔNG THỂ DUYỆT YÊU CẦU HỦY");
     } finally {
       setActionLoading(false);
       setConfirmAction(null);
+      setActionNote("");
     }
   };
 
@@ -550,6 +584,7 @@ export default function AdminBookings() {
         <AdminBookingsTable
           bookings={bookings}
           onDeleteBooking={handleDeleteBooking}
+          onCancelBooking={handleDirectCancel}
           onEditBooking={openEditBooking}
           onApproveCancelRequest={handleApproveCancelRequest}
           onRejectCancelRequest={handleRejectCancelRequest}
@@ -1070,25 +1105,46 @@ export default function AdminBookings() {
               <span className="material-symbols-outlined text-4xl text-amber-300">
                 warning
               </span>
-              <div>
+              <div className="w-full min-w-0">
                 <h3 className="font-mono text-xl font-black uppercase text-zinc-50">
                   {confirmAction.title}
                 </h3>
                 <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
                   {confirmAction.message}
                 </p>
-                <p className="mt-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
+                <p className="mt-2 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
                   {confirmAction.booking?.bookingCode ||
                     `#${confirmAction.booking?.id || ""}`}{" "}
                   • {confirmAction.booking?.vehicleLicensePlate || "-"}
                 </p>
+                {(confirmAction.type === "approve-cancel" || confirmAction.type === "direct-cancel") && (
+                  <div className="mt-4">
+                    <label className="block mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                      Ghi chú Admin / Lý do (Không bắt buộc)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={actionNote}
+                      onChange={(e) => setActionNote(e.target.value)}
+                      placeholder={
+                        confirmAction.type === "approve-cancel"
+                          ? "Ghi chú duyệt hủy..."
+                          : "Lý do hủy đơn..."
+                      }
+                      className="w-full bg-black border border-zinc-700 p-2.5 font-mono text-xs font-semibold text-zinc-100 outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 disabled={actionLoading}
-                onClick={() => setConfirmAction(null)}
+                onClick={() => {
+                  setConfirmAction(null);
+                  setActionNote("");
+                }}
                 className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-400 disabled:opacity-50"
               >
                 Hủy
@@ -1096,11 +1152,15 @@ export default function AdminBookings() {
               <button
                 type="button"
                 disabled={actionLoading}
-                onClick={() =>
-                  confirmAction.type === "approve-cancel"
-                    ? executeApproveCancelRequest(confirmAction.booking)
-                    : executeDeleteBooking(confirmAction.booking)
-                }
+                onClick={() => {
+                  if (confirmAction.type === "approve-cancel") {
+                    executeApproveCancelRequest(confirmAction.booking, actionNote);
+                  } else if (confirmAction.type === "direct-cancel") {
+                    executeDirectCancel(confirmAction.booking, actionNote);
+                  } else {
+                    executeDeleteBooking(confirmAction.booking);
+                  }
+                }}
                 className="border border-cyan-400/50 bg-cyan-400/15 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-200 transition hover:bg-cyan-400/25 disabled:opacity-50"
               >
                 {actionLoading ? "Đang xử lý..." : confirmAction.confirmLabel}

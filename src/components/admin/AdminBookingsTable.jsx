@@ -105,6 +105,7 @@ export default function AdminBookingsTable({
   fetchBookingDetails,
   loading,
   onDeleteBooking,
+  onCancelBooking,
   onEditBooking,
   onApproveCancelRequest,
   onRejectCancelRequest,
@@ -357,6 +358,21 @@ export default function AdminBookingsTable({
                           lock
                         </span>
                       </div>
+                    )}
+                    {booking.status !== "COMPLETED" && booking.status !== "CANCELLED" && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onCancelBooking?.(booking);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center border border-amber-400/40 bg-amber-400/10 text-amber-300 transition hover:bg-amber-400/20"
+                        title="Hủy đơn đặt lịch"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">
+                          block
+                        </span>
+                      </button>
                     )}
                     {canDeleteBooking(booking) && (
                       <button
