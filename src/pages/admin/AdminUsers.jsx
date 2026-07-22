@@ -90,6 +90,8 @@ const getNewestValue = (item = {}) => {
   const parsedDate = rawDate ? new Date(rawDate).getTime() : NaN;
   if (Number.isFinite(parsedDate)) return parsedDate;
   return Number(item.id || item.userId || 0);
+};
+
 const getPageNumbers = (currentPage, totalPages) => {
   if (totalPages <= 1) return [1];
   if (totalPages <= 7) {
@@ -463,7 +465,9 @@ export default function AdminUsers() {
         const matchRole = roleFilter === "all" || role === roleFilter;
         return matchSearch && matchTier && matchRole;
       }),
-    [customers, roleFilter, search, tierFilter],
+    [customers, roleFilter, search, tierFilter]
+  );
+
   useEffect(() => {
     setCurrentPage(1);
   }, [search, tierFilter, roleFilter]);
