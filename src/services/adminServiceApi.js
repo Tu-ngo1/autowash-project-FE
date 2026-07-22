@@ -9,7 +9,11 @@ export const updateService = (id, data) =>
 export const deleteService = (id) =>
   api.delete(apiPath(`/admin/services/${id}`));
 export const updateServiceStatus = (id, isActive) =>
-  api.patch(apiPath(`/admin/services/${id}/status`), { isActive });
+  api.patch(
+    apiPath(`/admin/services/${id}/status`),
+    { active: Boolean(isActive), isActive: Boolean(isActive) },
+    { params: { active: Boolean(isActive) } }
+  );
 
 export default {
   getAdminServices,
