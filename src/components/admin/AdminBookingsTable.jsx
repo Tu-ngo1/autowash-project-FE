@@ -248,32 +248,32 @@ export default function AdminBookingsTable({
         })}
       </div>
 
-      <div className="admin-reveal hidden w-full overflow-hidden border border-zinc-800 bg-zinc-950 lg:block" style={{ animationDelay: "200ms" }}>
-        <table className="w-full table-fixed border-collapse text-left text-xs">
+      <div className="admin-reveal hidden w-full overflow-x-auto border border-zinc-800 bg-zinc-950 custom-scrollbar lg:block" style={{ animationDelay: "200ms" }}>
+        <table className="w-full table-fixed min-w-[1150px] border-collapse text-left text-xs">
           <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-black shadow-[0_1px_0_0_rgba(34,211,238,0.25)]">
             <tr>
-              <th className="w-32 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-32 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 MÃ ĐƠN
               </th>
-              <th className="w-36 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-32 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THỜI GIAN
               </th>
-              <th className="whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-64 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 KHÁCH HÀNG & XE
               </th>
-              <th className="whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-56 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 DỊCH VỤ
               </th>
-              <th className="w-40 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-44 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THANH TOÁN
               </th>
-              <th className="w-36 whitespace-nowrap px-3 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-36 whitespace-nowrap px-3 py-3.5 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TRẠNG THÁI
               </th>
-              <th className="w-28 whitespace-nowrap px-3 py-3 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-28 whitespace-nowrap px-3 py-3.5 text-right font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 TỔNG TIỀN
               </th>
-              <th className="w-32 whitespace-nowrap px-3 py-3 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+              <th className="w-24 whitespace-nowrap px-3 py-3.5 text-center font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                 THAO TÁC
               </th>
             </tr>
