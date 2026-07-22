@@ -24,6 +24,36 @@ const formatDateTime = (value) => {
   });
 };
 
+const getPageNumbers = (currentPage, totalPages) => {
+  if (totalPages <= 1) return [1];
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [
+      1,
+      "...",
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+  return [
+    1,
+    "...",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "...",
+    totalPages,
+  ];
+};
+
 const toIsoDate = (value) => {
   const trimmed = value.trim();
   const ddmmyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -552,19 +582,55 @@ export default function AdminBookings() {
               "KẾT QUẢ"
             )}
           </p>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <button
               disabled={pagination.page === 1}
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
               }
-              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               TRƯỚC
             </button>
-            <span className="flex h-9 min-w-9 items-center justify-center border border-cyan-400/60 bg-cyan-400/10 px-3 font-mono font-black text-cyan-300">
-              {pagination.page}
-            </span>
+            {(() => {
+              const totalPages =
+                pagination.total > 0
+                  ? Math.ceil(pagination.total / pagination.limit)
+                  : isClientSide
+                  ? Math.ceil(filteredBookings.length / pagination.limit)
+                  : 1;
+
+              const pageItems = getPageNumbers(pagination.page, Math.max(1, totalPages));
+
+              return pageItems.map((item, idx) => {
+                if (item === "...") {
+                  return (
+                    <span
+                      key={`dots-${idx}`}
+                      className="flex h-9 w-7 items-center justify-center font-mono text-xs font-bold text-zinc-600 select-none"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+
+                const isActive = item === pagination.page;
+
+                return (
+                  <button
+                    key={`page-${item}`}
+                    onClick={() => setPagination((prev) => ({ ...prev, page: item }))}
+                    className={`h-9 min-w-9 px-2 font-mono text-xs font-black transition ${
+                      isActive
+                        ? "border border-cyan-400/60 bg-cyan-400/10 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                        : "border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              });
+            })()}
             <button
               disabled={
                 pagination.total !== -1
@@ -575,7 +641,7 @@ export default function AdminBookings() {
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
               }
-              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               SAU
             </button>
