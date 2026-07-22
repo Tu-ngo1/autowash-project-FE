@@ -57,6 +57,55 @@ const getMetric = (payload, keys, fallback = 0) => {
   return fallback;
 };
 
+const DASHBOARD_STATUS_STYLES = {
+  PENDING: { label: "CHỜ XÁC NHẬN", class: "border-amber-400/50 bg-amber-400/10 text-amber-300" },
+  CONFIRM: { label: "ĐÃ XÁC NHẬN", class: "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" },
+  ARRIVED: { label: "ĐÃ CHECK-IN", class: "border-sky-400/50 bg-sky-400/10 text-sky-300" },
+  WASHING: { label: "ĐANG RỬA", class: "border-blue-400/50 bg-blue-400/10 text-blue-300" },
+  IN_PROGRESS: { label: "ĐANG RỬA", class: "border-blue-400/50 bg-blue-400/10 text-blue-300" },
+  COMPLETED: { label: "HOÀN THÀNH", class: "border-emerald-400/50 bg-emerald-400/10 text-emerald-300" },
+  CANCEL_REQUESTED: { label: "YÊU CẦU HỦY", class: "border-orange-400/50 bg-orange-400/10 text-orange-300" },
+  CANCELLED: { label: "ĐÃ HỦY", class: "border-red-400/50 bg-red-400/10 text-red-300" },
+};
+
+const getStatusBadge = (status) => {
+  const key = String(status || "").toUpperCase();
+  const item = DASHBOARD_STATUS_STYLES[key] || {
+    label: status || "-",
+    class: "border-zinc-700 bg-zinc-900 text-zinc-300",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] border ${item.class}`}>
+      {item.label}
+    </span>
+  );
+};
+
+const getPaymentBadge = (method) => {
+  const normalized = String(method || "").toUpperCase();
+  if (normalized.includes("PAYOS")) {
+    return (
+      <span className="inline-flex items-center gap-1 border border-purple-400/50 bg-purple-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-purple-300">
+        <span className="material-symbols-outlined text-[13px]">credit_card</span>
+        PAYOS
+      </span>
+    );
+  }
+  if (normalized.includes("CASH") || normalized.includes("TIỀN MẶT")) {
+    return (
+      <span className="inline-flex items-center gap-1 border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-300">
+        <span className="material-symbols-outlined text-[13px]">payments</span>
+        TIỀN MẶT
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center border border-cyan-400/50 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-300">
+      {method || "-"}
+    </span>
+  );
+};
+
 function KpiCard({ title, value, icon, children, delay = 0 }) {
   return (
     <div
@@ -644,12 +693,10 @@ export default function AdminDashboard() {
                       {booking.vehicleLicensePlate || "-"}
                     </td>
                     <td className="p-4">
-                      <span className="border border-cyan-400/50 bg-cyan-400/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-cyan-300">
-                        {booking.paymentMethod || "-"}
-                      </span>
+                      {getPaymentBadge(booking.paymentMethod)}
                     </td>
-                    <td className="p-4 text-emerald-300">
-                      {booking.status || "-"}
+                    <td className="p-4">
+                      {getStatusBadge(booking.status)}
                     </td>
                     <td className="p-4 text-right font-black text-zinc-100">
                       {formatCurrency(booking.finalPrice)}
