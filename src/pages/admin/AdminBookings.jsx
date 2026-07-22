@@ -11,6 +11,19 @@ import {
 } from "../../services/adminBookingApi";
 import { asArrayPayload, normalizeAdminBooking } from "../../utils/adminDto";
 
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const toIsoDate = (value) => {
   const trimmed = value.trim();
   const ddmmyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -767,19 +780,48 @@ export default function AdminBookings() {
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <div className="inline-flex items-center px-3 py-1 bg-secondary/10 border border-secondary/20 rounded-full">
-                      <span
-                        className="material-symbols-outlined text-[16px] text-secondary mr-2"
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                      >
-                        check_circle
-                      </span>
-                      <span className="text-[10px] font-bold text-secondary tracking-widest uppercase">
-                        {selectedBooking.paymentMethod === "PAYOS"
-                          ? `ĐÃ THANH TOÁN QUA PAYOS`
-                          : selectedBooking.paymentStatus || "THANH TOÁN TIỀN MẶT"}
-                      </span>
-                    </div>
+                    {(() => {
+                      const rawPayStatus = String(selectedBooking.paymentStatus || "").toUpperCase();
+                      const rawPayMethod = String(selectedBooking.paymentMethod || "").toUpperCase();
+                      const isPaid = rawPayStatus === "PAID";
+                      const isRefunded = rawPayStatus === "REFUNDED";
+                      const isFailed = rawPayStatus === "FAILED" || rawPayStatus === "CANCELLED";
+
+                      let badgeClass = "bg-amber-500/10 border-amber-500/30 text-amber-400";
+                      let icon = "pending";
+                      let text = `CHƯA THANH TOÁN ${rawPayMethod ? `(${rawPayMethod})` : ""}`;
+
+                      if (isPaid) {
+                        badgeClass = "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+                        icon = "check_circle";
+                        text = rawPayMethod === "PAYOS" ? "ĐÃ THANH TOÁN QUA PAYOS" : `ĐÃ THANH TOÁN (${rawPayMethod || "TIỀN MẶT"})`;
+                      } else if (isRefunded) {
+                        badgeClass = "bg-purple-500/10 border-purple-500/30 text-purple-300";
+                        icon = "undo";
+                        text = `ĐÃ HOÀN TIỀN ${rawPayMethod ? `(${rawPayMethod})` : ""}`;
+                      } else if (isFailed) {
+                        badgeClass = "bg-red-500/10 border-red-500/30 text-red-400";
+                        icon = "cancel";
+                        text = `THANH TOÁN THẤT BẠI ${rawPayMethod ? `(${rawPayMethod})` : ""}`;
+                      } else {
+                        if (rawPayMethod === "PAYOS") {
+                          text = "CHƯA THANH TOÁN (PAYOS)";
+                        } else if (rawPayMethod === "CASH") {
+                          text = "CHƯA THANH TOÁN (TIỀN MẶT)";
+                        }
+                      }
+
+                      return (
+                        <div className={`inline-flex items-center px-3 py-1 border rounded-full ${badgeClass}`}>
+                          <span className="material-symbols-outlined text-[16px] mr-2" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {icon}
+                          </span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase">
+                            {text}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -792,56 +834,152 @@ export default function AdminBookings() {
                   </h3>
                 </div>
                 <div className="p-5">
-                  <div className="relative pl-6 border-l border-outline-variant space-y-8 pb-4">
+                  <div className="relative pl-6 border-l border-outline-variant space-y-6 pb-2">
+                    {/* 1. Tạo đơn đặt lịch */}
                     <div className="relative">
-                      <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-outline-variant border-2 border-surface-container-low"></div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-baseline gap-2">
-                          <div className="text-sm text-on-surface">
-                            Đặt lịch trực tuyến
+                      <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-surface-container-low"></div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-on-surface">
+                            Tạo đơn đặt lịch
                           </div>
-                          <div className="text-[10px] text-on-surface-variant">
-                            {selectedBooking.scheduledStartTime ||
-                              `${selectedBooking.date} ${selectedBooking.time}`}
+                          <div className="text-[11px] text-zinc-400 mt-0.5">
+                            {selectedBooking.createdAt
+                              ? formatDateTime(selectedBooking.createdAt)
+                              : `${selectedBooking.date || ""} ${selectedBooking.time || ""}`}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">
+                            Giờ hẹn rửa: {selectedBooking.scheduledStartTime ? formatDateTime(selectedBooking.scheduledStartTime) : `${selectedBooking.date || ""} ${selectedBooking.time || ""}`}
                           </div>
                         </div>
-                        <span className="material-symbols-outlined text-outline-variant text-[18px]">
+                        <span className="material-symbols-outlined text-cyan-400 text-[18px]">
                           event_available
                         </span>
                       </div>
                     </div>
-                    {selectedBooking.status !== "PENDING" && (
+
+                    {/* 2. Check-in QR */}
+                    {(selectedBooking.arrivedAt || ["ARRIVED", "IN_PROGRESS", "WASHED", "COMPLETED"].includes(String(selectedBooking.status).toUpperCase())) && (
                       <div className="relative">
-                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-outline-variant border-2 border-surface-container-low"></div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm text-on-surface">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-on-surface">
                               Check-in QR
                             </div>
-                            <span className="text-[10px] text-on-surface-variant">
-                              {selectedBooking.time}
-                            </span>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.arrivedAt
+                                ? formatDateTime(selectedBooking.arrivedAt)
+                                : selectedBooking.time}
+                            </div>
                           </div>
-                          <span className="material-symbols-outlined text-outline-variant text-[18px]">
+                          <span className="material-symbols-outlined text-cyan-400 text-[18px]">
                             qr_code_scanner
                           </span>
                         </div>
                       </div>
                     )}
-                    {selectedBooking.status === "COMPLETED" && (
+
+                    {/* 3. Bắt đầu rửa xe */}
+                    {(selectedBooking.washStartedAt || ["IN_PROGRESS", "WASHED", "COMPLETED"].includes(String(selectedBooking.status).toUpperCase())) && (
                       <div className="relative">
-                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-secondary border-2 border-surface-container-low"></div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-baseline gap-2">
-                            <div className="text-sm text-secondary font-medium">
-                              Hoàn tất & Giao xe
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-on-surface">
+                              Đưa vào khoang rửa {selectedBooking.bayNumber ? `#${selectedBooking.bayNumber}` : ""}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.washStartedAt
+                                ? formatDateTime(selectedBooking.washStartedAt)
+                                : "-"}
                             </div>
                           </div>
-                          <span
-                            className="material-symbols-outlined text-secondary text-[18px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                          >
+                          <span className="material-symbols-outlined text-cyan-400 text-[18px]">
+                            local_car_wash
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. Hoàn tất & Giao xe */}
+                    {(String(selectedBooking.status).toUpperCase() === "COMPLETED" || selectedBooking.completedAt) && (
+                      <div className="relative">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm text-emerald-400 font-medium">
+                              Hoàn tất & Giao xe
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.completedAt
+                                ? formatDateTime(selectedBooking.completedAt)
+                                : "-"}
+                            </div>
+                          </div>
+                          <span className="material-symbols-outlined text-emerald-400 text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                             task_alt
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. Gửi yêu cầu hủy (nếu có) */}
+                    {(selectedBooking.cancelRequestedAt || selectedBooking.cancelRequestStatus) && (
+                      <div className="relative">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm text-amber-300 font-medium">
+                              Yêu cầu hủy ({selectedBooking.cancelRequestStatus})
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.cancelRequestedAt
+                                ? formatDateTime(selectedBooking.cancelRequestedAt)
+                                : "-"}
+                            </div>
+                            {selectedBooking.cancelRequestedByName && (
+                              <div className="text-[10px] text-zinc-400 mt-0.5">
+                                Người yêu cầu: {selectedBooking.cancelRequestedByName}
+                              </div>
+                            )}
+                            {selectedBooking.cancelRequestReason && (
+                              <div className="text-[10px] text-amber-200/80 mt-0.5">
+                                Lý do: {selectedBooking.cancelRequestReason}
+                              </div>
+                            )}
+                          </div>
+                          <span className="material-symbols-outlined text-amber-400 text-[18px]">
+                            history_toggle_off
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 6. Đã hủy đơn */}
+                    {String(selectedBooking.status).toUpperCase() === "CANCELLED" && (
+                      <div className="relative">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-red-500 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm text-red-400 font-medium">
+                              Đã hủy đơn
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.cancelRequestedAt
+                                ? formatDateTime(selectedBooking.cancelRequestedAt)
+                                : selectedBooking.updatedAt
+                                ? formatDateTime(selectedBooking.updatedAt)
+                                : "-"}
+                            </div>
+                            {selectedBooking.cancelRequestAdminNote && (
+                              <div className="text-[10px] text-red-300/80 mt-0.5">
+                                Ghi chú Admin: {selectedBooking.cancelRequestAdminNote}
+                              </div>
+                            )}
+                          </div>
+                          <span className="material-symbols-outlined text-red-400 text-[18px]">
+                            cancel
                           </span>
                         </div>
                       </div>
