@@ -276,7 +276,6 @@ export default function StaffCustomers() {
   const [selectedVehicleKey, setSelectedVehicleKey] = useState("new");
   const [vehicleLocked, setVehicleLocked] = useState(false);
   const [lookupState, setLookupState] = useState("idle");
-  const [lookupType, setLookupType] = useState("");
   const [loadingData, setLoadingData] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -335,44 +334,6 @@ export default function StaffCustomers() {
           normalizeVehicleText(vehicle?.modelName),
     );
 
-  const hydrateVehicleFromModels = (vehicle) => {
-    const matchedModel = findVehicleModelForVehicle(vehicle);
-    if (!matchedModel) return vehicle;
-    return {
-      ...vehicle,
-      brand: matchedModel.brand,
-      modelName: matchedModel.modelName,
-      vehicleModelId: matchedModel.id,
-      vehicleSize: matchedModel.vehicleSize,
-    };
-  };
-
-  const applyRegisteredVehicle = (vehicle) => {
-    const hydratedVehicle = hydrateVehicleFromModels(vehicle);
-    const matchedModel = findVehicleModelForVehicle(hydratedVehicle);
-    setForm((prev) => ({
-      ...prev,
-      licensePlate: normalizePlate(hydratedVehicle?.licensePlate || ""),
-      vehicleBrand: matchedModel?.brand || hydratedVehicle?.brand || "",
-      vehicleModelId: matchedModel?.id || hydratedVehicle?.vehicleModelId || "",
-      vehicleModelName: matchedModel?.modelName || hydratedVehicle?.modelName || "",
-      vehicleSize: matchedModel?.vehicleSize || hydratedVehicle?.vehicleSize || "",
-    }));
-    setVehicleLocked(Boolean(matchedModel || hydratedVehicle?.vehicleModelId));
-  };
-
-  const resetVehicleForm = () => {
-    setForm((prev) => ({
-      ...prev,
-      licensePlate: "",
-      vehicleBrand: "",
-      vehicleModelId: "",
-      vehicleModelName: "",
-      vehicleSize: "",
-    }));
-    setVehicleLocked(false);
-  };
-
   useEffect(() => {
     let mounted = true;
     const loadVehicleModels = async () => {
@@ -408,6 +369,8 @@ export default function StaffCustomers() {
       vehicleSize: matchedModel.vehicleSize,
     }));
     setVehicleLocked(true);
+    // findVehicleModelForVehicle is intentionally derived from current vehicleModels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleModels, registeredVehicles, selectedVehicleKey]);
 
   useEffect(() => {
@@ -432,6 +395,8 @@ export default function StaffCustomers() {
       vehicleSize: matchedModel.vehicleSize,
     }));
     setVehicleLocked(true);
+    // findVehicleModelForVehicle is intentionally derived from current vehicleModels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     form.licensePlate,
     form.vehicleBrand,
@@ -530,21 +495,6 @@ export default function StaffCustomers() {
     }));
   };
 
-  const handleRegisteredVehicleChange = (value) => {
-    setSelectedVehicleKey(value);
-    if (value === "new") {
-      resetVehicleForm();
-      return;
-    }
-
-    const selectedVehicle = registeredVehicles.find(
-      (vehicle) => vehicle.key === value,
-    );
-    if (selectedVehicle) {
-      applyRegisteredVehicle(selectedVehicle);
-    }
-  };
-
   const handleLookup = async () => {
     const query = lookup.trim();
     if (!query) {
@@ -561,8 +511,6 @@ export default function StaffCustomers() {
       triggerError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 50A-123456).");
       return;
     }
-
-    setLookupType(isPhone ? "phone" : "plate");
 
     setLookupLoading(true);
     setError("");
@@ -627,7 +575,7 @@ export default function StaffCustomers() {
           ? "Đã tìm thấy khách hàng. Chọn phương tiện để tiếp nhận."
           : "Đã tìm thấy khách hàng. Khách chưa có xe đã đăng ký.",
       );
-    } catch (err) {
+    } catch {
       const normalizedLookupPlate = /^\d{2}/.test(compactLicensePlate(lookup))
         ? normalizePlate(lookup)
         : "";
@@ -792,7 +740,6 @@ export default function StaffCustomers() {
                       onChange={(event) => {
                         setLookup(event.target.value);
                         setLookupState("idle");
-                        setLookupType("");
                         setRegisteredVehicles([]);
                         setSelectedVehicleKey("new");
                         setVehicleLocked(false);

@@ -1,10 +1,33 @@
 import { useState } from "react";
 
+const REVIEW_TAGS = [
+  "Rửa xe sạch chuyên nghiệp",
+  "Nhân viên nhiệt tình",
+  "Thời gian phục vụ nhanh",
+  "Không gian chờ thoải mái",
+  "Tư vấn dịch vụ rõ ràng",
+  "Giá cả hợp lý",
+  "Xe thơm và khô ráo",
+  "Sẽ quay lại lần sau",
+];
+
 export default function ReviewModal({ booking, loading, onClose, onSubmit }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
 
   if (!booking) return null;
+
+  const toggleTag = (tag) => {
+    setSelectedTags((current) => {
+      const exists = current.includes(tag);
+      const nextTags = exists
+        ? current.filter((item) => item !== tag)
+        : [...current, tag];
+      setComment(nextTags.join(". "));
+      return nextTags;
+    });
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -12,7 +35,7 @@ export default function ReviewModal({ booking, loading, onClose, onSubmit }) {
     onSubmit({
       bookingId: booking.id,
       rating,
-      comment: comment.trim(),
+      comment: comment.trim() || selectedTags.join(". "),
     });
   };
 
@@ -64,6 +87,31 @@ export default function ReviewModal({ booking, loading, onClose, onSubmit }) {
                 ★
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <label className="mb-3 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+            Chọn nhanh cảm nhận
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {REVIEW_TAGS.map((tag) => {
+              const active = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                    active
+                      ? "border-cyan-400 bg-cyan-100 text-cyan-800 shadow-[0_8px_26px_rgba(8,145,178,0.12)]"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-cyan-200 hover:bg-cyan-50"
+                  }`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
           </div>
         </div>
 

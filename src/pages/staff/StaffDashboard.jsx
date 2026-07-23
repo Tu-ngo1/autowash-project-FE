@@ -194,18 +194,6 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
   );
 }
 
-function getAppointmentValue(item, keys, fallback = "Chưa có dữ liệu") {
-  const value = keys
-    .map((key) => item?.[key])
-    .find((entry) => entry !== undefined && entry !== null && entry !== "");
-
-  if (typeof value === "object") {
-    return value.name || value.fullName || value.title || fallback;
-  }
-
-  return value || fallback;
-}
-
 function AppointmentSnapshot({ appointment, scannedCode }) {
   if (!appointment) {
     return (
@@ -476,8 +464,12 @@ export default function StaffDashboard() {
     if (cameraActive && videoRef.current) {
       startQrScanner();
     }
+    // Scanner lifecycle is controlled by cameraActive and refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraActive]);
 
+  // Release camera resources once when leaving the page.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => stopCamera(), []);
 
   const openArrivalModal = (appointment) => {

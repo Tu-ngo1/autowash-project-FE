@@ -1,5 +1,5 @@
 // src/pages/admin/AdminUsers.jsx
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import {
   addAdminUserVehicle,
   createAdminUser,
@@ -23,22 +23,12 @@ const getVehicleBrands = (vehicleModels) =>
     a.localeCompare(b),
   );
 
-const getVehicleModelById = (vehicleModels, id) =>
-  vehicleModels.find((model) => String(model.id) === String(id));
-
 const TIER_STYLES = {
   PLATINUM:
     "border border-cyan-300/60 bg-cyan-300/10 text-cyan-200 platinum-glow",
   GOLD: "border border-yellow-300/60 bg-yellow-300/10 text-yellow-200",
   SILVER: "border border-zinc-700 bg-zinc-900 text-zinc-300",
   MEMBER: "border border-zinc-700 bg-zinc-900 text-zinc-300",
-};
-
-const TIER_ORDER = {
-  MEMBER: 0,
-  SILVER: 1,
-  GOLD: 2,
-  PLATINUM: 3,
 };
 
 const STATUS_STYLES = {
@@ -51,9 +41,6 @@ const STATUS_STYLES = {
 const getTierStyle = (tierLevel) =>
   TIER_STYLES[String(tierLevel || "MEMBER").toUpperCase()] ||
   TIER_STYLES.MEMBER;
-
-const getTierRank = (tier) =>
-  TIER_ORDER[String(tier || "MEMBER").toUpperCase()] ?? 99;
 
 const getNewestValue = (item = {}) => {
   const rawDate =
@@ -130,10 +117,6 @@ export default function AdminUsers() {
   }, [vehicleModels, vehicleForm.brand]);
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  useEffect(() => {
     if (selectedCustomer) {
       setDrawerForm({
         fullName: selectedCustomer.fullName || "",
@@ -186,7 +169,7 @@ export default function AdminUsers() {
     };
   }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getAdminUsers();
@@ -205,7 +188,11 @@ export default function AdminUsers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
 
   const applyCustomers = (items) => {
     const normalizedCustomers = items
@@ -260,27 +247,6 @@ export default function AdminUsers() {
         setSelectedCustomer(normalizeAdminCustomer(fallbackCustomer));
         setIsDrawerOpen(true);
       }
-    }
-  };
-
-  const updateCustomer = async (id, data) => {
-    try {
-      await updateAdminUser(id, data);
-      await fetchCustomers();
-    } catch (err) {
-      console.error("Failed to update customer:", err);
-    }
-  };
-
-  const updateCustomerPoints = async (id, rankDelta, redeemDelta) => {
-    try {
-      await updateAdminUserPoints(id, {
-        rankPointsDelta: rankDelta,
-        redeemPointsDelta: redeemDelta,
-      });
-      await fetchCustomers();
-    } catch (err) {
-      console.error("Failed to update points:", err);
     }
   };
 

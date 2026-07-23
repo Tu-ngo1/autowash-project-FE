@@ -31,9 +31,9 @@ function PaymentBadge({ method, status }) {
   const normalizedStatus = String(status || "PENDING").toUpperCase();
   const isPaid = normalizedStatus === "PAID";
 
-  let text = normalizedMethod;
+  let text;
   let icon = null;
-  let styleClass = "border-zinc-700 text-zinc-400 bg-zinc-900";
+  let styleClass;
 
   if (normalizedMethod === "PAYOS") {
     text = isPaid ? "PAYOS (ĐÃ TT)" : "PAYOS (CHƯA TT)";
@@ -98,18 +98,12 @@ function CancelRequestBadge({ status }) {
   );
 }
 
-const canDeleteBooking = (booking) =>
-  String(booking?.status || "").toUpperCase() !== "COMPLETED" &&
-  String(booking?.cancelRequestStatus || "").toUpperCase() !== "PENDING";
-
 export default function AdminBookingsTable({
   bookings,
   pagination = { page: 1, limit: 10 },
   fetchBookingDetails,
   loading,
-  onDeleteBooking,
   onCancelBooking,
-  onEditBooking,
   onApproveCancelRequest,
   onRejectCancelRequest,
 }) {

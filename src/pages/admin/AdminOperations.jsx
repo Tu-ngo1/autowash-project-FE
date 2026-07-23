@@ -73,7 +73,7 @@ export default function AdminOperations() {
         setSlotCount(slotCountFromConfig(nextOpenTime, nextCloseTime));
         setBayCount(Number(data.bayCount || 3));
         setIsActive(data.isActive ?? data.active ?? true);
-      } catch (err) {
+      } catch {
         if (!ignore) {
           setError("Không thể tải cấu hình ngày mai từ hệ thống.");
         }
@@ -311,71 +311,77 @@ export default function AdminOperations() {
                   )}
                 </div>
 
-                {/* Field 1: Open Time Select */}
-                <div>
-                  <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
-                    Giờ mở cửa (Open Time)
-                  </label>
-                  <select
-                    value={openTime}
-                    onChange={(e) => setOpenTime(e.target.value)}
-                    disabled={!isActive}
-                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                  >
-                    {timeOptions.map((time) => (
-                      <option
-                        key={time}
-                        value={time}
-                        className="bg-black text-zinc-100"
+                {isActive ? (
+                  <>
+                    {/* Field 1: Open Time Select */}
+                    <div>
+                      <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
+                        Giờ mở cửa (Open Time)
+                      </label>
+                      <select
+                        value={openTime}
+                        onChange={(e) => setOpenTime(e.target.value)}
+                        className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
                       >
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                        {timeOptions.map((time) => (
+                          <option
+                            key={time}
+                            value={time}
+                            className="bg-black text-zinc-100"
+                          >
+                            {time}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                {/* Field 2: Slot Count */}
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                      Số lượng ca hoạt động
-                    </label>
-                    <span className="font-mono text-[9px] font-bold text-cyan-300 border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 uppercase tracking-wider">
-                      Ca kéo dài 90 phút
-                    </span>
+                    {/* Field 2: Slot Count */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                          Số lượng ca hoạt động
+                        </label>
+                        <span className="font-mono text-[9px] font-bold text-cyan-300 border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 uppercase tracking-wider">
+                          Ca kéo dài 90 phút
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={slotCount}
+                        onChange={(e) => setSlotCount(e.target.value)}
+                        placeholder="Nhập số lượng ca (ví dụ: 6)"
+                        className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                      />
+                      <p className="mt-1 font-mono text-[10px] text-zinc-500 italic">
+                        * Lưu ý: Mỗi ca làm việc kéo dài cố định 90 phút. Ví dụ: 6
+                        ca từ 08:00 sẽ kết thúc vào lúc 17:00.
+                      </p>
+                    </div>
+
+                    {/* Field 3: Bay Count */}
+                    <div>
+                      <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
+                        Số khoang rửa khả dụng (Bay Count)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={bayCount}
+                        onChange={(e) => setBayCount(e.target.value)}
+                        placeholder="Nhập số khoang rửa (ví dụ: 3)"
+                        className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="border border-amber-400/35 bg-amber-400/10 p-4 font-mono text-xs font-bold leading-6 text-amber-100">
+                    Ngày mai đã được chọn là ngày nghỉ. Không cần cấu hình giờ
+                    mở cửa, số ca hoạt động hoặc số khoang rửa.
                   </div>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={slotCount}
-                    onChange={(e) => setSlotCount(e.target.value)}
-                    disabled={!isActive}
-                    placeholder="Nhập số lượng ca (ví dụ: 6)"
-                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                  />
-                  <p className="mt-1 font-mono text-[10px] text-zinc-500 italic">
-                    * Lưu ý: Mỗi ca làm việc kéo dài cố định 90 phút. Ví dụ: 6
-                    ca từ 08:00 sẽ kết thúc vào lúc 17:00.
-                  </p>
-                </div>
-
-                {/* Field 3: Bay Count */}
-                <div>
-                  <label className="block font-mono text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 mb-2">
-                    Số khoang rửa khả dụng (Bay Count)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={bayCount}
-                    onChange={(e) => setBayCount(e.target.value)}
-                    disabled={!isActive}
-                    placeholder="Nhập số khoang rửa (ví dụ: 3)"
-                    className="h-11 w-full border border-zinc-800 bg-black px-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-400"
-                  />
-                </div>
+                )}
               </div>
 
               {/* Submit Button */}
@@ -404,22 +410,31 @@ export default function AdminOperations() {
                 Hướng dẫn cấu hình
               </h3>
               <div className="font-mono text-xs text-zinc-500 space-y-3 leading-relaxed">
-                <p>
-                  1. <strong className="text-zinc-300">Giờ mở cửa</strong>: Chọn
-                  thời gian tiệm bắt đầu đón những lượt khách rửa đầu tiên trong
-                  ngày mai.
-                </p>
-                <p>
-                  2. <strong className="text-zinc-300">Số lượng ca</strong>: Xác
-                  định tổng số ca hoạt động liên tục trong ngày. Mỗi ca kéo dài
-                  đúng 90 phút. Hệ thống sẽ tự động tính toán ra{" "}
-                  <strong className="text-zinc-300">Giờ đóng cửa</strong>.
-                </p>
-                <p>
-                  3. <strong className="text-zinc-300">Số khoang rửa</strong>:
-                  Số lượng khoang rửa (bay) thực tế phục vụ đồng thời. Càng
-                  nhiều khoang thì sức chứa đặt lịch cùng thời điểm càng tăng.
-                </p>
+                {isActive ? (
+                  <>
+                    <p>
+                      1. <strong className="text-zinc-300">Giờ mở cửa</strong>: Chọn
+                      thời gian tiệm bắt đầu đón những lượt khách rửa đầu tiên trong
+                      ngày mai.
+                    </p>
+                    <p>
+                      2. <strong className="text-zinc-300">Số lượng ca</strong>: Xác
+                      định tổng số ca hoạt động liên tục trong ngày. Mỗi ca kéo dài
+                      đúng 90 phút. Hệ thống sẽ tự động tính toán ra{" "}
+                      <strong className="text-zinc-300">Giờ đóng cửa</strong>.
+                    </p>
+                    <p>
+                      3. <strong className="text-zinc-300">Số khoang rửa</strong>:
+                      Số lượng khoang rửa (bay) thực tế phục vụ đồng thời. Càng
+                      nhiều khoang thì sức chứa đặt lịch cùng thời điểm càng tăng.
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    Ngày nghỉ chỉ cần xác nhận trạng thái đóng cửa. Hệ thống sẽ
+                    chặn lịch đặt mới và xử lý cảnh báo nếu ngày mai đã có lịch.
+                  </p>
+                )}
                 <div className="p-3 bg-cyan-400/5 border border-cyan-400/10 text-cyan-300/80">
                   Cấu hình này sẽ được áp dụng trực tiếp cho ngày mai. Vui lòng
                   thống nhất với nhân viên vận hành trước khi cập nhật.

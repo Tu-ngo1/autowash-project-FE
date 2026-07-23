@@ -10,8 +10,6 @@ const ROLE_PATHS = {
   STAFF: "/staff/dashboard",
 };
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-
 const FLOW_STEPS = [
   {
     title: "Đặt lịch",
