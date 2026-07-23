@@ -9,6 +9,7 @@ import {
   updateVoucher as updateVoucherApi,
   updateVoucherStatus as updateVoucherStatusApi,
 } from "../../services/adminPromotionApi";
+import { sortNewestFirst } from "../../utils/dataHelpers";
 
 const TIER_ORDER = {
   MEMBER: 0,
@@ -24,25 +25,6 @@ const getTierRank = (tier) => TIER_ORDER[getTierName(tier).toUpperCase()] ?? 99;
 
 const sortTiersLowToHigh = (items = []) =>
   [...items].sort((a, b) => getTierRank(a) - getTierRank(b));
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.created_at ||
-    item.updatedAt ||
-    item.updated_at ||
-    item.startDate ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.promotionId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.promotionId || 0) - Number(a?.id || a?.promotionId || 0);
-  });
 
 const isMemberTier = (tier) => getTierName(tier).toUpperCase() === "MEMBER";
 

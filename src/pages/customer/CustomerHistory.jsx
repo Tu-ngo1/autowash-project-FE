@@ -6,6 +6,8 @@ import ReviewModal from "../../components/customer/ReviewModal";
 import UserNavbar from "../../components/UserNavbar";
 import { createReview, getMyReviews } from "../../services/customerReviewApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { sortNewestFirst } from "../../utils/dataHelpers";
+import { formatCurrency as formatCurrencyValue } from "../../utils/formatters";
 const STATUS_LABELS = {
   COMPLETED: {
     label: "Hoàn thành",
@@ -34,7 +36,7 @@ const formatCurrency = (value) => {
   if (value == null || value === "") return "-";
   const number = typeof value === "number" ? value : Number(value);
   if (Number.isNaN(number)) return value;
-  return number.toLocaleString("vi-VN") + "đ";
+  return formatCurrencyValue(number);
 };
 
 const formatBookingDate = (value) => {
@@ -99,25 +101,6 @@ const getBookingServicesText = (item = {}) => {
 
 const getBookingTotal = (item = {}) =>
   item.finalPrice ?? item.totalPrice ?? item.price ?? item.total ?? 0;
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.updatedAt ||
-    item.scheduledStartTime ||
-    item.dateTime ||
-    item.date ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
-  });
 
 // removed getLocalHistory
 export default function CustomerHistory() {
@@ -239,6 +222,11 @@ export default function CustomerHistory() {
     reviews.find((review) => String(review.bookingId) === String(bookingId));
 
   const handleSubmitReview = async (payload) => {
+    if (!payload.bookingId) {
+      setReviewMessage("Không tìm thấy mã đơn để gửi đánh giá.");
+      return;
+    }
+
     setReviewLoading(true);
     setReviewMessage("");
 

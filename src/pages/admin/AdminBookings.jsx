@@ -10,19 +10,12 @@ import {
   updateAdminBookingStatus,
 } from "../../services/adminBookingApi";
 import { asArrayPayload, normalizeAdminBooking } from "../../utils/adminDto";
-
-const formatDateTime = (value) => {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString("vi-VN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
+import {
+  BOOKING_STATUS_OPTIONS,
+  getBookingStatusLabel,
+} from "../../utils/bookingStatus";
+import { sortNewestFirst } from "../../utils/dataHelpers";
+import { formatDateTime } from "../../utils/formatters";
 
 const getPageNumbers = (currentPage, totalPages) => {
   if (totalPages <= 1) return [1];
@@ -79,50 +72,6 @@ const getBookingIsoDate = (booking) => {
     return String(source).slice(0, 10);
   }
   return toIsoDate(String(source));
-};
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.updatedAt ||
-    item.scheduledStartTime ||
-    item.dateTime ||
-    item.date ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
-  });
-
-const BOOKING_STATUS_OPTIONS = [
-  { value: "PENDING", label: "Chờ xác nhận" },
-  { value: "CONFIRM", label: "Đã xác nhận" },
-  { value: "ARRIVED", label: "Đã check-in" },
-  { value: "IN_PROGRESS", label: "Đang rửa" },
-  { value: "WASHED", label: "Đã rửa xong" },
-  { value: "COMPLETED", label: "Hoàn thành" },
-  { value: "CANCELLED", label: "Đã hủy" },
-];
-
-const STATUS_LABELS = BOOKING_STATUS_OPTIONS.reduce(
-  (labels, option) => ({ ...labels, [option.value]: option.label }),
-  {
-    PAID: "Đã thanh toán",
-    UNPAID: "Chưa thanh toán",
-    FAILED: "Thất bại",
-    REFUNDED: "Đã hoàn tiền",
-  },
-);
-
-const getStatusLabel = (status) => {
-  const key = String(status || "").toUpperCase();
-  return STATUS_LABELS[key] || status || "-";
 };
 
 const downloadCsv = (filename, rows) => {
@@ -720,7 +669,7 @@ export default function AdminBookings() {
                   </div>
                   <div className="flex items-center px-2 py-1 border border-secondary bg-secondary/10">
                     <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
-                      {getStatusLabel(selectedBooking.status)}
+                      {getBookingStatusLabel(selectedBooking.status)}
                     </span>
                   </div>
                 </div>
@@ -765,7 +714,7 @@ export default function AdminBookings() {
                     <div>
                       <span className="text-zinc-500">Trạng thái: </span>
                       <span className="font-mono font-black uppercase text-amber-200">
-                        {getStatusLabel(selectedBooking.cancelRequestStatus)}
+                        {getBookingStatusLabel(selectedBooking.cancelRequestStatus)}
                       </span>
                     </div>
                     {selectedBooking.cancelRequestReason && (
@@ -1023,7 +972,7 @@ export default function AdminBookings() {
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="text-sm text-amber-300 font-medium">
-                              Yêu cầu hủy ({getStatusLabel(selectedBooking.cancelRequestStatus)})
+                              Yêu cầu hủy ({getBookingStatusLabel(selectedBooking.cancelRequestStatus)})
                             </div>
                             <div className="text-[11px] text-zinc-400 mt-0.5">
                               {selectedBooking.cancelRequestedAt

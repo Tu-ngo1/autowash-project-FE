@@ -11,6 +11,9 @@ const REVIEW_TAGS = [
   "Sẽ quay lại lần sau",
 ];
 
+const getBookingId = (booking = {}) =>
+  booking.id ?? booking.bookingId ?? booking.booking_id ?? booking._id;
+
 export default function ReviewModal({ booking, loading, onClose, onSubmit }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -31,9 +34,10 @@ export default function ReviewModal({ booking, loading, onClose, onSubmit }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const bookingId = getBookingId(booking);
 
     onSubmit({
-      bookingId: booking.id,
+      bookingId,
       rating,
       comment: comment.trim() || selectedTags.join(". "),
     });

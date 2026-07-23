@@ -11,6 +11,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import InfoPage from "./pages/InfoPage";
 import AppFooter from "./components/AppFooter";
+import ScrollToTop from "./components/ScrollToTop";
 
 // Customer Pages
 import CustomerBooking from "./pages/customer/CustomerBooking";
@@ -60,6 +61,11 @@ function AnimatedRoutes() {
           <Route path="/booking" element={<CustomerBooking />} />
           <Route path="/history" element={<CustomerHistory />} />
           <Route path="/profile" element={<CustomerProfile />} />
+          <Route path="/profile/vehicles/new" element={<CustomerProfile />} />
+          <Route
+            path="/profile/vehicles/:vehicleId/edit"
+            element={<CustomerProfile />}
+          />
           <Route path="/rewards" element={<CustomerLoyalty />} />
           <Route path="/rewards/vouchers" element={<VoucherPage />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
@@ -93,6 +99,7 @@ function AnimatedRoutes() {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AnimatedRoutes />
     </BrowserRouter>
   );

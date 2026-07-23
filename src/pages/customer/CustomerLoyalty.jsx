@@ -10,6 +10,12 @@ import { getCustomerTierConfigs } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import { getUser } from "../../utils/auth";
 import UserNavbar from "../../components/UserNavbar";
+import {
+  mergeUniqueBy,
+  sortNewestFirst,
+  unwrapList,
+  unwrapPayload,
+} from "../../utils/dataHelpers";
 
 const getVoucherPoints = (voucher) =>
   Number(voucher.pointCost ?? voucher.pointsCost ?? voucher.points ?? 0);
@@ -41,23 +47,14 @@ const getVoucherIdentity = (voucher) =>
       "",
   );
 const mergeUniqueVouchers = (...voucherGroups) => {
-  const result = [];
-  const seen = new Set();
-  voucherGroups.flat().filter(Boolean).forEach((voucher) => {
-    const key = getVoucherIdentity(voucher) || getVoucherName(voucher);
-    if (seen.has(key)) return;
-    seen.add(key);
-    result.push(voucher);
-  });
-  return result;
+  return mergeUniqueBy(
+    voucherGroups.flat().filter(Boolean),
+    (voucher) => getVoucherIdentity(voucher) || getVoucherName(voucher),
+  );
 };
-const unwrapList = (payload, keys = []) => {
-  if (Array.isArray(payload)) return payload;
-  for (const key of keys) {
-    if (Array.isArray(payload?.[key])) return payload[key];
-  }
-  return [];
-};
+
+const getVoucherList = (payload) =>
+  unwrapList(payload, ["vouchers", "items", "data", "content"]);
 
 function PageShell({ active = "Rewards", children }) {
   return (
@@ -151,28 +148,9 @@ export function VoucherPage() {
           userId ? getCustomerVouchers(userId).catch(() => []) : Promise.resolve([]),
           getCustomerTierConfigs().catch(() => []),
         ]);
-        setProfile(profileRes || null);
-        const sortNewestFirst = (items = []) =>
-          [...items].sort((a, b) => {
-            const getTime = (item = {}) => {
-              const raw =
-                item.createdAt ||
-                item.created_at ||
-                item.updatedAt ||
-                item.updated_at ||
-                item.redeemedAt ||
-                item.usedAt ||
-                item.startDate ||
-                "";
-              const time = new Date(raw).getTime();
-              return Number.isNaN(time) ? Number(item.id || item.promotionId || 0) : time;
-            };
-            const diff = getTime(b) - getTime(a);
-            if (diff !== 0) return diff;
-            return Number(b?.id || b?.promotionId || 0) - Number(a?.id || a?.promotionId || 0);
-          });
-        setAllVouchers(sortNewestFirst(Array.isArray(voucherRes) ? voucherRes : []));
-        setOwnedVouchers(sortNewestFirst(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []));
+        setProfile(unwrapPayload(profileRes, null) || null);
+        setAllVouchers(sortNewestFirst(getVoucherList(voucherRes)));
+        setOwnedVouchers(sortNewestFirst(getVoucherList(ownedVoucherRes)));
         unwrapList(tierRes, [
           "tiers",
           "tierConfigs",
@@ -233,8 +211,8 @@ export function VoucherPage() {
         getLoyaltyVouchers().catch(() => allVouchers),
         userId ? getCustomerVouchers(userId).catch(() => ownedVouchers) : Promise.resolve(ownedVouchers),
       ]);
-      setProfile(profileRes || null);
-      setAllVouchers(Array.isArray(voucherRes) ? voucherRes : []);
+      setProfile(unwrapPayload(profileRes, null) || null);
+      setAllVouchers(sortNewestFirst(getVoucherList(voucherRes)));
       const returnedVoucher =
         redeemRes?.voucher ||
         redeemRes?.customerVoucher ||
@@ -242,7 +220,7 @@ export function VoucherPage() {
         redeemRes;
       setOwnedVouchers(
         mergeUniqueVouchers(
-          Array.isArray(ownedVoucherRes) ? ownedVoucherRes : [],
+          getVoucherList(ownedVoucherRes),
           [returnedVoucher, redeemedVoucher],
         ),
       );
@@ -396,8 +374,8 @@ export default function CustomerLoyalty() {
           userId ? getCustomerVouchers(userId).catch(() => []) : Promise.resolve([]),
           getCustomerTierConfigs().catch(() => []),
         ]);
-        setProfile(profileRes || null);
-        setOwnedVouchers(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []);
+        setProfile(unwrapPayload(profileRes, null) || null);
+        setOwnedVouchers(sortNewestFirst(getVoucherList(ownedVoucherRes)));
         const tiers = unwrapList(tierRes, [
           "tiers",
           "tierConfigs",
