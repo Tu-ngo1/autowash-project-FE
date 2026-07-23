@@ -12,6 +12,10 @@ import {
 } from "../../services/adminUserApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import { normalizeAdminCustomer } from "../../utils/adminDto";
+import {
+  formatLicensePlate as formatVietnamLicensePlate,
+  isValidVietnamLicensePlate,
+} from "../../utils/licensePlate";
 
 const TIER_STYLES = {
   PLATINUM:
@@ -220,11 +224,21 @@ export default function AdminUsers() {
   };
 
   const submitVehicleForm = async () => {
-    const plate = vehicleForm.plate.trim().toUpperCase();
+    const plate = formatVietnamLicensePlate(vehicleForm.plate);
     const model = vehicleForm.model.trim();
     if (!vehicleFormTarget?.id) return;
     if (!plate) {
       setVehicleFormError("Vui lòng nhập biển số xe.");
+      return;
+    }
+
+    if (!isValidVietnamLicensePlate(plate)) {
+      setVehicleFormError("Biển số xe phải đúng dạng 50A-123456.");
+      return;
+    }
+
+    if (!model) {
+      setVehicleFormError("Vui lòng nhập dòng xe.");
       return;
     }
 
@@ -949,10 +963,10 @@ export default function AdminUsers() {
                   onChange={(event) =>
                     setVehicleForm((prev) => ({
                       ...prev,
-                      plate: event.target.value,
+                      plate: formatVietnamLicensePlate(event.target.value),
                     }))
                   }
-                  placeholder="50A123456"
+                  placeholder="50A-123456"
                   className="h-11 w-full border border-zinc-800 bg-black px-4 font-mono text-sm font-black uppercase text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
                 />
               </div>

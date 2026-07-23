@@ -20,6 +20,11 @@ import {
   getWalletTransactions,
 } from "../../services/customerWalletApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import {
+  compactLicensePlate,
+  formatLicensePlate as formatVietnamLicensePlate,
+  isValidVietnamLicensePlate,
+} from "../../utils/licensePlate";
 
 const statusStyles = {
   PENDING: "bg-[#0061a5]/10 text-[#0061a5]",
@@ -208,34 +213,6 @@ const normalizeVehicleSize = (vehicle) => {
 
 const isActiveVehicleModel = (model) =>
   model?.isActive ?? model?.is_active ?? model?.active ?? true;
-
-const compactLicensePlate = (value = "") =>
-  String(value)
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-
-const formatVietnamLicensePlate = (value = "") => {
-  const raw = compactLicensePlate(value);
-  const province = raw.slice(0, 2);
-  const rest = raw.slice(2);
-  const seriesMatch = rest.match(/^[A-Z]{0,2}/);
-  const series = seriesMatch?.[0] || "";
-  const serial = rest.slice(series.length, series.length + 5);
-
-  if (!province) return "";
-  if (province.length < 2) return province;
-  if (!series) return province;
-
-  const plateHead = `${province}${series}`;
-  if (!serial) return plateHead;
-
-  const formattedSerial =
-    serial.length > 3 ? `${serial.slice(0, 3)}.${serial.slice(3)}` : serial;
-  return `${plateHead} - ${formattedSerial}`;
-};
-
-const isValidVietnamLicensePlate = (value = "") =>
-  /^\d{2}[A-Z]{1,2}\d{4,5}$/.test(compactLicensePlate(value));
 
 export default function CustomerProfile() {
   const navigate = useNavigate();
@@ -697,7 +674,7 @@ export default function CustomerProfile() {
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
     const normalizedPlate = formatVietnamLicensePlate(vehicleForm.plate);
     if (!isValidVietnamLicensePlate(normalizedPlate)) {
-      setVehicleError("Biển số xe phải đúng dạng 59A - 123.45.");
+      setVehicleError("Biển số xe phải đúng dạng 50A-123456.");
       return;
     }
 
@@ -1423,7 +1400,7 @@ export default function CustomerProfile() {
                         handleVehicleFieldChange("plate", event.target.value)
                       }
                       type="text"
-                      placeholder="59A - 123.45"
+                      placeholder="50A-123456"
                       className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 pl-12 pr-4 text-base font-black uppercase text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     />
                   </div>
@@ -1578,7 +1555,7 @@ export default function CustomerProfile() {
                       handleVehicleFieldChange("plate", event.target.value)
                     }
                     type="text"
-                    placeholder="59A - 123.45"
+                    placeholder="50A-123456"
                     className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black uppercase text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                   />
                 </label>

@@ -8,6 +8,11 @@ import {
 } from "../../services/staffWalkInApi";
 import { getVehicleModels } from "../../services/vehicleModelApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import {
+  compactLicensePlate,
+  formatLicensePlate,
+  isValidVietnamLicensePlate,
+} from "../../utils/licensePlate";
 
 const PAYMENT_METHODS = [
   ["CASH", "Tiền mặt"],
@@ -28,18 +33,7 @@ const unwrapObject = (payload) =>
 
 const formatPrice = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
-const compactLicensePlate = (value = "") =>
-  String(value || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-
-const formatVietnamLicensePlate = (value = "") =>
-  compactLicensePlate(value).slice(0, 9);
-
-const isValidVietnamLicensePlate = (value = "") =>
-  /^\d{2}[A-Z]{1,2}\d{4,5}$/.test(formatVietnamLicensePlate(value));
-
-const normalizePlate = formatVietnamLicensePlate;
+const normalizePlate = formatLicensePlate;
 
 const normalizeVehicleModels = (payload) =>
   unwrapList(payload, ["vehicleModels", "vehicle_models", "models", "items"])
@@ -561,10 +555,24 @@ export default function StaffCustomers() {
   };
 
   const handleLookup = async () => {
-    if (!lookup.trim()) {
+    const query = lookup.trim();
+    if (!query) {
       setError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
       return;
     }
+
+    const phoneRegex = /^0\d{9}$/;
+    const compactedPlate = compactLicensePlate(query);
+    const isPhone = phoneRegex.test(query);
+    const isPlate = isValidVietnamLicensePlate(compactedPlate);
+
+    if (!isPhone && !isPlate) {
+      triggerError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 50A-123456).");
+      return;
+    }
+
+    setLookupType(isPhone ? "phone" : "plate");
+
     setLookupLoading(true);
     setError("");
     setMessage("");
@@ -678,7 +686,7 @@ export default function StaffCustomers() {
     }
     const normalizedPlate = normalizePlate(form.licensePlate);
     if (!isValidVietnamLicensePlate(normalizedPlate)) {
-      setError("Biển số xe phải đúng dạng 50A12345.");
+      triggerError("Biển số xe phải đúng dạng 50A-123456.");
       return;
     }
     if (!form.vehicleModelId || !form.vehicleSize) {
@@ -896,7 +904,7 @@ export default function StaffCustomers() {
                           })
                         }
                         className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                        placeholder="50A12345"
+                        placeholder="50A-123456"
                         style={{ fontFamily: "'JetBrains Mono', monospace" }}
                       />
                     </Field>
