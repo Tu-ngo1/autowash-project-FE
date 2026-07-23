@@ -128,6 +128,7 @@ const normalizeQueueBooking = (booking = {}) => ({
 function PendingCard({ item, onSelect, onRequestCancel, active }) {
   const tierStyle = TIER_STYLES[item.tier] || TIER_STYLES.Member;
   const cancelPending = item.cancelRequestStatus === "PENDING";
+  const inQueue = Boolean(item.inQueue) || String(item.status || "").toUpperCase() === "ARRIVED";
 
   return (
     <div
@@ -175,9 +176,9 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
           }`}
         >
           <span className="material-symbols-outlined text-[14px]">
-            {active ? "check_circle" : "qr_code_scanner"}
+            {inQueue ? "pending_actions" : active ? "check_circle" : "qr_code_scanner"}
           </span>
-          {active ? "Đã nhận mã quét" : "Chưa quét QR"}
+          {inQueue ? "Đã vào hàng chờ" : active ? "Đã nhận mã quét" : "Chưa quét QR"}
         </button>
         <button
           type="button"
@@ -708,7 +709,7 @@ export default function StaffDashboard() {
                 scannedCode={scannedCode}
               />
 
-              {scannedResult && (
+              {scannedResult && !scannedResult.inQueue ? (
                 <>
                   <button
                     type="button"
@@ -725,7 +726,11 @@ export default function StaffDashboard() {
                     tiên và xóa dữ liệu khỏi màn hình tiếp nhận hôm nay.
                   </p>
                 </>
-              )}
+              ) : scannedResult?.inQueue ? (
+                <div className="rounded-md border border-[#72f3ff]/30 bg-[#72f3ff]/10 px-4 py-3 text-center text-[13px] font-bold text-[#bff8ff]">
+                  Xe này đã nằm trong hàng chờ, vui lòng qua mục Hàng chờ để điều phối vào khoang rửa.
+                </div>
+              ) : null}
             </div>
           </section>
         </main>
