@@ -1,8 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 
-export const CONTACT_PHONE = "0868939477";
+const CONTACT_PHONE = "0868939477";
 
-export const footerInfoLinks = [
+const footerInfoLinks = [
   { label: "Về chúng tôi", path: "/about" },
   { label: "Điều khoản dịch vụ", path: "/terms" },
   { label: "Chính sách bảo mật", path: "/privacy" },

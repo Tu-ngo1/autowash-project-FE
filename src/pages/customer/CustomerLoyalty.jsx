@@ -134,7 +134,6 @@ export function VoucherPage() {
   const [profile, setProfile] = useState(null);
   const [allVouchers, setAllVouchers] = useState([]);
   const [ownedVouchers, setOwnedVouchers] = useState([]);
-  const [tierConfigs, setTierConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -174,15 +173,12 @@ export function VoucherPage() {
           });
         setAllVouchers(sortNewestFirst(Array.isArray(voucherRes) ? voucherRes : []));
         setOwnedVouchers(sortNewestFirst(Array.isArray(ownedVoucherRes) ? ownedVoucherRes : []));
-        const tiers = unwrapList(tierRes, [
+        unwrapList(tierRes, [
           "tiers",
           "tierConfigs",
           "items",
           "data",
         ]);
-        setTierConfigs(
-          tiers.sort((a, b) => getTierMinPoints(a) - getTierMinPoints(b)),
-        );
       } finally {
         setLoading(false);
       }
@@ -466,39 +462,47 @@ export default function CustomerLoyalty() {
           </div>
         </div>
 
-        <aside className="rounded-[34px] bg-slate-950 p-7 text-white shadow-[0_28px_80px_rgba(120,74,0,0.24)] ring-1 ring-amber-300/20">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-300">
-            Hạng hiện tại
-          </p>
-          <div className="mt-6 flex items-center gap-5">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-200 via-yellow-300 to-amber-500 text-slate-950 shadow-[0_18px_45px_rgba(245,158,11,0.35)]">
-              <span className="material-symbols-outlined text-[42px]">
+        <aside className="relative overflow-hidden rounded-[34px] border border-white/75 bg-white/72 p-7 text-slate-950 shadow-[0_28px_80px_rgba(2,74,138,0.12)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(34,211,238,0.2),transparent_34%),radial-gradient(circle_at_90%_8%,rgba(16,185,129,0.14),transparent_30%)]" />
+          <div className="relative">
+            <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-cyan-700">
+              <span className="material-symbols-outlined text-[16px]">
                 workspace_premium
               </span>
-            </div>
-            <div>
-              <p className="text-3xl font-black">{tier || "-"}</p>
-              <p className="mt-1 text-sm font-semibold text-amber-100/70">
-                {Math.round(progress)}% tới hạng kế tiếp
-              </p>
-            </div>
-          </div>
-          <div className="mt-7 h-2 overflow-hidden rounded-full bg-amber-100/15">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          {nextTier && (
-            <p className="mt-4 text-sm font-semibold leading-6 text-amber-50/78">
-              {`Còn ${Math.max(
-                getTierMinPoints(nextTier) - (profile?.points ?? 0),
-                0,
-              ).toLocaleString(
-                "vi-VN",
-              )} điểm để lên hạng ${getTierLabel(nextTier)}.`}
+              Hạng hiện tại
             </p>
-          )}
+            <div className="mt-6 flex items-center gap-5">
+              <div className="flex h-20 w-20 items-center justify-center rounded-[26px] border border-cyan-100 bg-gradient-to-br from-white via-cyan-50 to-emerald-100 text-cyan-700 shadow-[0_18px_45px_rgba(8,145,178,0.16)]">
+                <span className="material-symbols-outlined text-[42px]">
+                  verified
+                </span>
+              </div>
+              <div>
+                <p className="text-3xl font-black text-slate-950">
+                  {tier || "-"}
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  {Math.round(progress)}% tới hạng kế tiếp
+                </p>
+              </div>
+            </div>
+            <div className="mt-7 h-3 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 shadow-[0_8px_24px_rgba(34,211,238,0.35)]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            {nextTier && (
+              <p className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 text-sm font-bold leading-6 text-slate-600">
+                {`Còn ${Math.max(
+                  getTierMinPoints(nextTier) - (profile?.points ?? 0),
+                  0,
+                ).toLocaleString(
+                  "vi-VN",
+                )} điểm để lên hạng ${getTierLabel(nextTier)}.`}
+              </p>
+            )}
+          </div>
         </aside>
       </section>
 

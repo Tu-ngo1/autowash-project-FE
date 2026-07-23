@@ -487,7 +487,7 @@ export default function StaffQueue() {
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState("");
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [startWashBayTarget, setStartWashBayTarget] = useState(null);
   const [startWashLoading, setStartWashLoading] = useState(false);
   const [startWashError, setStartWashError] = useState("");

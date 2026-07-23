@@ -100,6 +100,31 @@ const sortNewestFirst = (items = []) =>
     return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
   });
 
+const BOOKING_STATUS_OPTIONS = [
+  { value: "PENDING", label: "Chờ xác nhận" },
+  { value: "CONFIRM", label: "Đã xác nhận" },
+  { value: "ARRIVED", label: "Đã check-in" },
+  { value: "IN_PROGRESS", label: "Đang rửa" },
+  { value: "WASHED", label: "Đã rửa xong" },
+  { value: "COMPLETED", label: "Hoàn thành" },
+  { value: "CANCELLED", label: "Đã hủy" },
+];
+
+const STATUS_LABELS = BOOKING_STATUS_OPTIONS.reduce(
+  (labels, option) => ({ ...labels, [option.value]: option.label }),
+  {
+    PAID: "Đã thanh toán",
+    UNPAID: "Chưa thanh toán",
+    FAILED: "Thất bại",
+    REFUNDED: "Đã hoàn tiền",
+  },
+);
+
+const getStatusLabel = (status) => {
+  const key = String(status || "").toUpperCase();
+  return STATUS_LABELS[key] || status || "-";
+};
+
 const downloadCsv = (filename, rows) => {
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const csv = rows.map((row) => row.map(escape).join(",")).join("\n");
@@ -544,27 +569,15 @@ export default function AdminBookings() {
                 <option className="bg-black text-amber-300 font-bold" value="cancel_pending">
                   ⚠️ CHỜ DUYỆT HỦY
                 </option>
-                <option className="bg-black text-zinc-100" value="PENDING">
-                  PENDING
-                </option>
-                <option className="bg-black text-zinc-100" value="CONFIRM">
-                  CONFIRM
-                </option>
-                <option className="bg-black text-zinc-100" value="ARRIVED">
-                  ARRIVED
-                </option>
-                <option className="bg-black text-zinc-100" value="IN_PROGRESS">
-                  IN_PROGRESS
-                </option>
-                <option className="bg-black text-zinc-100" value="WASHED">
-                  WASHED
-                </option>
-                <option className="bg-black text-zinc-100" value="COMPLETED">
-                  COMPLETED
-                </option>
-                <option className="bg-black text-zinc-100" value="CANCELLED">
-                  CANCELLED
-                </option>
+                {BOOKING_STATUS_OPTIONS.map((option) => (
+                  <option
+                    key={option.value}
+                    className="bg-black text-zinc-100"
+                    value={option.value}
+                  >
+                    {option.label.toUpperCase()}
+                  </option>
+                ))}
               </select>
               <span className="material-symbols-outlined pointer-events-none absolute right-3 text-zinc-500">
                 arrow_drop_down
@@ -707,7 +720,7 @@ export default function AdminBookings() {
                   </div>
                   <div className="flex items-center px-2 py-1 border border-secondary bg-secondary/10">
                     <span className="font-mono text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">
-                      {selectedBooking.status}
+                      {getStatusLabel(selectedBooking.status)}
                     </span>
                   </div>
                 </div>
@@ -731,36 +744,15 @@ export default function AdminBookings() {
                     onChange={(event) => handleStatusChange(event.target.value)}
                     className="h-11 w-full border border-zinc-700 bg-black px-3 font-mono text-sm font-bold text-zinc-100 outline-none focus:border-cyan-400"
                   >
-                    <option className="bg-black text-zinc-100" value="PENDING">
-                      PENDING
-                    </option>
-                    <option className="bg-black text-zinc-100" value="CONFIRM">
-                      CONFIRM
-                    </option>
-                    <option className="bg-black text-zinc-100" value="ARRIVED">
-                      ARRIVED
-                    </option>
-                    <option
-                      className="bg-black text-zinc-100"
-                      value="IN_PROGRESS"
-                    >
-                      IN_PROGRESS
-                    </option>
-                    <option className="bg-black text-zinc-100" value="WASHED">
-                      WASHED
-                    </option>
-                    <option
-                      className="bg-black text-zinc-100"
-                      value="COMPLETED"
-                    >
-                      COMPLETED
-                    </option>
-                    <option
-                      className="bg-black text-zinc-100"
-                      value="CANCELLED"
-                    >
-                      CANCELLED
-                    </option>
+                    {BOOKING_STATUS_OPTIONS.map((option) => (
+                      <option
+                        key={option.value}
+                        className="bg-black text-zinc-100"
+                        value={option.value}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </section>
               )}
@@ -773,7 +765,7 @@ export default function AdminBookings() {
                     <div>
                       <span className="text-zinc-500">Trạng thái: </span>
                       <span className="font-mono font-black uppercase text-amber-200">
-                        {selectedBooking.cancelRequestStatus}
+                        {getStatusLabel(selectedBooking.cancelRequestStatus)}
                       </span>
                     </div>
                     {selectedBooking.cancelRequestReason && (
@@ -1031,7 +1023,7 @@ export default function AdminBookings() {
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="text-sm text-amber-300 font-medium">
-                              Yêu cầu hủy ({selectedBooking.cancelRequestStatus})
+                              Yêu cầu hủy ({getStatusLabel(selectedBooking.cancelRequestStatus)})
                             </div>
                             <div className="text-[11px] text-zinc-400 mt-0.5">
                               {selectedBooking.cancelRequestedAt

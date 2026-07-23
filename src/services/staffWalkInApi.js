@@ -135,9 +135,17 @@ const normalizeQueueBookingAsCustomer = (booking = {}) => {
 
 export const searchWalkInCustomer = (query) =>
   api
-    .get(apiPath("/staff/customers"))
+    .get(apiPath("/staff/customers/search"), { params: { query } })
     .then(unwrap)
     .then(async (payload) => {
+      const directCustomer =
+        payload && !Array.isArray(payload) && Object.keys(payload).length
+          ? payload
+          : null;
+      if (directCustomer?.registeredVehicles || directCustomer?.fullName || directCustomer?.phone) {
+        return directCustomer;
+      }
+
       const customers = unwrapList(payload, ["customers", "content", "data", "items"]);
       const normalizedQuery = normalizeSearchText(query);
 

@@ -421,13 +421,15 @@ export default function CustomerBooking() {
     return services.filter((item) => item.isMainService === false);
   }, [services]);
 
-  const serviceInfo = mainServices.find(
-    (item) => String(item.id) === String(service),
-  ) || {
-    price: 0,
-    name: "",
-    description: "",
-  };
+  const serviceInfo = useMemo(
+    () =>
+      mainServices.find((item) => String(item.id) === String(service)) || {
+        price: 0,
+        name: "",
+        description: "",
+      },
+    [mainServices, service],
+  );
 
   const addonCost = selectedAddons.reduce((sum, addonId) => {
     const addon = addonServices.find(
@@ -522,10 +524,14 @@ export default function CustomerBooking() {
     };
 
     fetchInitialData();
+    // Initial booking bootstrap intentionally runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     fetchBookingData(carSize, date, totalDuration);
+    // fetchBookingData is a local loader; these values are the intended refresh triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carSize, date, totalDuration]);
 
   const tierRule = getTierRule(bookingConfig.tierRules || [], userTier);

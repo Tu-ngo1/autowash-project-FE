@@ -37,19 +37,6 @@ const statusStyles = {
   CANCELLED: "bg-rose-100 text-rose-700",
 };
 
-const formatCurrency = (value) =>
-  value ? `${value.toLocaleString("vi-VN")}đ` : "-";
-
-const getBookingTotal = (booking = {}) =>
-  booking.finalPrice ??
-  booking.final_price ??
-  booking.totalPrice ??
-  booking.total_price ??
-  booking.Total_price ??
-  booking.price ??
-  booking.total ??
-  0;
-
 const getBookingTimeValue = (booking) => {
   const raw =
     booking?.createdAt ||
@@ -86,16 +73,6 @@ const sortNewestFirst = (items = []) =>
     );
   });
 
-const getRecentBookings = (bookings = []) =>
-  [...bookings]
-    .filter(Boolean)
-    .sort((a, b) => {
-      const timeDiff = getBookingTimeValue(b) - getBookingTimeValue(a);
-      if (timeDiff !== 0) return timeDiff;
-      return Number(b?.id || 0) - Number(a?.id || 0);
-    })
-    .slice(0, 3);
-
 const getPendingQrBookings = (bookings = []) =>
   [...bookings]
     .filter((booking) => {
@@ -107,23 +84,6 @@ const getPendingQrBookings = (bookings = []) =>
       if (timeDiff !== 0) return timeDiff;
       return Number(b?.id || 0) - Number(a?.id || 0);
     });
-
-const getBookingQrValue = (booking) => {
-  if (booking.qrContent || booking.qrCode || booking.bookingCode) {
-    return encodeURIComponent(
-      booking.qrContent || booking.qrCode || booking.bookingCode,
-    );
-  }
-  const payload = {
-    id: booking.id || "",
-    plate: booking.plate || "",
-    service: booking.service || booking.serviceName || "",
-    date: booking.date || "",
-    time: booking.time || "",
-    status: booking.status || "PENDING",
-  };
-  return encodeURIComponent(JSON.stringify(payload));
-};
 
 const mergeVehicles = (...groups) => {
   const seen = new Set();
@@ -265,7 +225,6 @@ export default function CustomerProfile() {
     walletBalance: user.walletBalance || 0,
   });
 
-  const [recentBookings, setRecentBookings] = useState([]);
   const [pendingQrBookings, setPendingQrBookings] = useState([]);
   const [vouchers, setVouchers] = useState([]);
   const [cancelBookingItem, setCancelBookingItem] = useState(null);
@@ -377,7 +336,6 @@ export default function CustomerProfile() {
             0,
         });
 
-        setRecentBookings(getRecentBookings(bookings));
         setPendingQrBookings(getPendingQrBookings(bookings));
         setVouchers(
           sortNewestFirst(
@@ -386,7 +344,6 @@ export default function CustomerProfile() {
         );
       } catch {
         if (isMounted) {
-          setRecentBookings([]);
           setPendingQrBookings([]);
           setVouchers([]);
         }
@@ -1659,7 +1616,6 @@ export default function CustomerProfile() {
                         : bookingsRes.data?.bookings ||
                           bookingsRes.data?.data ||
                           [];
-                      setRecentBookings(getRecentBookings(bookings));
                       setPendingQrBookings(getPendingQrBookings(bookings));
                     }
 
