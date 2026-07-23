@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function BookingSummary({
   date,
   discountAmount,
@@ -107,9 +109,9 @@ export default function BookingSummary({
 
         <p className="mt-4 text-center text-xs font-semibold text-[#3f4753]">
           Bằng việc xác nhận, bạn đồng ý với{" "}
-          <button type="button" className="text-[#0061a5] underline">
+          <Link to="/terms" className="text-[#0061a5] underline">
             Điều khoản dịch vụ
-          </button>{" "}
+          </Link>{" "}
           của chúng tôi.
         </p>
       </div>

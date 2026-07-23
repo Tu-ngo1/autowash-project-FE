@@ -141,7 +141,7 @@ Response body de xuat:
       "customerId": 12,
       "customerName": "Nguyen Minh Anh",
       "customerPhone": "0909123456",
-      "licensePlate": "51F-123.45",
+      "licensePlate": "51F-123456",
       "vehicleBrand": "Toyota",
       "vehicleModel": "Vios",
       "vehicleSize": "MEDIUM",
@@ -282,7 +282,7 @@ Response body:
     "vehicles": [
       {
         "id": 1,
-        "licensePlate": "51F-123.45",
+        "licensePlate": "51F-123456",
         "brand": "Toyota",
         "modelName": "Vios",
         "vehicleSize": "MEDIUM",

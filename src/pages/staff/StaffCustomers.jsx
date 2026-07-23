@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StaffNavbar from "../../components/StaffNavbar";
+import VehicleFormFields from "../../components/vehicle/VehicleFormFields";
 import {
   createWalkInBooking,
   getWalkInBookingData,
@@ -8,6 +9,11 @@ import {
 } from "../../services/staffWalkInApi";
 import { getVehicleModels } from "../../services/vehicleModelApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import {
+  compactLicensePlate,
+  formatLicensePlate,
+  isValidVietnamLicensePlate,
+} from "../../utils/licensePlate";
 
 const PAYMENT_METHODS = [
   ["CASH", "Tiền mặt"],
@@ -28,18 +34,7 @@ const unwrapObject = (payload) =>
 
 const formatPrice = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
 
-const compactLicensePlate = (value = "") =>
-  String(value || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-
-const formatVietnamLicensePlate = (value = "") =>
-  compactLicensePlate(value).slice(0, 9);
-
-const isValidVietnamLicensePlate = (value = "") =>
-  /^\d{2}[A-Z]{1,2}\d{4,5}$/.test(formatVietnamLicensePlate(value));
-
-const normalizePlate = formatVietnamLicensePlate;
+const normalizePlate = formatLicensePlate;
 
 const normalizeVehicleModels = (payload) =>
   unwrapList(payload, ["vehicleModels", "vehicle_models", "models", "items"])
@@ -281,20 +276,24 @@ export default function StaffCustomers() {
   const [selectedVehicleKey, setSelectedVehicleKey] = useState("new");
   const [vehicleLocked, setVehicleLocked] = useState(false);
   const [lookupState, setLookupState] = useState("idle");
+  const [lookupType, setLookupType] = useState("");
   const [loadingData, setLoadingData] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const triggerError = (msg) => {
+    setError(msg);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const vehicleBrands = useMemo(
     () => getVehicleBrands(vehicleModels),
     [vehicleModels],
   );
-  const currentBrandModels = useMemo(
-    () => vehicleModels.filter((model) => model.brand === form.vehicleBrand),
-    [vehicleModels, form.vehicleBrand],
-  );
   const isExistingCustomer = lookupState === "found";
+  const isLookupResolved = lookupState !== "idle";
 
   const mainServices = useMemo(
     () => services.filter((service) => isMainService(service)),
@@ -518,30 +517,16 @@ export default function StaffCustomers() {
     loadData();
   }, [form.vehicleSize]);
 
-  const handleVehicleBrandChange = (brand) => {
+  const handleVehicleFormFieldsChange = (nextVehicle) => {
     setSelectedVehicleKey("new");
     setVehicleLocked(false);
     setForm((prev) => ({
       ...prev,
-      vehicleBrand: brand,
-      vehicleModelId: "",
-      vehicleModelName: "",
-      vehicleSize: "",
-    }));
-  };
-
-  const handleVehicleModelChange = (modelId) => {
-    setSelectedVehicleKey("new");
-    setVehicleLocked(false);
-    const selectedModel = vehicleModels.find(
-      (model) => String(model.id) === String(modelId),
-    );
-    setForm((prev) => ({
-      ...prev,
-      vehicleModelId: modelId,
-      vehicleBrand: selectedModel?.brand || prev.vehicleBrand,
-      vehicleModelName: selectedModel?.modelName || "",
-      vehicleSize: selectedModel?.vehicleSize || "",
+      licensePlate: nextVehicle.licensePlate,
+      vehicleBrand: nextVehicle.vehicleBrand,
+      vehicleModelId: nextVehicle.vehicleModelId,
+      vehicleModelName: nextVehicle.vehicleModelName,
+      vehicleSize: nextVehicle.vehicleSize,
     }));
   };
 
@@ -561,23 +546,41 @@ export default function StaffCustomers() {
   };
 
   const handleLookup = async () => {
-    if (!lookup.trim()) {
-      setError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
+    const query = lookup.trim();
+    if (!query) {
+      triggerError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
       return;
     }
+
+    const phoneRegex = /^0\d{9}$/;
+    const compactedPlate = compactLicensePlate(query);
+    const isPhone = phoneRegex.test(query);
+    const isPlate = isValidVietnamLicensePlate(compactedPlate);
+
+    if (!isPhone && !isPlate) {
+      triggerError("Thông tin tìm kiếm không hợp lệ. Vui lòng nhập số điện thoại (10 số bắt đầu bằng 0) hoặc biển số xe đúng định dạng (Ví dụ: 50A-123456).");
+      return;
+    }
+
+    setLookupType(isPhone ? "phone" : "plate");
+
     setLookupLoading(true);
     setError("");
     setMessage("");
     try {
-      const foundCustomer = await searchWalkInCustomer(lookup.trim());
+      const foundCustomer = await searchWalkInCustomer(query);
       if (!foundCustomer) {
         throw new Error("CUSTOMER_NOT_FOUND");
       }
       const result = normalizeCustomer(foundCustomer);
       const vehicles = result.registeredVehicles || [];
-      const lookupPlate = normalizePlate(lookup);
+      const lookupPlate = normalizePlate(query);
+      const compactLookupPlate = compactLicensePlate(lookupPlate);
       const selectedVehicle =
-        vehicles.find((vehicle) => vehicle.licensePlate === lookupPlate) ||
+        vehicles.find(
+          (vehicle) =>
+            compactLicensePlate(vehicle.licensePlate) === compactLookupPlate,
+        ) ||
         vehicles[0] ||
         null;
       const matchedModel = selectedVehicle
@@ -625,6 +628,9 @@ export default function StaffCustomers() {
           : "Đã tìm thấy khách hàng. Khách chưa có xe đã đăng ký.",
       );
     } catch (err) {
+      const normalizedLookupPlate = /^\d{2}/.test(compactLicensePlate(lookup))
+        ? normalizePlate(lookup)
+        : "";
       setRegisteredVehicles([]);
       setSelectedVehicleKey("new");
       setVehicleLocked(false);
@@ -632,20 +638,23 @@ export default function StaffCustomers() {
       setForm((prev) => ({
         ...prev,
         customerName: "",
-        customerPhone: /^\d{8,12}$/.test(lookup.trim())
-          ? lookup.trim()
-          : prev.customerPhone,
-        licensePlate: /^\d{2}/.test(compactLicensePlate(lookup))
-          ? normalizePlate(lookup)
-          : prev.licensePlate,
+        customerPhone: "",
+        licensePlate: normalizedLookupPlate,
         vehicleBrand: "",
         vehicleModelId: "",
         vehicleModelName: "",
         vehicleSize: "",
         tier: "Member",
       }));
-      setMessage("Không tìm thấy khách cũ. Có thể nhập nhanh khách vãng lai.");
-      setError("");
+      setMainServiceId("");
+      setAddonIds([]);
+      setSelectedSlot(null);
+      setMessage("");
+      setError(
+        normalizedLookupPlate
+          ? "Không tìm thấy hồ sơ xe theo biển số này. Cần xe đã đăng ký để tự lấy hãng, mẫu và kích thước."
+          : "Không tìm thấy khách hàng trong hệ thống.",
+      );
     } finally {
       setLookupLoading(false);
     }
@@ -665,32 +674,36 @@ export default function StaffCustomers() {
     setMessage("");
 
     if (lookupState === "idle") {
-      setError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
+      triggerError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
+      return;
+    }
+    if (!isExistingCustomer) {
+      setError("Vui lòng tìm đúng khách hàng hoặc xe đã đăng ký trước khi tạo lịch.");
       return;
     }
     if (!form.customerName.trim()) {
-      setError("Vui lòng nhập họ tên khách hàng.");
+      setError("Hồ sơ khách hàng thiếu họ tên. Vui lòng kiểm tra lại dữ liệu khách.");
       return;
     }
     if (!form.licensePlate.trim()) {
-      setError("Vui lòng nhập biển số xe.");
+      triggerError("Vui lòng nhập biển số xe.");
       return;
     }
     const normalizedPlate = normalizePlate(form.licensePlate);
     if (!isValidVietnamLicensePlate(normalizedPlate)) {
-      setError("Biển số xe phải đúng dạng 50A12345.");
+      setError("Biển số xe phải đúng dạng 50A-123456.");
       return;
     }
     if (!form.vehicleModelId || !form.vehicleSize) {
-      setError("Vui lòng chọn hãng xe và mẫu xe để xác định kích thước xe.");
+      setError("Hồ sơ xe thiếu hãng, mẫu hoặc kích thước. Vui lòng cập nhật xe trước khi tạo lịch.");
       return;
     }
     if (!mainServiceId) {
-      setError("Vui lòng chọn một dịch vụ chính.");
+      triggerError("Vui lòng chọn một dịch vụ chính.");
       return;
     }
     if (!selectedSlot) {
-      setError("Vui lòng chọn một khung giờ còn trống.");
+      triggerError("Vui lòng chọn một khung giờ còn trống.");
       return;
     }
 
@@ -714,7 +727,7 @@ export default function StaffCustomers() {
       );
       setTimeout(() => navigate("/staff/queue"), 700);
     } catch (err) {
-      setError(
+      triggerError(
         getFriendlyErrorMessage(
           err,
           "Không thể tạo lịch tiếp nhận. Vui lòng kiểm tra lại dữ liệu.",
@@ -779,6 +792,7 @@ export default function StaffCustomers() {
                       onChange={(event) => {
                         setLookup(event.target.value);
                         setLookupState("idle");
+                        setLookupType("");
                         setRegisteredVehicles([]);
                         setSelectedVehicleKey("new");
                         setVehicleLocked(false);
@@ -822,7 +836,7 @@ export default function StaffCustomers() {
                       <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
                         {lookupState === "found"
                           ? "Thông tin đã được lấy từ hồ sơ. Chỉ chọn thanh toán và dịch vụ."
-                          : "Không tìm thấy khách trong hệ thống, nhập nhanh để tạo lịch tại quầy."}
+                          : "Không tìm thấy hồ sơ xe/khách. Cần xe đã đăng ký để lấy hãng, mẫu và kích thước."}
                       </p>
                     </div>
                     <button
@@ -859,144 +873,79 @@ export default function StaffCustomers() {
                       </div>
                     </div>
                   )}
+                  {lookupState === "not-found" && (
+                    <div className="mb-6 rounded-2xl border border-rose-300/35 bg-rose-300/10 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-[22px] text-rose-200">
+                          report
+                        </span>
+                        <div>
+                          <p
+                            className="text-xs font-black uppercase tracking-[0.18em] text-rose-200"
+                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                          >
+                            Không tìm thấy hồ sơ xe
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
+                            Không tự nhập hãng/mẫu/kích thước tại đây. Hãy kiểm
+                            tra lại biển số hoặc đăng ký xe cho khách trước.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Họ tên khách hàng">
                       <input
                         required
-                        readOnly={isExistingCustomer}
+                        readOnly
                         value={form.customerName}
-                        onChange={(event) =>
-                          setForm({ ...form, customerName: event.target.value })
-                        }
                         className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                        placeholder="Nguyễn Văn A"
+                        placeholder="Tự lấy từ hồ sơ khách"
                       />
                     </Field>
                     <Field label="Số điện thoại">
                       <input
-                        readOnly={isExistingCustomer}
-                        value={form.customerPhone}
-                        onChange={(event) =>
-                          setForm({ ...form, customerPhone: event.target.value })
-                        }
-                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                        placeholder="0987654321"
-                      />
-                    </Field>
-                    <Field label="Biển số xe">
-                      <input
-                        required
-                        readOnly={isExistingCustomer || vehicleLocked}
-                        value={form.licensePlate}
-                        onChange={(event) =>
-                          setForm({
-                            ...form,
-                            licensePlate: normalizePlate(event.target.value),
-                          })
-                        }
-                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase tracking-wider text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                        placeholder="50A12345"
-                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                      />
-                    </Field>
-                    <Field label="Hãng xe">
-                      {isExistingCustomer ? (
-                        <input
-                          readOnly
-                          value={form.vehicleBrand || "-"}
-                          className="w-full cursor-not-allowed rounded-xl border border-cyan-100/15 bg-[#071620] px-4 py-3 text-sm font-bold text-white/80 outline-none"
-                        />
-                      ) : (
-                        <select
-                          required
-                          disabled={vehicleLocked}
-                          value={form.vehicleBrand}
-                          onChange={(event) =>
-                            handleVehicleBrandChange(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                          <option value="">Chọn hãng xe</option>
-                          {form.vehicleBrand &&
-                            !vehicleBrands.includes(form.vehicleBrand) && (
-                              <option value={form.vehicleBrand}>
-                                {form.vehicleBrand}
-                              </option>
-                            )}
-                          {vehicleBrands.map((brand) => (
-                            <option key={brand} value={brand}>
-                              {brand}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </Field>
-                    <Field label="Mẫu xe">
-                      {isExistingCustomer ? (
-                        <input
-                          readOnly
-                          value={form.vehicleModelName || "-"}
-                          className="w-full cursor-not-allowed rounded-xl border border-cyan-100/15 bg-[#071620] px-4 py-3 text-sm font-bold text-white/80 outline-none"
-                        />
-                      ) : (
-                        <select
-                          required
-                          value={form.vehicleModelId}
-                          onChange={(event) =>
-                            handleVehicleModelChange(event.target.value)
-                          }
-                          disabled={
-                            vehicleLocked ||
-                            !form.vehicleBrand ||
-                            currentBrandModels.length === 0
-                          }
-                          className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-55"
-                        >
-                          <option value="">Chọn mẫu xe</option>
-                          {form.vehicleModelId &&
-                            form.vehicleModelName &&
-                            !currentBrandModels.some(
-                              (model) =>
-                                String(model.id) === String(form.vehicleModelId),
-                            ) && (
-                              <option value={form.vehicleModelId}>
-                                {form.vehicleModelName}
-                              </option>
-                            )}
-                          {currentBrandModels.map((model) => (
-                            <option key={model.id} value={model.id}>
-                              {model.modelName}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </Field>
-                    <Field label="Kích thước xe">
-                      <input
                         readOnly
-                        value={form.vehicleSize}
-                        className="w-full cursor-not-allowed rounded-xl border border-cyan-100/15 bg-[#071620] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none"
-                        placeholder="Tự fill theo mẫu xe"
+                        value={form.customerPhone}
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
+                        placeholder="Tự lấy từ hồ sơ khách"
                       />
                     </Field>
+                    <div className="sm:col-span-2">
+                      <VehicleFormFields
+                        brands={vehicleBrands}
+                        inputClassName="border-cyan-100/15 bg-[#0b2532] text-white focus:border-[#6ff6df] read-only:bg-[#071620] read-only:text-white/80"
+                        labelClassName="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-[#8df9ef]"
+                        locked={isLookupResolved || vehicleLocked}
+                        models={vehicleModels}
+                        onChange={handleVehicleFormFieldsChange}
+                        readOnly={isLookupResolved}
+                        value={{
+                          licensePlate: form.licensePlate,
+                          vehicleBrand: form.vehicleBrand,
+                          vehicleModelId: form.vehicleModelId,
+                          vehicleModelName: form.vehicleModelName,
+                          vehicleSize: form.vehicleSize,
+                        }}
+                      />
+                    </div>
                     <Field label="Hạng thành viên">
                       <input
-                        readOnly={isExistingCustomer}
+                        readOnly
                         value={form.tier}
-                        onChange={(event) =>
-                          setForm({ ...form, tier: event.target.value })
-                        }
                         className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
                       />
                     </Field>
                     <Field label="Thanh toán">
                       <select
                         value={form.paymentMethod}
+                        disabled={!isExistingCustomer}
                         onChange={(event) =>
                           setForm({ ...form, paymentMethod: event.target.value })
                         }
-                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         {PAYMENT_METHODS.map(([value, label]) => (
                           <option key={value} value={value}>
@@ -1034,9 +983,12 @@ export default function StaffCustomers() {
                           <button
                             key={id}
                             type="button"
+                            disabled={!isExistingCustomer}
                             onClick={() => setMainServiceId(id)}
                             className={`rounded-2xl border p-4 text-left transition ${
-                              selected
+                              !isExistingCustomer
+                                ? "cursor-not-allowed border-cyan-100/10 bg-white/[0.035] opacity-45"
+                                : selected
                                 ? "border-[#6ff6df] bg-[#6ff6df]/12 shadow-[0_0_24px_rgba(111,246,223,0.12)]"
                                 : "border-cyan-100/15 bg-[#061923]/60 hover:border-[#6ff6df]/60"
                             }`}
@@ -1086,9 +1038,12 @@ export default function StaffCustomers() {
                           <button
                             key={id}
                             type="button"
+                            disabled={!isExistingCustomer}
                             onClick={() => toggleAddon(id)}
                             className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${
-                              selected
+                              !isExistingCustomer
+                                ? "cursor-not-allowed border-cyan-100/10 bg-white/[0.035] opacity-45"
+                                : selected
                                 ? "border-[#4edea3] bg-[#4edea3]/12"
                                 : "border-cyan-100/15 bg-[#061923]/60 hover:border-[#4edea3]/60"
                             }`}
@@ -1166,10 +1121,12 @@ export default function StaffCustomers() {
                       <button
                         key={`${getSlotLabel(slot)}-${index}`}
                         type="button"
-                        disabled={!available}
+                        disabled={!available || !isExistingCustomer}
                         onClick={() => setSelectedSlot(slot)}
                         className={`rounded-2xl border p-4 text-left transition ${
-                          selected
+                          !isExistingCustomer
+                            ? "cursor-not-allowed border-cyan-100/10 bg-white/[0.035] opacity-45"
+                            : selected
                             ? "border-[#6ff6df] bg-[#6ff6df]/15 shadow-[0_0_28px_rgba(111,246,223,0.16)]"
                             : available
                               ? "border-[#4edea3]/40 bg-[#4edea3]/10 hover:border-[#6ff6df]"
@@ -1183,7 +1140,11 @@ export default function StaffCustomers() {
                           {getSlotLabel(slot)}
                         </p>
                         <p className="mt-2 text-xs font-semibold uppercase tracking-widest text-[#b8d8de]">
-                          {available ? "Còn trống" : "Đã bận"}
+                          {!isExistingCustomer
+                            ? "Cần hồ sơ xe"
+                            : available
+                              ? "Còn trống"
+                              : "Đã bận"}
                         </p>
                       </button>
                     );
@@ -1267,12 +1228,14 @@ export default function StaffCustomers() {
 
               <button
                 type="submit"
-                disabled={submitting || loadingData}
-                className="mt-5 w-full rounded-2xl bg-[#6ff6df] px-5 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#06343a] shadow-[0_0_34px_rgba(111,246,223,0.22)] transition hover:bg-[#9fffee] hover:shadow-[0_0_44px_rgba(111,246,223,0.35)] active:scale-[0.99] disabled:bg-slate-500 disabled:text-slate-300"
+                disabled={submitting || loadingData || !isExistingCustomer}
+                className="mt-5 w-full rounded-2xl bg-[#6ff6df] px-5 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#06343a] shadow-[0_0_34px_rgba(111,246,223,0.22)] transition hover:bg-[#9fffee] hover:shadow-[0_0_44px_rgba(111,246,223,0.35)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-300"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               >
                 {submitting
                   ? "Đang tạo lịch..."
+                  : !isExistingCustomer
+                    ? "Cần tìm thấy hồ sơ xe trước"
                   : "Tạo lịch đặt & tiếp nhận ngay"}
               </button>
             </section>

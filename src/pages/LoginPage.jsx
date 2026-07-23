@@ -219,7 +219,6 @@ function LoginPanel() {
               {loading ? "Đang xác thực..." : "Vào hệ thống"}
             </span>
           </button>
-
         </form>
       </div>
     </section>
@@ -304,7 +303,7 @@ export default function LoginPage() {
           <div className="home-reveal">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/16 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-100 shadow-sm backdrop-blur">
               <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_18px_rgba(34,211,238,0.9)]" />
-              Chào mừng
+              Chào mừng đến với
             </div>
 
             <h1 className="mt-8 max-w-4xl text-5xl font-black leading-[0.93] tracking-normal text-white drop-shadow-[0_18px_40px_rgba(2,20,38,0.28)] sm:text-6xl lg:text-7xl">

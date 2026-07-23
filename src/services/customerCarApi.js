@@ -43,7 +43,7 @@ export const getMyCars = () =>
 export const addMyCar = (car) =>
   api
     .post(customerCarsPath(), {
-      licensePlate: car.licensePlate || car.plate,
+      licensePlate: formatLicensePlate(car.licensePlate || car.plate),
       vehicleSize: car.vehicleSize || car.size,
       vehicleModelId: car.vehicleModelId || car.modelId,
     })
@@ -52,7 +52,7 @@ export const addMyCar = (car) =>
 export const updateMyCar = (id, car) =>
   api
     .put(customerCarsPath(id), {
-      licensePlate: car.licensePlate || car.plate,
+      licensePlate: formatLicensePlate(car.licensePlate || car.plate),
       vehicleSize: car.vehicleSize || car.size,
       vehicleModelId: car.vehicleModelId || car.modelId,
     })

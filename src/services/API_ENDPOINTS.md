@@ -287,7 +287,7 @@ Preferred booking list response:
       "customerName": "Nguyen Minh Anh",
       "customerPhone": "0901234567",
       "customerEmail": "minhanh@example.com",
-      "vehicleLicensePlate": "51F-123.45",
+      "vehicleLicensePlate": "51F-123456",
       "vehicleModel": "Toyota Vios",
       "tierLevel": "GOLD",
       "services": ["Rửa tiêu chuẩn"],
@@ -325,8 +325,8 @@ Admin users response should return users/customers/staff in one list:
           "id": 1,
           "brand": "Toyota",
           "model": "Vios",
-          "plate": "51F-123.45",
-          "licensePlate": "51F-123.45"
+          "plate": "51F-123456",
+          "licensePlate": "51F-123456"
         }
       ]
     }

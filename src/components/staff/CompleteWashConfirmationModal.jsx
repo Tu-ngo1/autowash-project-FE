@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { formatLicensePlate } from "../../utils/licensePlate";
 
 const getServiceName = (service) => {
   if (typeof service === "string") return service;
@@ -37,12 +38,13 @@ export default function CompleteWashConfirmationModal({
   if (!isOpen) return null;
 
   const serviceNames = services.map(getServiceName).filter(Boolean);
-  const plate =
+  const plate = formatLicensePlate(
     vehicle?.plate ||
-    vehicle?.licensePlate ||
-    vehicle?.vehicleLicensePlate ||
-    vehicle?.vehicle?.licensePlate ||
-    "";
+      vehicle?.licensePlate ||
+      vehicle?.vehicleLicensePlate ||
+      vehicle?.vehicle?.licensePlate ||
+      "",
+  );
 
   const closeIfReady = () => {
     if (!isLoading) onClose?.();

@@ -48,8 +48,31 @@ const formatBookingDate = (value) => {
   });
 };
 
+const formatBookingDisplayDate = (item = {}) => {
+  const source = item.scheduledStartTime || item.dateTime || item.date;
+  if (!source) return "-";
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return formatBookingDate(source);
+  return new Intl.DateTimeFormat("vi-VN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+};
+
 const formatBookingTime = (item = {}) => {
-  if (item.time) return item.time;
+  if (item.time) {
+    const rawTime = String(item.time);
+    const parsedTime = new Date(rawTime);
+    if (!Number.isNaN(parsedTime.getTime()) || rawTime.includes("T")) {
+      return parsedTime.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    return rawTime.slice(0, 5);
+  }
   const source = item.scheduledStartTime || item.dateTime || item.date;
   if (!source) return "-";
   const date = new Date(source);
@@ -203,10 +226,12 @@ export default function CustomerHistory() {
       (item) => String(item.status || "").toUpperCase() === "CANCELLED",
     ).length;
     const total = history.length;
-    const spent = history.reduce(
-      (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
-      0,
-    );
+    const spent = history
+      .filter((item) => String(item.status || "").toUpperCase() === "COMPLETED")
+      .reduce(
+        (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
+        0,
+      );
     return { completed, pending, cancelled, total, spent };
   }, [history]);
 
@@ -409,10 +434,10 @@ export default function CustomerHistory() {
                         </div>
                         <div className="lg:mt-4">
                           <p className="text-sm font-black text-slate-950">
-                            {formatBookingDate(item.date)}
+                            {formatBookingDisplayDate(item)}
                           </p>
                           <p className="mt-1 text-xs font-semibold text-slate-500">
-                            {item.time || "Chưa có giờ"}
+                            {formatBookingTime(item)}
                           </p>
                         </div>
                       </div>
@@ -575,7 +600,7 @@ export default function CustomerHistory() {
               {[
                 ["Biển số", detailBooking.plate || detailBooking.vehicleLicensePlate || "-"],
                 ["Dịch vụ", getBookingServicesText(detailBooking)],
-                ["Ngày", formatBookingDate(detailBooking.date || detailBooking.scheduledStartTime)],
+                ["Ngày", formatBookingDisplayDate(detailBooking)],
                 ["Giờ", formatBookingTime(detailBooking)],
                 [
                   "Trạng thái",
@@ -607,6 +632,16 @@ export default function CustomerHistory() {
                   </p>
                 </div>
               ))}
+              {(detailBooking.cancelRequestAdminNote || detailBooking.cancelRequestReason) && (
+                <div className="col-span-full rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-700">
+                    Lý do hủy đơn
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-rose-950">
+                    {detailBooking.cancelRequestAdminNote || detailBooking.cancelRequestReason}
+                  </p>
+                </div>
+              )}
             </div>
 
           </div>

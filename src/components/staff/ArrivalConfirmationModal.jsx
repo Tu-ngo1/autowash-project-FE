@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { formatLicensePlate } from "../../utils/licensePlate";
 
 const getServiceName = (service) => {
   if (typeof service === "string") return service;
@@ -38,12 +39,13 @@ export default function ArrivalConfirmationModal({
     if (!isLoading) onClose?.();
   };
 
-  const plate =
+  const plate = formatLicensePlate(
     appointment?.plate ||
-    appointment?.licensePlate ||
-    appointment?.vehicleLicensePlate ||
-    appointment?.vehicle?.licensePlate ||
-    "";
+      appointment?.licensePlate ||
+      appointment?.vehicleLicensePlate ||
+      appointment?.vehicle?.licensePlate ||
+      "",
+  );
   const customer =
     appointment?.customerName ||
     appointment?.customer?.name ||

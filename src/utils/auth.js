@@ -36,8 +36,37 @@ export function clearAuth() {
   localStorage.removeItem(USER_KEY);
 }
 
+export function isTokenExpired(token) {
+  if (!token) return true;
+  try {
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return true;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const payload = JSON.parse(jsonPayload);
+    if (payload && payload.exp) {
+      return Date.now() >= payload.exp * 1000;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 export function isAuthenticated() {
-  return Boolean(getToken());
+  const token = getToken();
+  if (!token) return false;
+  if (isTokenExpired(token)) {
+    clearAuth();
+    return false;
+  }
+  return true;
 }
 
 export function getUserRole() {

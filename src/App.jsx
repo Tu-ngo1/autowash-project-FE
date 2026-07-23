@@ -9,6 +9,8 @@ import {
 // Public Pages
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import InfoPage from "./pages/InfoPage";
+import AppFooter from "./components/AppFooter";
 
 // Customer Pages
 import CustomerBooking from "./pages/customer/CustomerBooking";
@@ -37,6 +39,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const showPublicFooter =
+    !location.pathname.startsWith("/admin") &&
+    !location.pathname.startsWith("/staff");
 
   return (
     <div key={location.pathname} className="route-transition-shell">
@@ -45,6 +50,9 @@ function AnimatedRoutes() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/about" element={<InfoPage page="about" />} />
+        <Route path="/terms" element={<InfoPage page="terms" />} />
+        <Route path="/privacy" element={<InfoPage page="privacy" />} />
 
         {/* ================= CUSTOMER ROUTES ================= */}
         <Route element={<ProtectedRoute role="CUSTOMER" />}>
@@ -77,6 +85,7 @@ function AnimatedRoutes() {
           <Route path="/staff/customers" element={<StaffCustomers />} />
         </Route>
       </Routes>
+      {showPublicFooter && <AppFooter />}
     </div>
   );
 }

@@ -269,6 +269,8 @@ const mergeVehicles = (...groups) => {
 
 export default function CustomerBooking() {
   const navigate = useNavigate();
+  const today = useMemo(() => new Date(), []);
+  const minDate = useMemo(() => formatDateKey(today), [today]);
   const scrollToSection = (id) => {
     const element = document.getElementById(id);
     if (element) {
@@ -283,6 +285,7 @@ export default function CustomerBooking() {
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [bookingDataError, setBookingDataError] = useState("");
   const bookingDataKeyRef = useRef("");
   const lastCarSizeRef = useRef("");
@@ -294,7 +297,7 @@ export default function CustomerBooking() {
   const [plate, setPlate] = useState("");
   const [service, setService] = useState("");
   const [selectedAddons, setSelectedAddons] = useState([]);
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(() => formatDateKey(new Date()));
   const [timeSlot, setTimeSlot] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PAYOS");
   const [voucherCode, setVoucherCode] = useState("");
@@ -315,10 +318,13 @@ export default function CustomerBooking() {
     if (bookingDataKeyRef.current === bookingDataKey) return;
     bookingDataKeyRef.current = bookingDataKey;
 
-    setLoadingServices(true);
-
-    // Reset selected addons ONLY when vehicle carSize changes
     const carSizeChanged = lastCarSizeRef.current !== (carSize || "ALL");
+    if (carSizeChanged || services.length === 0) {
+      setLoadingServices(true);
+    } else {
+      setLoadingSlots(true);
+    }
+
     if (carSizeChanged) {
       lastCarSizeRef.current = carSize || "ALL";
       setSelectedAddons([]);
@@ -347,7 +353,9 @@ export default function CustomerBooking() {
         "services",
         "items",
         "data",
-      ]).map(normalizeServiceOption);
+      ])
+        .map(normalizeServiceOption)
+        .filter((item) => item.active !== false && String(item.status || "").toUpperCase() !== "INACTIVE");
       const fetchedSlots = normalizeHourlySlots(
         payload.timeSlots ||
           payload.availableSlots ||
@@ -395,6 +403,7 @@ export default function CustomerBooking() {
       setTimeSlots([]);
     } finally {
       setLoadingServices(false);
+      setLoadingSlots(false);
       setLoadingData(false);
     }
   };
@@ -557,8 +566,6 @@ export default function CustomerBooking() {
     );
   };
 
-  const today = new Date();
-  const minDate = formatDateKey(today);
   const maxDateValue = new Date(today);
   const advanceBookingDays = Number(
     tierRule.advanceBookingDays ??
@@ -1167,9 +1174,11 @@ export default function CustomerBooking() {
                       key={item.value}
                       type="button"
                       onClick={() => {
+                        if (date === item.value) return;
                         setDate(item.value);
                         setTimeSlot("");
                       }}
+                      aria-pressed={date === item.value}
                       className={`min-h-[88px] rounded-2xl border px-3 py-3 text-left transition duration-200 active:scale-[0.98] ${
                         date === item.value
                           ? "border-cyan-400 bg-cyan-400 text-slate-950 shadow-[0_14px_30px_rgba(6,182,212,0.2)]"
@@ -1196,7 +1205,7 @@ export default function CustomerBooking() {
                     </span>
                     Chọn khung giờ
                   </p>
-                  {loadingServices ? (
+                  {(loadingServices || loadingSlots) ? (
                     <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-5 text-center text-sm font-semibold text-slate-500">
                       Đang tải khung giờ...
                     </div>
@@ -1517,34 +1526,6 @@ export default function CustomerBooking() {
           </div>
         </main>
 
-        <footer className="mt-14 border-t border-white/70 bg-white/44 backdrop-blur-xl">
-          <div className="mx-auto flex w-full max-w-[1520px] flex-col items-center justify-between gap-6 px-4 py-10 sm:px-6 md:flex-row lg:px-10">
-            <div>
-              <div className="mb-2 text-2xl font-black text-slate-950">
-                autoWash
-              </div>
-              <p className="text-base font-semibold text-slate-500">
-                © 2026 autoWash - Giải pháp chăm sóc xe chuyên nghiệp
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-6">
-              {[
-                "Về chúng tôi",
-                "Điều khoản dịch vụ",
-                "Chính sách bảo mật",
-                "Liên hệ",
-              ].map((link) => (
-                <button
-                  key={link}
-                  type="button"
-                  className="text-base font-bold text-slate-500 transition-colors hover:text-cyan-700"
-                >
-                  {link}
-                </button>
-              ))}
-            </div>
-          </div>
-        </footer>
       </div>
     </div>
   );
