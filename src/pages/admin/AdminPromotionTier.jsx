@@ -62,10 +62,47 @@ const formatVoucherDate = (value) => {
   return date.toLocaleDateString("vi-VN");
 };
 
+function ToggleSwitch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none ${
+        checked ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.35)]" : "bg-zinc-800"
+      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-300 ease-in-out ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
+
 const normalizeVoucher = (voucher = {}) => {
+  const rawDiscountType = String(
+    voucher.discountType || voucher.type || ""
+  ).toLowerCase();
+
   const discountPercent = voucher.discountPercent ?? voucher.percent;
-  const discountAmount =
-    voucher.discountAmount ?? voucher.amount ?? voucher.value;
+  const discountAmount = voucher.discountAmount ?? voucher.amount;
+
+  const isPercentType =
+    rawDiscountType.includes("percent") ||
+    (discountPercent !== null && discountPercent !== undefined);
+
+  const discountValue = isPercentType
+    ? (discountPercent ?? voucher.discountValue ?? 0)
+    : (discountAmount ?? voucher.discountValue ?? 0);
+
+  const maxDiscountAmount =
+    voucher.maxDiscountAmount ?? voucher.maxDiscountValue ?? voucher.maxAmount ?? null;
+
   const rawTier = String(
     voucher.tier || voucher.targetTier || voucher.tierLevel || "all",
   );
@@ -85,13 +122,14 @@ const normalizeVoucher = (voucher = {}) => {
     pointCost: voucher.pointCost ?? voucher.pointsRequired ?? 0,
     tier,
     targetTier: voucher.targetTier || (tier === "all" ? "MEMBER" : tier),
-    discountType:
-      discountPercent !== null && discountPercent !== undefined
-        ? "percentage"
-        : "fixed",
-    discountValue: discountPercent ?? discountAmount ?? 0,
-    discountAmount,
-    discountPercent,
+    discountType: isPercentType ? "percentage" : "fixed",
+    discountValue: Number(discountValue) || 0,
+    discountAmount: isPercentType ? null : Number(discountValue),
+    discountPercent: isPercentType ? Number(discountValue) : null,
+    maxDiscountAmount:
+      maxDiscountAmount !== null && maxDiscountAmount !== undefined && maxDiscountAmount !== ""
+        ? Number(maxDiscountAmount)
+        : null,
     isActive: Boolean(isActive),
     startDate: toDateInputValue(voucher.startDate || voucher.startAt),
     endDate: toDateInputValue(voucher.endDate || voucher.endAt),
@@ -101,16 +139,22 @@ const normalizeVoucher = (voucher = {}) => {
 const toBackendVoucherPayload = (voucher = {}) => {
   const discountType = voucher.discountType || "percentage";
   const discountValue = Number(voucher.discountValue) || 0;
+  const rawMax = voucher.maxDiscountAmount;
+  const maxDiscountAmount =
+    discountType === "percentage" && rawMax !== null && rawMax !== undefined && rawMax !== ""
+      ? Number(rawMax)
+      : null;
   const tier = String(voucher.tier || voucher.targetTier || "all");
 
   return {
     ...voucher,
-    voucherCode: voucher.voucherCode || voucher.code,
-    campaignName: voucher.campaignName || voucher.name,
+    voucherCode: (voucher.voucherCode || voucher.code || "").trim(),
+    campaignName: (voucher.campaignName || voucher.name || "").trim(),
     pointCost: Number(voucher.pointCost ?? voucher.pointsRequired ?? 0),
     targetTier: tier === "all" || tier === "TẤT CẢ" ? "MEMBER" : tier.toUpperCase(),
     discountPercent: discountType === "percentage" ? discountValue : null,
     discountAmount: discountType === "fixed" ? discountValue : null,
+    maxDiscountAmount,
     isActive: Boolean(voucher.isActive),
     active: Boolean(voucher.isActive),
     startAt: voucher.startDate ? `${voucher.startDate}T00:00:00` : voucher.startAt,
@@ -197,11 +241,17 @@ export default function AdminPromotions() {
 
   const updateVoucherStatus = async (voucherId, isActive) => {
     if (!voucherId) return;
+    // Optimistic UI state update for smooth 60fps toggle animation
+    setVouchers((prev) =>
+      prev.map((v) =>
+        getVoucherId(v) === voucherId ? { ...v, isActive } : v
+      )
+    );
     try {
       await updateVoucherStatusApi(voucherId, isActive);
-      fetchVouchers();
     } catch (err) {
       console.error("Failed to update voucher status:", err);
+      fetchVouchers();
     }
   };
 
@@ -336,20 +386,20 @@ export default function AdminPromotions() {
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                    Hạng {tier.name}
+                    Hạng {getTierName(tier)}
                   </span>
                   <span
                     className={`material-symbols-outlined text-[20px] ${
-                      tier.name === "Gold"
+                      getTierName(tier).toUpperCase() === "GOLD"
                         ? "text-yellow-200"
-                        : tier.name === "Platinum"
+                        : getTierName(tier).toUpperCase() === "PLATINUM"
                           ? "text-cyan-200"
                           : "text-cyan-300"
                     }`}
                   >
-                    {tier.name === "Platinum"
+                    {getTierName(tier).toUpperCase() === "PLATINUM"
                       ? "diamond"
-                      : tier.name === "Gold"
+                      : getTierName(tier).toUpperCase() === "GOLD"
                         ? "workspace_premium"
                         : "star"}
                   </span>
@@ -390,21 +440,21 @@ export default function AdminPromotions() {
                 <div className="md:col-span-3 flex items-center gap-3">
                   <div
                     className={`flex h-10 w-10 items-center justify-center border ${
-                      tier.name === "Gold"
+                      getTierName(tier).toUpperCase() === "GOLD"
                         ? "border-yellow-300/60 bg-yellow-300/10"
                         : "border-cyan-400/40 bg-cyan-400/10"
                     }`}
                   >
                     <span
                       className={`material-symbols-outlined ${
-                        tier.name === "Gold"
+                        getTierName(tier).toUpperCase() === "GOLD"
                           ? "text-yellow-200"
                           : "text-cyan-300"
                       }`}
                     >
-                      {tier.name === "Platinum"
+                      {getTierName(tier).toUpperCase() === "PLATINUM"
                         ? "diamond"
-                        : tier.name === "Gold"
+                        : getTierName(tier).toUpperCase() === "GOLD"
                         ? "workspace_premium"
                         : "star"}
                     </span>
@@ -412,14 +462,14 @@ export default function AdminPromotions() {
                   <div>
                     <div
                       className={`font-mono text-sm font-black uppercase tracking-[0.12em] ${
-                        tier.name === "Gold"
+                        getTierName(tier).toUpperCase() === "GOLD"
                           ? "text-yellow-200"
-                          : tier.name === "Platinum"
+                          : getTierName(tier).toUpperCase() === "PLATINUM"
                           ? "text-cyan-200"
                           : "text-zinc-100"
                       }`}
                     >
-                      Hạng {tier.name}
+                      Hạng {getTierName(tier)}
                     </div>
                     <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">
                       {tier.description}
@@ -553,7 +603,13 @@ export default function AdminPromotions() {
                     Tên Voucher
                   </th>
                   <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
-                    Giá Trị Quy Đổi
+                    Mức Giảm
+                  </th>
+                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Giảm Tối Đa
+                  </th>
+                  <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    Đổi Điểm
                   </th>
                   <th className="px-4 py-3 font-mono text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">
                     Hạng Áp Dụng
@@ -573,7 +629,7 @@ export default function AdminPromotions() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan="6"
+                      colSpan="8"
                       className="px-4 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                     >
                       Đang tải...
@@ -582,7 +638,7 @@ export default function AdminPromotions() {
                 ) : filteredVouchers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="6"
+                      colSpan="8"
                       className="px-4 py-10 text-center font-mono text-xs font-black uppercase tracking-[0.22em] text-zinc-600"
                     >
                       Không có dữ liệu
@@ -591,6 +647,7 @@ export default function AdminPromotions() {
                 ) : (
                   filteredVouchers.map((voucher, index) => {
                     const voucherId = getVoucherId(voucher);
+                    const isPercentage = voucher.discountType === "percentage" || voucher.discountPercent !== null;
                     return (
                     <tr
                       key={voucherId || voucher.code || index}
@@ -604,6 +661,16 @@ export default function AdminPromotions() {
                         <div className="mt-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">
                           {voucher.code}
                         </div>
+                      </td>
+                      <td className="px-4 py-4 font-mono font-black text-emerald-300">
+                        {isPercentage
+                          ? `${voucher.discountValue}%`
+                          : `${Number(voucher.discountValue || 0).toLocaleString()} ₫`}
+                      </td>
+                      <td className="px-4 py-4 font-mono text-xs font-bold text-zinc-300">
+                        {isPercentage && voucher.maxDiscountAmount
+                          ? `${Number(voucher.maxDiscountAmount).toLocaleString()} ₫`
+                          : "—"}
                       </td>
                       <td className="px-4 py-4">
                         <span className="font-mono font-black text-cyan-300">
@@ -630,17 +697,10 @@ export default function AdminPromotions() {
                         </div>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                          <input
-                            checked={voucher.isActive}
-                            onChange={(e) =>
-                              updateVoucherStatus(voucherId, e.target.checked)
-                            }
-                            type="checkbox"
-                            className="toggle-checkbox absolute z-10 block h-5 w-5 cursor-pointer appearance-none border-2 border-zinc-700 bg-black transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-emerald-300"
-                          />
-                          <label className="toggle-label block h-5 cursor-pointer overflow-hidden border-2 border-zinc-700 bg-zinc-900 transition-colors duration-200 ease-in-out"></label>
-                        </div>
+                        <ToggleSwitch
+                          checked={voucher.isActive}
+                          onChange={(val) => updateVoucherStatus(voucherId, val)}
+                        />
                       </td>
                       <td className="px-4 py-4 text-right">
                         <div className="flex justify-end gap-2">
@@ -830,11 +890,37 @@ export default function AdminPromotions() {
                         }
                       />
                       <span className="absolute right-3 top-2.5 font-mono text-zinc-500">
-                        %
+                        {selectedVoucher.discountType === "percentage" ? "%" : "₫"}
                       </span>
                     </div>
                   </div>
                 </div>
+
+                {selectedVoucher.discountType === "percentage" && (
+                  <div className="flex flex-col gap-2">
+                    <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                      SỐ TIỀN GIẢM TỐI ĐA (VND)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        className="h-10 w-full border border-zinc-800 bg-black px-3 pr-10 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
+                        placeholder="Ví dụ: 50000 (Bỏ trống nếu không giới hạn)"
+                        value={selectedVoucher.maxDiscountAmount ?? ""}
+                        onChange={(e) =>
+                          setSelectedVoucher({
+                            ...selectedVoucher,
+                            maxDiscountAmount: e.target.value ? parseInt(e.target.value) : null,
+                          })
+                        }
+                      />
+                      <span className="absolute right-3 top-2.5 font-mono text-xs font-bold text-zinc-500">
+                        ₫
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
                     GIÁ TRỊ QUY ĐỔI (PTS)
@@ -919,20 +1005,15 @@ export default function AdminPromotions() {
                 <span className="font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300">
                   Trạng thái hoạt động
                 </span>
-                <div className="relative inline-block w-10 align-middle select-none">
-                  <input
-                    checked={selectedVoucher.isActive}
-                    onChange={(e) =>
-                      setSelectedVoucher({
-                        ...selectedVoucher,
-                        isActive: e.target.checked,
-                      })
-                    }
-                    type="checkbox"
-                    className="toggle-checkbox absolute z-10 block h-5 w-5 cursor-pointer appearance-none border-2 border-zinc-700 bg-black transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-emerald-300"
-                  />
-                  <label className="toggle-label block h-5 cursor-pointer overflow-hidden border-2 border-zinc-700 bg-zinc-900 transition-colors duration-200 ease-in-out"></label>
-                </div>
+                <ToggleSwitch
+                  checked={selectedVoucher.isActive}
+                  onChange={(val) =>
+                    setSelectedVoucher({
+                      ...selectedVoucher,
+                      isActive: val,
+                    })
+                  }
+                />
               </div>
             </div>
 
@@ -980,6 +1061,7 @@ function AddVoucherDrawer({ onClose, onCreate }) {
     code: "",
     discountType: "percentage",
     discountValue: 10,
+    maxDiscountAmount: "",
     pointsRequired: 1000,
     tier: "TẤT CẢ",
     startDate: "",
@@ -1079,7 +1161,7 @@ function AddVoucherDrawer({ onClose, onCreate }) {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      discountValue: parseInt(e.target.value),
+                      discountValue: parseInt(e.target.value) || 0,
                     })
                   }
                 />
@@ -1089,9 +1171,35 @@ function AddVoucherDrawer({ onClose, onCreate }) {
               </div>
             </div>
           </div>
+
+          {formData.discountType === "percentage" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                SỐ TIỀN GIẢM TỐI ĐA (VND)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  className="h-10 w-full border border-zinc-800 bg-black px-3 pr-10 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-cyan-400"
+                  placeholder="Ví dụ: 50000 (Bỏ trống nếu không giới hạn)"
+                  value={formData.maxDiscountAmount ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      maxDiscountAmount: e.target.value ? parseInt(e.target.value) : "",
+                    })
+                  }
+                />
+                <span className="absolute right-3 top-2 font-mono text-xs font-bold text-zinc-500">
+                  ₫
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
             <label className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
-              GIÁ TRỊ QUY ĐỔI TỐI ĐA (PTS)
+              GIÁ TRỊ QUY ĐỔI (PTS)
             </label>
             <input
               type="number"
@@ -1100,7 +1208,7 @@ function AddVoucherDrawer({ onClose, onCreate }) {
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  pointsRequired: parseInt(e.target.value),
+                  pointsRequired: parseInt(e.target.value) || 0,
                 })
               }
             />
@@ -1166,17 +1274,12 @@ function AddVoucherDrawer({ onClose, onCreate }) {
           <span className="font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300">
             Kích hoạt ngay khi tạo
           </span>
-          <div className="relative inline-block w-10 align-middle select-none">
-            <input
-              checked={formData.isActive}
-              onChange={(e) =>
-                setFormData({ ...formData, isActive: e.target.checked })
-              }
-              type="checkbox"
-              className="toggle-checkbox absolute z-10 block h-5 w-5 cursor-pointer appearance-none border-2 border-zinc-700 bg-black transition-transform duration-200 ease-in-out checked:translate-x-full checked:border-emerald-300"
-            />
-            <label className="toggle-label block h-5 cursor-pointer overflow-hidden border-2 border-zinc-700 bg-zinc-900 transition-colors duration-200 ease-in-out"></label>
-          </div>
+          <ToggleSwitch
+            checked={formData.isActive}
+            onChange={(val) =>
+              setFormData({ ...formData, isActive: val })
+            }
+          />
         </div>
       </div>
 

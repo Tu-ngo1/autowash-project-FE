@@ -275,11 +275,18 @@ export default function StaffCustomers() {
   const [selectedVehicleKey, setSelectedVehicleKey] = useState("new");
   const [vehicleLocked, setVehicleLocked] = useState(false);
   const [lookupState, setLookupState] = useState("idle");
+  const [lookupType, setLookupType] = useState("");
   const [loadingData, setLoadingData] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const triggerError = (msg) => {
+    setError(msg);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const vehicleBrands = useMemo(
     () => getVehicleBrands(vehicleModels),
     [vehicleModels],
@@ -557,7 +564,7 @@ export default function StaffCustomers() {
   const handleLookup = async () => {
     const query = lookup.trim();
     if (!query) {
-      setError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
+      triggerError("Nhập số điện thoại hoặc biển số để tìm kiếm.");
       return;
     }
 
@@ -577,13 +584,13 @@ export default function StaffCustomers() {
     setError("");
     setMessage("");
     try {
-      const foundCustomer = await searchWalkInCustomer(lookup.trim());
+      const foundCustomer = await searchWalkInCustomer(query);
       if (!foundCustomer) {
         throw new Error("CUSTOMER_NOT_FOUND");
       }
       const result = normalizeCustomer(foundCustomer);
       const vehicles = result.registeredVehicles || [];
-      const lookupPlate = normalizePlate(lookup);
+      const lookupPlate = normalizePlate(query);
       const selectedVehicle =
         vehicles.find((vehicle) => vehicle.licensePlate === lookupPlate) ||
         vehicles[0] ||
@@ -640,12 +647,8 @@ export default function StaffCustomers() {
       setForm((prev) => ({
         ...prev,
         customerName: "",
-        customerPhone: /^\d{8,12}$/.test(lookup.trim())
-          ? lookup.trim()
-          : prev.customerPhone,
-        licensePlate: /^\d{2}/.test(compactLicensePlate(lookup))
-          ? normalizePlate(lookup)
-          : prev.licensePlate,
+        customerPhone: isPhone ? query : prev.customerPhone,
+        licensePlate: isPlate ? normalizePlate(query) : prev.licensePlate,
         vehicleBrand: "",
         vehicleModelId: "",
         vehicleModelName: "",
@@ -673,15 +676,24 @@ export default function StaffCustomers() {
     setMessage("");
 
     if (lookupState === "idle") {
-      setError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
+      triggerError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
       return;
     }
     if (!form.customerName.trim()) {
-      setError("Vui lòng nhập họ tên khách hàng.");
+      triggerError("Vui lòng nhập họ tên khách hàng.");
+      return;
+    }
+    if (!form.customerPhone.trim()) {
+      triggerError("Vui lòng nhập số điện thoại khách hàng.");
+      return;
+    }
+    const customerPhoneRegex = /^0\d{9}$/;
+    if (!customerPhoneRegex.test(form.customerPhone.trim())) {
+      triggerError("Số điện thoại khách hàng phải đúng 10 số bắt đầu bằng 0.");
       return;
     }
     if (!form.licensePlate.trim()) {
-      setError("Vui lòng nhập biển số xe.");
+      triggerError("Vui lòng nhập biển số xe.");
       return;
     }
     const normalizedPlate = normalizePlate(form.licensePlate);
@@ -690,15 +702,15 @@ export default function StaffCustomers() {
       return;
     }
     if (!form.vehicleModelId || !form.vehicleSize) {
-      setError("Vui lòng chọn hãng xe và mẫu xe để xác định kích thước xe.");
+      triggerError("Vui lòng chọn hãng xe và mẫu xe để xác định kích thước xe.");
       return;
     }
     if (!mainServiceId) {
-      setError("Vui lòng chọn một dịch vụ chính.");
+      triggerError("Vui lòng chọn một dịch vụ chính.");
       return;
     }
     if (!selectedSlot) {
-      setError("Vui lòng chọn một khung giờ còn trống.");
+      triggerError("Vui lòng chọn một khung giờ còn trống.");
       return;
     }
 
@@ -722,7 +734,7 @@ export default function StaffCustomers() {
       );
       setTimeout(() => navigate("/staff/queue"), 700);
     } catch (err) {
-      setError(
+      triggerError(
         getFriendlyErrorMessage(
           err,
           "Không thể tạo lịch tiếp nhận. Vui lòng kiểm tra lại dữ liệu.",
@@ -787,6 +799,7 @@ export default function StaffCustomers() {
                       onChange={(event) => {
                         setLookup(event.target.value);
                         setLookupState("idle");
+                        setLookupType("");
                         setRegisteredVehicles([]);
                         setSelectedVehicleKey("new");
                         setVehicleLocked(false);
@@ -883,7 +896,7 @@ export default function StaffCustomers() {
                     </Field>
                     <Field label="Số điện thoại">
                       <input
-                        readOnly={isExistingCustomer}
+                        readOnly={isExistingCustomer || (lookupState === "not-found" && lookupType === "phone")}
                         value={form.customerPhone}
                         onChange={(event) =>
                           setForm({ ...form, customerPhone: event.target.value })
@@ -895,7 +908,7 @@ export default function StaffCustomers() {
                     <Field label="Biển số xe">
                       <input
                         required
-                        readOnly={isExistingCustomer || vehicleLocked}
+                        readOnly={isExistingCustomer || vehicleLocked || (lookupState === "not-found" && lookupType === "plate")}
                         value={form.licensePlate}
                         onChange={(event) =>
                           setForm({

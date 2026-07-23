@@ -283,6 +283,7 @@ export default function CustomerBooking() {
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [bookingDataError, setBookingDataError] = useState("");
   const bookingDataKeyRef = useRef("");
   const lastCarSizeRef = useRef("");
@@ -315,10 +316,13 @@ export default function CustomerBooking() {
     if (bookingDataKeyRef.current === bookingDataKey) return;
     bookingDataKeyRef.current = bookingDataKey;
 
-    setLoadingServices(true);
-
-    // Reset selected addons ONLY when vehicle carSize changes
     const carSizeChanged = lastCarSizeRef.current !== (carSize || "ALL");
+    if (carSizeChanged || services.length === 0) {
+      setLoadingServices(true);
+    } else {
+      setLoadingSlots(true);
+    }
+
     if (carSizeChanged) {
       lastCarSizeRef.current = carSize || "ALL";
       setSelectedAddons([]);
@@ -347,7 +351,9 @@ export default function CustomerBooking() {
         "services",
         "items",
         "data",
-      ]).map(normalizeServiceOption);
+      ])
+        .map(normalizeServiceOption)
+        .filter((item) => item.active !== false && String(item.status || "").toUpperCase() !== "INACTIVE");
       const fetchedSlots = normalizeHourlySlots(
         payload.timeSlots ||
           payload.availableSlots ||
@@ -395,6 +401,7 @@ export default function CustomerBooking() {
       setTimeSlots([]);
     } finally {
       setLoadingServices(false);
+      setLoadingSlots(false);
       setLoadingData(false);
     }
   };
@@ -1196,7 +1203,7 @@ export default function CustomerBooking() {
                     </span>
                     Chọn khung giờ
                   </p>
-                  {loadingServices ? (
+                  {(loadingServices || loadingSlots) ? (
                     <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/70 p-5 text-center text-sm font-semibold text-slate-500">
                       Đang tải khung giờ...
                     </div>

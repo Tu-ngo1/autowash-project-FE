@@ -11,6 +11,49 @@ import {
 } from "../../services/adminBookingApi";
 import { asArrayPayload, normalizeAdminBooking } from "../../utils/adminDto";
 
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getPageNumbers = (currentPage, totalPages) => {
+  if (totalPages <= 1) return [1];
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [
+      1,
+      "...",
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+  return [
+    1,
+    "...",
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    "...",
+    totalPages,
+  ];
+};
+
 const toIsoDate = (value) => {
   const trimmed = value.trim();
   const ddmmyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -84,6 +127,7 @@ export default function AdminBookings() {
   const [drawerMode, setDrawerMode] = useState("view");
   const [actionMessage, setActionMessage] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [actionNote, setActionNote] = useState("");
   const [rejectAction, setRejectAction] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -99,8 +143,6 @@ export default function AdminBookings() {
 
     return allBookings.filter((booking) => {
       const haystack = [
-        booking.bookingCode,
-        booking.code,
         booking.customerName,
         booking.customerPhone,
         booking.customerEmail,
@@ -231,21 +273,34 @@ export default function AdminBookings() {
     setIsDrawerOpen(true);
   };
 
-  const handleDeleteBooking = async (booking) => {
-    const id = booking.id;
+  const handleDeleteBooking = (booking) => {
+    const id = booking.id || booking.bookingId;
     if (!id) return;
+    setActionNote("");
+    setConfirmAction({
+      type: "delete",
+      booking,
+      title: "Xóa vĩnh viễn đơn đặt lịch",
+      message:
+        "Hành động này sẽ xóa vĩnh viễn đơn đặt lịch khỏi hệ thống. Bạn có chắc chắn muốn xóa?",
+      confirmLabel: "Xóa đơn",
+    });
+  };
+
+  const handleDirectCancel = (booking) => {
+    setActionNote("");
     setConfirmAction({
       type: "direct-cancel",
       booking,
-      title: "Hủy đơn trực tiếp",
+      title: "Hủy đơn đặt lịch",
       message:
-        "Hủy trực tiếp đơn này đồng nghĩa hệ thống sẽ tự động hoàn trả 100% tiền cọc vào ví của khách hàng. Bạn có chắc chắn muốn tiếp tục?",
-      confirmLabel: "Hủy đơn",
+        "Bạn có chắc chắn muốn hủy trực tiếp đơn đặt lịch này? Hệ thống sẽ cập nhật trạng thái đơn thành ĐÃ HỦY và tự động hoàn tiền vào ví khách hàng (nếu có).",
+      confirmLabel: "Xác nhận Hủy đơn",
     });
   };
 
   const executeDeleteBooking = async (booking) => {
-    const id = booking.id;
+    const id = booking.id || booking.bookingId;
     if (!id) return;
     setActionMessage("");
     setActionLoading(true);
@@ -262,31 +317,51 @@ export default function AdminBookings() {
     setConfirmAction(null);
   };
 
-  const handleApproveCancelRequest = (booking) => {
-    setConfirmAction({
-      type: "approve-cancel",
-      booking,
-      title: "Duyệt yêu cầu hủy",
-      message:
-        "Bạn có chắc chắn muốn duyệt yêu cầu hủy lịch đặt này? Khách hàng sẽ được hoàn lại 100% tiền vào ví.",
-      confirmLabel: "Duyệt hủy",
-    });
-  };
-
-  const executeApproveCancelRequest = async (booking) => {
+  const executeDirectCancel = async (booking, note) => {
     const id = booking.id || booking.bookingId;
     if (!id) return;
     setActionLoading(true);
     setActionMessage("");
     try {
-      await approveCancelRequest(id);
-      setActionMessage("ĐÃ DUYỆT YÊU CẦU HỦY");
+      await updateAdminBookingStatus(id, "CANCELLED", note);
+      setActionMessage("ĐÃ HỦY ĐƠN ĐẶT LỊCH THÀNH CÔNG");
+      await fetchBookings();
+    } catch {
+      setActionMessage("KHÔNG THỂ HỦY ĐƠN ĐẶT LỊCH");
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+      setActionNote("");
+    }
+  };
+
+  const handleApproveCancelRequest = (booking) => {
+    setActionNote("");
+    setConfirmAction({
+      type: "approve-cancel",
+      booking,
+      title: "Duyệt yêu cầu hủy đơn",
+      message:
+        "Bạn có chắc chắn muốn duyệt yêu cầu hủy lịch đặt này? Khách hàng sẽ được hoàn lại 100% tiền vào ví.",
+      confirmLabel: "Duyệt hủy đơn",
+    });
+  };
+
+  const executeApproveCancelRequest = async (booking, note) => {
+    const id = booking.id || booking.bookingId;
+    if (!id) return;
+    setActionLoading(true);
+    setActionMessage("");
+    try {
+      await approveCancelRequest(id, note);
+      setActionMessage("ĐÃ DUYỆT YÊU CẦU HỦY ĐƠN");
       await fetchBookings();
     } catch {
       setActionMessage("KHÔNG THỂ DUYỆT YÊU CẦU HỦY");
     } finally {
       setActionLoading(false);
       setConfirmAction(null);
+      setActionNote("");
     }
   };
 
@@ -423,7 +498,7 @@ export default function AdminBookings() {
                   setSearch(e.target.value);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                placeholder="Tìm biển số, mã đơn..."
+                placeholder="Tìm tên khách hàng, số điện thoại, biển số xe..."
                 className="h-full w-full border-none bg-transparent pl-10 pr-3 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus:ring-0"
               />
             </div>
@@ -461,13 +536,13 @@ export default function AdminBookings() {
                   setStatusFilter(e.target.value);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                className="h-full w-full cursor-pointer appearance-none border-none bg-black pl-3 pr-10 font-mono text-sm text-zinc-100 focus:ring-0"
+                className="h-full w-full appearance-none border-none bg-transparent pl-3 pr-8 font-mono text-xs font-bold uppercase text-zinc-100 outline-none focus:ring-0"
               >
                 <option className="bg-black text-zinc-100" value="all">
                   TẤT CẢ TRẠNG THÁI
                 </option>
-                <option className="bg-black text-zinc-100" value="cancel_pending">
-                  YÊU CẦU HỦY CHỜ DUYỆT
+                <option className="bg-black text-amber-300 font-bold" value="cancel_pending">
+                  ⚠️ CHỜ DUYỆT HỦY
                 </option>
                 <option className="bg-black text-zinc-100" value="PENDING">
                   PENDING
@@ -506,7 +581,9 @@ export default function AdminBookings() {
 
         <AdminBookingsTable
           bookings={bookings}
+          pagination={pagination}
           onDeleteBooking={handleDeleteBooking}
+          onCancelBooking={handleDirectCancel}
           onEditBooking={openEditBooking}
           onApproveCancelRequest={handleApproveCancelRequest}
           onRejectCancelRequest={handleRejectCancelRequest}
@@ -539,19 +616,55 @@ export default function AdminBookings() {
               "KẾT QUẢ"
             )}
           </p>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <button
               disabled={pagination.page === 1}
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
               }
-              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               TRƯỚC
             </button>
-            <span className="flex h-9 min-w-9 items-center justify-center border border-cyan-400/60 bg-cyan-400/10 px-3 font-mono font-black text-cyan-300">
-              {pagination.page}
-            </span>
+            {(() => {
+              const totalPages =
+                pagination.total > 0
+                  ? Math.ceil(pagination.total / pagination.limit)
+                  : isClientSide
+                  ? Math.ceil(filteredBookings.length / pagination.limit)
+                  : 1;
+
+              const pageItems = getPageNumbers(pagination.page, Math.max(1, totalPages));
+
+              return pageItems.map((item, idx) => {
+                if (item === "...") {
+                  return (
+                    <span
+                      key={`dots-${idx}`}
+                      className="flex h-9 w-7 items-center justify-center font-mono text-xs font-bold text-zinc-600 select-none"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+
+                const isActive = item === pagination.page;
+
+                return (
+                  <button
+                    key={`page-${item}`}
+                    onClick={() => setPagination((prev) => ({ ...prev, page: item }))}
+                    className={`h-9 min-w-9 px-2 font-mono text-xs font-black transition ${
+                      isActive
+                        ? "border border-cyan-400/60 bg-cyan-400/10 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                        : "border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              });
+            })()}
             <button
               disabled={
                 pagination.total !== -1
@@ -562,7 +675,7 @@ export default function AdminBookings() {
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
               }
-              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 border border-zinc-800 bg-zinc-950 px-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               SAU
             </button>
@@ -767,19 +880,48 @@ export default function AdminBookings() {
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <div className="inline-flex items-center px-3 py-1 bg-secondary/10 border border-secondary/20 rounded-full">
-                      <span
-                        className="material-symbols-outlined text-[16px] text-secondary mr-2"
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                      >
-                        check_circle
-                      </span>
-                      <span className="text-[10px] font-bold text-secondary tracking-widest uppercase">
-                        {selectedBooking.paymentMethod === "PAYOS"
-                          ? `ĐÃ THANH TOÁN QUA PAYOS`
-                          : selectedBooking.paymentStatus || "THANH TOÁN TIỀN MẶT"}
-                      </span>
-                    </div>
+                    {(() => {
+                      const rawPayStatus = String(selectedBooking.paymentStatus || "").toUpperCase();
+                      const rawPayMethod = String(selectedBooking.paymentMethod || "").toUpperCase();
+                      const isPaid = rawPayStatus === "PAID";
+                      const isRefunded = rawPayStatus === "REFUNDED";
+                      const isFailed = rawPayStatus === "FAILED" || rawPayStatus === "CANCELLED";
+
+                      let badgeClass = "bg-amber-500/10 border-amber-500/30 text-amber-400";
+                      let icon = "pending";
+                      let text = `CHƯA THANH TOÁN ${rawPayMethod ? `(${rawPayMethod})` : ""}`;
+
+                      if (isPaid) {
+                        badgeClass = "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+                        icon = "check_circle";
+                        text = rawPayMethod === "PAYOS" ? "ĐÃ THANH TOÁN QUA PAYOS" : `ĐÃ THANH TOÁN (${rawPayMethod || "TIỀN MẶT"})`;
+                      } else if (isRefunded) {
+                        badgeClass = "bg-purple-500/10 border-purple-500/30 text-purple-300";
+                        icon = "undo";
+                        text = `ĐÃ HOÀN TIỀN ${rawPayMethod ? `(${rawPayMethod})` : ""}`;
+                      } else if (isFailed) {
+                        badgeClass = "bg-red-500/10 border-red-500/30 text-red-400";
+                        icon = "cancel";
+                        text = `THANH TOÁN THẤT BẠI ${rawPayMethod ? `(${rawPayMethod})` : ""}`;
+                      } else {
+                        if (rawPayMethod === "PAYOS") {
+                          text = "CHƯA THANH TOÁN (PAYOS)";
+                        } else if (rawPayMethod === "CASH") {
+                          text = "CHƯA THANH TOÁN (TIỀN MẶT)";
+                        }
+                      }
+
+                      return (
+                        <div className={`inline-flex items-center px-3 py-1 border rounded-full ${badgeClass}`}>
+                          <span className="material-symbols-outlined text-[16px] mr-2" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {icon}
+                          </span>
+                          <span className="text-[10px] font-bold tracking-widest uppercase">
+                            {text}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -792,56 +934,152 @@ export default function AdminBookings() {
                   </h3>
                 </div>
                 <div className="p-5">
-                  <div className="relative pl-6 border-l border-outline-variant space-y-8 pb-4">
+                  <div className="relative pl-6 border-l border-outline-variant space-y-6 pb-2">
+                    {/* 1. Tạo đơn đặt lịch */}
                     <div className="relative">
-                      <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-outline-variant border-2 border-surface-container-low"></div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-baseline gap-2">
-                          <div className="text-sm text-on-surface">
-                            Đặt lịch trực tuyến
+                      <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-surface-container-low"></div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-on-surface">
+                            Tạo đơn đặt lịch
                           </div>
-                          <div className="text-[10px] text-on-surface-variant">
-                            {selectedBooking.scheduledStartTime ||
-                              `${selectedBooking.date} ${selectedBooking.time}`}
+                          <div className="text-[11px] text-zinc-400 mt-0.5">
+                            {selectedBooking.createdAt
+                              ? formatDateTime(selectedBooking.createdAt)
+                              : `${selectedBooking.date || ""} ${selectedBooking.time || ""}`}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">
+                            Giờ hẹn rửa: {selectedBooking.scheduledStartTime ? formatDateTime(selectedBooking.scheduledStartTime) : `${selectedBooking.date || ""} ${selectedBooking.time || ""}`}
                           </div>
                         </div>
-                        <span className="material-symbols-outlined text-outline-variant text-[18px]">
+                        <span className="material-symbols-outlined text-cyan-400 text-[18px]">
                           event_available
                         </span>
                       </div>
                     </div>
-                    {selectedBooking.status !== "PENDING" && (
+
+                    {/* 2. Check-in QR */}
+                    {(selectedBooking.arrivedAt || ["ARRIVED", "IN_PROGRESS", "WASHED", "COMPLETED"].includes(String(selectedBooking.status).toUpperCase())) && (
                       <div className="relative">
-                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-outline-variant border-2 border-surface-container-low"></div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm text-on-surface">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-on-surface">
                               Check-in QR
                             </div>
-                            <span className="text-[10px] text-on-surface-variant">
-                              {selectedBooking.time}
-                            </span>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.arrivedAt
+                                ? formatDateTime(selectedBooking.arrivedAt)
+                                : selectedBooking.time}
+                            </div>
                           </div>
-                          <span className="material-symbols-outlined text-outline-variant text-[18px]">
+                          <span className="material-symbols-outlined text-cyan-400 text-[18px]">
                             qr_code_scanner
                           </span>
                         </div>
                       </div>
                     )}
-                    {selectedBooking.status === "COMPLETED" && (
+
+                    {/* 3. Bắt đầu rửa xe */}
+                    {(selectedBooking.washStartedAt || ["IN_PROGRESS", "WASHED", "COMPLETED"].includes(String(selectedBooking.status).toUpperCase())) && (
                       <div className="relative">
-                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-secondary border-2 border-surface-container-low"></div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-baseline gap-2">
-                            <div className="text-sm text-secondary font-medium">
-                              Hoàn tất & Giao xe
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-cyan-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-on-surface">
+                              Đưa vào khoang rửa {selectedBooking.bayNumber ? `#${selectedBooking.bayNumber}` : ""}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.washStartedAt
+                                ? formatDateTime(selectedBooking.washStartedAt)
+                                : "-"}
                             </div>
                           </div>
-                          <span
-                            className="material-symbols-outlined text-secondary text-[18px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                          >
+                          <span className="material-symbols-outlined text-cyan-400 text-[18px]">
+                            local_car_wash
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. Hoàn tất & Giao xe */}
+                    {(String(selectedBooking.status).toUpperCase() === "COMPLETED" || selectedBooking.completedAt) && (
+                      <div className="relative">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm text-emerald-400 font-medium">
+                              Hoàn tất & Giao xe
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.completedAt
+                                ? formatDateTime(selectedBooking.completedAt)
+                                : "-"}
+                            </div>
+                          </div>
+                          <span className="material-symbols-outlined text-emerald-400 text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                             task_alt
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. Gửi yêu cầu hủy (nếu có) */}
+                    {(selectedBooking.cancelRequestedAt || selectedBooking.cancelRequestStatus) && (
+                      <div className="relative">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm text-amber-300 font-medium">
+                              Yêu cầu hủy ({selectedBooking.cancelRequestStatus})
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.cancelRequestedAt
+                                ? formatDateTime(selectedBooking.cancelRequestedAt)
+                                : "-"}
+                            </div>
+                            {selectedBooking.cancelRequestedByName && (
+                              <div className="text-[10px] text-zinc-400 mt-0.5">
+                                Người yêu cầu: {selectedBooking.cancelRequestedByName}
+                              </div>
+                            )}
+                            {selectedBooking.cancelRequestReason && (
+                              <div className="text-[10px] text-amber-200/80 mt-0.5">
+                                Lý do: {selectedBooking.cancelRequestReason}
+                              </div>
+                            )}
+                          </div>
+                          <span className="material-symbols-outlined text-amber-400 text-[18px]">
+                            history_toggle_off
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 6. Đã hủy đơn */}
+                    {String(selectedBooking.status).toUpperCase() === "CANCELLED" && (
+                      <div className="relative">
+                        <div className="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-red-500 border-2 border-surface-container-low"></div>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm text-red-400 font-medium">
+                              Đã hủy đơn
+                            </div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">
+                              {selectedBooking.cancelRequestedAt
+                                ? formatDateTime(selectedBooking.cancelRequestedAt)
+                                : selectedBooking.updatedAt
+                                ? formatDateTime(selectedBooking.updatedAt)
+                                : "-"}
+                            </div>
+                            {selectedBooking.cancelRequestAdminNote && (
+                              <div className="text-[10px] text-red-300/80 mt-0.5">
+                                Ghi chú Admin: {selectedBooking.cancelRequestAdminNote}
+                              </div>
+                            )}
+                          </div>
+                          <span className="material-symbols-outlined text-red-400 text-[18px]">
+                            cancel
                           </span>
                         </div>
                       </div>
@@ -866,25 +1104,46 @@ export default function AdminBookings() {
               <span className="material-symbols-outlined text-4xl text-amber-300">
                 warning
               </span>
-              <div>
+              <div className="w-full min-w-0">
                 <h3 className="font-mono text-xl font-black uppercase text-zinc-50">
                   {confirmAction.title}
                 </h3>
                 <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
                   {confirmAction.message}
                 </p>
-                <p className="mt-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
+                <p className="mt-2 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-300">
                   {confirmAction.booking?.bookingCode ||
                     `#${confirmAction.booking?.id || ""}`}{" "}
                   • {confirmAction.booking?.vehicleLicensePlate || "-"}
                 </p>
+                {(confirmAction.type === "approve-cancel" || confirmAction.type === "direct-cancel") && (
+                  <div className="mt-4">
+                    <label className="block mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                      Ghi chú Admin / Lý do (Không bắt buộc)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={actionNote}
+                      onChange={(e) => setActionNote(e.target.value)}
+                      placeholder={
+                        confirmAction.type === "approve-cancel"
+                          ? "Ghi chú duyệt hủy..."
+                          : "Lý do hủy đơn..."
+                      }
+                      className="w-full bg-black border border-zinc-700 p-2.5 font-mono text-xs font-semibold text-zinc-100 outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 disabled={actionLoading}
-                onClick={() => setConfirmAction(null)}
+                onClick={() => {
+                  setConfirmAction(null);
+                  setActionNote("");
+                }}
                 className="border border-zinc-700 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-zinc-300 transition hover:border-zinc-400 disabled:opacity-50"
               >
                 Hủy
@@ -892,11 +1151,15 @@ export default function AdminBookings() {
               <button
                 type="button"
                 disabled={actionLoading}
-                onClick={() =>
-                  confirmAction.type === "approve-cancel"
-                    ? executeApproveCancelRequest(confirmAction.booking)
-                    : executeDeleteBooking(confirmAction.booking)
-                }
+                onClick={() => {
+                  if (confirmAction.type === "approve-cancel") {
+                    executeApproveCancelRequest(confirmAction.booking, actionNote);
+                  } else if (confirmAction.type === "direct-cancel") {
+                    executeDirectCancel(confirmAction.booking, actionNote);
+                  } else {
+                    executeDeleteBooking(confirmAction.booking);
+                  }
+                }}
                 className="border border-cyan-400/50 bg-cyan-400/15 px-5 py-3 font-mono text-xs font-black uppercase tracking-[0.16em] text-cyan-200 transition hover:bg-cyan-400/25 disabled:opacity-50"
               >
                 {actionLoading ? "Đang xử lý..." : confirmAction.confirmLabel}
