@@ -7,6 +7,8 @@ import {
   updateService as updateServiceApi,
   updateServiceStatus as updateServiceStatusApi,
 } from "../../services/adminServiceApi";
+import { getNewestValue } from "../../utils/dataHelpers";
+import { formatCurrency as formatCurrencyValue } from "../../utils/formatters";
 const VEHICLE_SIZE_LABELS = {
   SMALL: "Small",
   MEDIUM: "Medium",
@@ -68,7 +70,7 @@ const getServiceId = (service = {}) =>
 const formatCurrency = (value) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return "-";
-  return number.toLocaleString("vi-VN") + "đ";
+  return formatCurrencyValue(number);
 };
 
 const getPriceRange = (service) => {
@@ -125,17 +127,6 @@ const getServiceStatus = (service = {}) => {
   return String(service.status || "ACTIVE").toUpperCase() === "INACTIVE"
     ? "INACTIVE"
     : "ACTIVE";
-};
-
-const getNewestValue = (item = {}) => {
-  const rawDate =
-    item.createdAt ||
-    item.created_at ||
-    item.updatedAt ||
-    item.updated_at;
-  const parsedDate = rawDate ? new Date(rawDate).getTime() : NaN;
-  if (Number.isFinite(parsedDate)) return parsedDate;
-  return Number(getServiceId(item) || 0);
 };
 
 export default function AdminServices() {

@@ -12,13 +12,8 @@ import {
   normalizeAdminBooking,
   normalizeTopVoucher,
 } from "../../utils/adminDto";
-
-const formatCurrency = (value) => {
-  const number = Number(value) || 0;
-  return `${number.toLocaleString("vi-VN")}đ`;
-};
-
-const unwrap = (response) => response?.data?.data ?? response?.data ?? {};
+import { sortNewestFirst, unwrapPayload } from "../../utils/dataHelpers";
+import { formatCurrency } from "../../utils/formatters";
 
 const getList = (payload, keys = []) => {
   if (Array.isArray(payload)) return payload;
@@ -28,25 +23,6 @@ const getList = (payload, keys = []) => {
   }
   return [];
 };
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.updatedAt ||
-    item.scheduledStartTime ||
-    item.dateTime ||
-    item.date ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
-  });
 
 const getMetric = (payload, keys, fallback = 0) => {
   for (const key of keys) {
@@ -349,8 +325,8 @@ export default function AdminDashboard() {
           getAdminDashboardTopVouchers().catch(() => null),
         ]);
 
-      const dashboardPayload = unwrap(dashboardRes);
-      const revenuePayload = unwrap(revenueRes);
+      const dashboardPayload = unwrapPayload(dashboardRes);
+      const revenuePayload = unwrapPayload(revenueRes);
 
       setDashboard(dashboardPayload || {});
       const revenueItems = getList(revenuePayload, [

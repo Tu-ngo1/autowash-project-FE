@@ -14,25 +14,17 @@ import {
   formatLicensePlate,
   isValidVietnamLicensePlate,
 } from "../../utils/licensePlate";
+import { unwrapList, unwrapPayload } from "../../utils/dataHelpers";
+import { formatCurrency } from "../../utils/formatters";
 
 const PAYMENT_METHODS = [
   ["CASH", "Tiền mặt"],
   ["BANK_TRANSFER", "Chuyển khoản"],
 ];
 
-const unwrapList = (payload, keys = []) => {
-  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
-  if (Array.isArray(data)) return data;
-  for (const key of keys) {
-    if (Array.isArray(data?.[key])) return data[key];
-  }
-  return [];
-};
+const unwrapObject = (payload) => unwrapPayload(payload);
 
-const unwrapObject = (payload) =>
-  payload?.data?.data ?? payload?.data ?? payload ?? {};
-
-const formatPrice = (value) => `${Number(value || 0).toLocaleString("vi-VN")}đ`;
+const formatPrice = formatCurrency;
 
 const normalizePlate = formatLicensePlate;
 

@@ -6,6 +6,8 @@ import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../s
 import { requestCancelBooking } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import { formatLicensePlate } from "../../utils/licensePlate";
+import { sortNewestFirst, unwrapList } from "../../utils/dataHelpers";
+import { formatTimeFromDateTime } from "../../utils/formatters";
 
 const TIER_BADGE = {
   Platinum: "border-[#6ff6df] text-[#6ff6df] bg-[#123746]",
@@ -13,42 +15,6 @@ const TIER_BADGE = {
   Silver: "border-[#4f7883] text-[#b8d8de] bg-[#123746]",
   Late: "border-[#ffb4ab]/50 text-[#ffb4ab] bg-[#93000a]/20",
 };
-
-const unwrapStaffPayload = (payload, keys = []) => {
-  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
-  if (Array.isArray(data)) return data;
-  for (const key of keys) {
-    if (Array.isArray(data?.[key])) return data[key];
-  }
-  return [];
-};
-
-const formatStaffTime = (value) => {
-  if (!value) return "";
-  const text = String(value);
-  if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
-  return text.slice(0, 5);
-};
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.updatedAt ||
-    item.arrivedAt ||
-    item.scheduledStartTime ||
-    item.dateTime ||
-    item.startTime ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
-  });
 
 const parseStaffDate = (value) => {
   if (!value) return null;
@@ -130,10 +96,10 @@ const normalizeQueueBooking = (booking = {}) => ({
   checkinTime:
     booking.checkinTime ||
     booking.arrivedAt ||
-    formatStaffTime(booking.scheduledStartTime || booking.time),
+    formatTimeFromDateTime(booking.scheduledStartTime || booking.time),
   time:
     booking.time ||
-    formatStaffTime(booking.scheduledStartTime || booking.startTime),
+    formatTimeFromDateTime(booking.scheduledStartTime || booking.startTime),
   tier: booking.tier || booking.tierLevel || booking.status || "Member",
   services: Array.isArray(booking.services)
     ? booking.services
@@ -511,13 +477,13 @@ export default function StaffQueue() {
 
       setQueue(
         sortNewestFirst(
-          unwrapStaffPayload(queueRes, ["items", "queue", "bookings"]).map(
+          unwrapList(queueRes, ["items", "queue", "bookings"]).map(
             normalizeQueueBooking,
           ),
         ),
       );
       setBays(
-        unwrapStaffPayload(baysRes, ["items", "bays"]).map(normalizeBay),
+        unwrapList(baysRes, ["items", "bays"]).map(normalizeBay),
       );
     } catch (err) {
       setError(

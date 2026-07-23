@@ -1,30 +1,8 @@
 import { formatLicensePlate } from "../../utils/licensePlate";
-
-const STATUS_STYLES = {
-  COMPLETED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
-  PENDING: "border-amber-400/50 text-amber-300 bg-amber-400/10",
-  "IN PROGRESS": "border-blue-400/50 text-blue-300 bg-blue-400/10",
-  IN_PROGRESS: "border-blue-400/50 text-blue-300 bg-blue-400/10",
-  CONFIRM: "border-cyan-400/50 text-cyan-300 bg-cyan-400/10",
-  ARRIVED: "border-sky-400/50 text-sky-300 bg-sky-400/10",
-  WASHED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
-  WASHING: "border-blue-400/50 text-blue-300 bg-blue-400/10",
-  CANCEL_REQUESTED: "border-orange-400/50 text-orange-300 bg-orange-400/10",
-  CANCELLED: "border-red-400/50 text-red-300 bg-red-400/10",
-};
-
-const STATUS_LABELS = {
-  PENDING: "CHỜ XÁC NHẬN",
-  CONFIRM: "ĐÃ XÁC NHẬN",
-  ARRIVED: "ĐÃ CHECK-IN",
-  WASHING: "ĐANG RỬA",
-  IN_PROGRESS: "ĐANG RỬA",
-  "IN PROGRESS": "ĐANG RỬA",
-  WASHED: "ĐÃ RỬA XONG",
-  COMPLETED: "HOÀN THÀNH",
-  CANCEL_REQUESTED: "YÊU CẦU HỦY",
-  CANCELLED: "ĐÃ HỦY",
-};
+import {
+  BOOKING_STATUS_STYLES,
+  getBookingStatusLabel,
+} from "../../utils/bookingStatus";
 
 function PaymentBadge({ method, status }) {
   const normalizedMethod = String(method || "UNPAID").toUpperCase();
@@ -66,10 +44,10 @@ function PaymentBadge({ method, status }) {
 
 function StatusBadge({ status }) {
   const normalizedStatus = String(status || "PENDING").toUpperCase();
-  const label = STATUS_LABELS[normalizedStatus] || normalizedStatus.replaceAll("_", " ");
+  const label = getBookingStatusLabel(normalizedStatus).toUpperCase();
   return (
     <span
-      className={`inline-block border px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-wide ${STATUS_STYLES[normalizedStatus] || STATUS_STYLES.PENDING}`}
+      className={`inline-block border px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-wide ${BOOKING_STATUS_STYLES[normalizedStatus] || BOOKING_STATUS_STYLES.PENDING}`}
     >
       {label}
     </span>

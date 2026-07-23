@@ -1,18 +1,10 @@
 import api, { apiPath } from "./apiClient";
+import { unwrapList, unwrapPayload } from "../utils/dataHelpers";
 
-const unwrap = (response) => response.data?.data ?? response.data ?? response;
+const unwrap = (response) => unwrapPayload(response);
 
 const normalizeSearchText = (value = "") =>
   String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
-
-const unwrapList = (payload, keys = []) => {
-  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
-  if (Array.isArray(data)) return data;
-  for (const key of keys) {
-    if (Array.isArray(data?.[key])) return data[key];
-  }
-  return [];
-};
 
 const matchesQuery = (values, normalizedQuery) =>
   values

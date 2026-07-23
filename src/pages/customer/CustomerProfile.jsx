@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import UserNavbar from "../../components/UserNavbar";
 import VehicleFormFields from "../../components/vehicle/VehicleFormFields";
 import { getUser, updateUser } from "../../utils/auth";
@@ -26,16 +31,20 @@ import {
   formatLicensePlate,
   isValidVietnamLicensePlate,
 } from "../../utils/licensePlate";
-
-const statusStyles = {
-  PENDING: "bg-[#0061a5]/10 text-[#0061a5]",
-  CONFIRM: "bg-[#0061a5]/10 text-[#0061a5]",
-  ARRIVED: "bg-sky-100 text-sky-700",
-  IN_PROGRESS: "bg-cyan-100 text-cyan-700",
-  WASHED: "bg-teal-100 text-teal-700",
-  COMPLETED: "bg-emerald-500/10 text-emerald-600",
-  CANCELLED: "bg-rose-100 text-rose-700",
-};
+import {
+  getVehicleBrands,
+  getVehicleModelById,
+  getVehicleModelByName,
+  getVehicleSizeOption,
+  isActiveVehicleModel,
+  normalizeVehicleSize,
+} from "../../utils/vehicleDisplay";
+import { CUSTOMER_STATUS_STYLES } from "../../utils/bookingStatus";
+import {
+  mergeUniqueBy,
+  sortNewestFirst,
+  unwrapPayload,
+} from "../../utils/dataHelpers";
 
 const getBookingTimeValue = (booking) => {
   const raw =
@@ -48,30 +57,6 @@ const getBookingTimeValue = (booking) => {
   const time = new Date(raw).getTime();
   return Number.isNaN(time) ? 0 : time;
 };
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.created_at ||
-    item.updatedAt ||
-    item.updated_at ||
-    item.redeemedAt ||
-    item.usedAt ||
-    item.createdDate ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.transactionId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return (
-      Number(b?.id || b?.transactionId || 0) -
-      Number(a?.id || a?.transactionId || 0)
-    );
-  });
 
 const getPendingQrBookings = (bookings = []) =>
   [...bookings]
@@ -86,99 +71,26 @@ const getPendingQrBookings = (bookings = []) =>
     });
 
 const mergeVehicles = (...groups) => {
-  const seen = new Set();
   return sortNewestFirst(
-    groups
-      .flat()
-      .filter(Boolean)
-      .map(normalizeCustomerCar)
-      .filter((vehicle) => {
-        const key = String(
+    mergeUniqueBy(
+      groups.flat().filter(Boolean).map(normalizeCustomerCar),
+      (vehicle) =>
+        String(
           vehicle.licensePlate || vehicle.plate || vehicle.id || "",
-        ).toUpperCase();
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }),
+        ).toUpperCase(),
+    ),
   );
 };
-
-const unwrapPayload = (payload) =>
-  payload?.data?.data ?? payload?.data ?? payload ?? {};
-
-const VEHICLE_SIZE_OPTIONS = [
-  {
-    value: "SMALL",
-    label: "SMALL",
-    description: "4-5 chỗ",
-    icon: "directions_car",
-  },
-  {
-    value: "MEDIUM",
-    label: "MEDIUM",
-    description: "CUV/SUV 5 chỗ",
-    icon: "commute",
-  },
-  {
-    value: "LARGE",
-    label: "LARGE",
-    description: "7 chỗ",
-    icon: "airport_shuttle",
-  },
-  {
-    value: "XLARGE",
-    label: "XLARGE",
-    description: "Bán tải, Van",
-    icon: "local_shipping",
-  },
-];
-
-const getVehicleSizeOption = (value) =>
-  VEHICLE_SIZE_OPTIONS.find((option) => option.value === value) ||
-  VEHICLE_SIZE_OPTIONS[0];
-
-const getVehicleBrands = (vehicleModels) =>
-  Array.from(new Set(vehicleModels.map((model) => model.brand))).sort((a, b) =>
-    a.localeCompare(b),
-  );
-
-const getVehicleModelById = (vehicleModels, id) =>
-  vehicleModels.find((model) => String(model.id) === String(id));
-
-const getVehicleModelByName = (vehicleModels, brand, modelName) =>
-  vehicleModels.find(
-    (model) =>
-      model.brand === brand &&
-      String(model.modelName || "").toLowerCase() ===
-        String(modelName || "").toLowerCase(),
-  );
-
-const normalizeVehicleSize = (vehicle) => {
-  const rawSize = String(
-    vehicle?.size ||
-      vehicle?.vehicleSize ||
-      vehicle?.vehicle_size ||
-      vehicle?.type ||
-      "",
-  ).toUpperCase();
-  if (["SMALL", "MEDIUM", "LARGE", "XLARGE"].includes(rawSize)) return rawSize;
-  if (String(vehicle?.type || "").includes("7")) return "LARGE";
-  if (
-    String(vehicle?.type || "")
-      .toLowerCase()
-      .includes("suv")
-  )
-    return "MEDIUM";
-  return "SMALL";
-};
-
-const isActiveVehicleModel = (model) =>
-  model?.isActive ?? model?.is_active ?? model?.active ?? true;
 
 export default function CustomerProfile() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const { vehicleId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const user = getUser() || {};
+  const isAddVehicleRoute = location.pathname === "/profile/vehicles/new";
+  const isEditVehicleRoute =
+    Boolean(vehicleId) && location.pathname.endsWith("/edit");
 
   const [activeTab, setActiveTab] = useState(
     searchParams.get("tab") === "wallet" ? "wallet" : "profile",
@@ -436,10 +348,20 @@ export default function CustomerProfile() {
       setSearchParams({ tab: "wallet" }, { replace: true });
     }
 
-    if (
-      searchParams.get("vehicleForm") === "add" ||
-      searchParams.get("addVehicle") === "1"
-    ) {
+    if (searchParams.get("vehicleForm") === "add" || searchParams.get("addVehicle") === "1") {
+      const params = new URLSearchParams();
+      if (safeReturnTo) params.set("returnTo", safeReturnTo);
+      navigate(`/profile/vehicles/new${params.toString() ? `?${params}` : ""}`, {
+        replace: true,
+      });
+    }
+  }, [navigate, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const returnTo = searchParams.get("returnTo") || "";
+    const safeReturnTo = returnTo.startsWith("/") ? returnTo : "";
+
+    if (isAddVehicleRoute) {
       setVehicleReturnTo(safeReturnTo);
       setEditingVehicleId(null);
       setVehicleForm({
@@ -451,17 +373,51 @@ export default function CustomerProfile() {
       });
       setVehicleError("");
       setShowVehicleForm(true);
+      return;
     }
 
-    if (searchParams.toString() && !paymentStatus && !code && !cancel) {
-      const tabVal = searchParams.get("tab");
-      if (tabVal) {
-        setSearchParams({ tab: tabVal }, { replace: true });
-      } else {
-        setSearchParams({}, { replace: true });
-      }
+    if (isEditVehicleRoute) {
+      const target = profile.vehicles.find((vehicle) => {
+        const id = String(vehicle.id || "");
+        const plate = compactLicensePlate(vehicle.plate || vehicle.licensePlate || "");
+        return id === String(vehicleId) || plate === compactLicensePlate(vehicleId);
+      });
+
+      if (!target) return;
+
+      const vehicleModel =
+        getVehicleModelById(vehicleModels, target.modelId || target.vehicleModelId) ||
+        getVehicleModelByName(
+          vehicleModels,
+          target.brand,
+          target.modelName || target.model,
+        );
+      setEditingVehicleId(target.id || target.plate);
+      setVehicleReturnTo("");
+      setVehicleForm({
+        plate: formatLicensePlate(target.plate || target.licensePlate || ""),
+        brand: vehicleModel?.brand || target.brand || "",
+        modelId: vehicleModel?.id || target.modelId || target.vehicleModelId || "",
+        modelName:
+          vehicleModel?.modelName || target.modelName || target.model || "",
+        size: vehicleModel?.vehicleSize || normalizeVehicleSize(target),
+      });
+      setVehicleError("");
+      setShowVehicleForm(true);
+      return;
     }
-  }, [searchParams, setSearchParams]);
+
+    setShowVehicleForm(false);
+    setEditingVehicleId(null);
+    setVehicleReturnTo("");
+  }, [
+    isAddVehicleRoute,
+    isEditVehicleRoute,
+    profile.vehicles,
+    searchParams,
+    vehicleId,
+    vehicleModels,
+  ]);
 
   const fetchTransactions = async () => {
     setTransactionsLoading(true);
@@ -536,45 +492,16 @@ export default function CustomerProfile() {
   };
 
   const openAddVehicleForm = () => {
-    setEditingVehicleId(null);
-    setVehicleReturnTo(profileReturnTo);
-    setVehicleForm({
-      plate: "",
-      brand: "",
-      modelId: "",
-      modelName: "",
-      size: "",
-    });
-    setVehicleError("");
-    setShowVehicleForm(true);
+    const params = new URLSearchParams();
+    if (profileReturnTo) params.set("returnTo", profileReturnTo);
+    navigate(`/profile/vehicles/new${params.toString() ? `?${params}` : ""}`);
   };
 
   const openEditVehicleForm = (vehicle) => {
-    setEditingVehicleId(vehicle.id || vehicle.plate);
-    setVehicleReturnTo("");
-    const vehicleModel =
-      getVehicleModelById(
-        vehicleModels,
-        vehicle.modelId || vehicle.vehicleModelId,
-      ) ||
-      getVehicleModelByName(
-        vehicleModels,
-        vehicle.brand,
-        vehicle.modelName || vehicle.model,
-      );
-    setVehicleForm({
-      plate: formatLicensePlate(
-        vehicle.plate || vehicle.licensePlate || "",
-      ),
-      brand: vehicleModel?.brand || vehicle.brand || "",
-      modelId:
-        vehicleModel?.id || vehicle.modelId || vehicle.vehicleModelId || "",
-      modelName:
-        vehicleModel?.modelName || vehicle.modelName || vehicle.model || "",
-      size: vehicleModel?.vehicleSize || normalizeVehicleSize(vehicle),
-    });
-    setVehicleError("");
-    setShowVehicleForm(true);
+    const key = encodeURIComponent(
+      vehicle.id || compactLicensePlate(vehicle.plate || vehicle.licensePlate),
+    );
+    navigate(`/profile/vehicles/${key}/edit`);
   };
 
   const closeVehicleForm = () => {
@@ -594,6 +521,10 @@ export default function CustomerProfile() {
   const handleVehicleFormBack = () => {
     if (vehicleReturnTo) {
       navigate(vehicleReturnTo, { replace: true });
+      return;
+    }
+    if (isAddVehicleRoute || isEditVehicleRoute) {
+      navigate("/profile", { replace: true });
       return;
     }
     closeVehicleForm();
@@ -699,6 +630,8 @@ export default function CustomerProfile() {
     closeVehicleForm();
     if (shouldReturnToBooking) {
       navigate(vehicleReturnTo, { replace: true });
+    } else if (isAddVehicleRoute || isEditVehicleRoute) {
+      navigate("/profile", { replace: true });
     }
   };
   return (
@@ -1218,7 +1151,7 @@ export default function CustomerProfile() {
                           </div>
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-                              statusStyles[String(item.status).toUpperCase()] ||
+                              CUSTOMER_STATUS_STYLES[String(item.status).toUpperCase()] ||
                               "bg-slate-100 text-slate-700"
                             }`}
                           >

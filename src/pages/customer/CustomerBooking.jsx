@@ -20,8 +20,14 @@ import {
 } from "../../services/customerVoucherApi";
 import { getCustomerBookingConfig } from "../../services/customerConfigApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { mergeUniqueBy, unwrapList, unwrapPayload } from "../../utils/dataHelpers";
+import { formatCurrency } from "../../utils/formatters";
+import {
+  getVehicleSizeOption,
+  normalizeVehicleSize,
+} from "../../utils/vehicleDisplay";
 
-const formatPrice = (price) => Number(price || 0).toLocaleString("vi-VN") + "đ";
+const formatPrice = formatCurrency;
 
 const formatDateKey = (date) => {
   const year = date.getFullYear();
@@ -118,35 +124,8 @@ const getSlotEndTime = (slot, durationMinutes = 60) => {
   return `${padHour(endHour)}:${padHour(endMinute)}`;
 };
 
-const VEHICLE_SIZE_OPTIONS = {
-  SMALL: { label: "SMALL", icon: "directions_car" },
-  MEDIUM: { label: "MEDIUM", icon: "commute" },
-  LARGE: { label: "LARGE", icon: "airport_shuttle" },
-  XLARGE: { label: "XLARGE", icon: "local_shipping" },
-};
-
-const normalizeVehicleSize = (vehicle) => {
-  const rawSize = String(
-    vehicle?.size ||
-      vehicle?.vehicleSize ||
-      vehicle?.vehicle_size ||
-      vehicle?.type ||
-      "",
-  ).toUpperCase();
-  if (VEHICLE_SIZE_OPTIONS[rawSize]) return rawSize;
-  if (String(vehicle?.type || "").includes("7")) return "LARGE";
-  if (
-    String(vehicle?.type || "")
-      .toLowerCase()
-      .includes("suv")
-  )
-    return "MEDIUM";
-  return "SMALL";
-};
-
 const getVehicleSizeInfo = (vehicle) =>
-  VEHICLE_SIZE_OPTIONS[normalizeVehicleSize(vehicle)] ||
-  VEHICLE_SIZE_OPTIONS.SMALL;
+  getVehicleSizeOption(normalizeVehicleSize(vehicle));
 
 const getVehicleDisplayName = (vehicle) => {
   const brand = vehicle?.brand || "";
@@ -158,14 +137,6 @@ const getVehicleDisplayName = (vehicle) => {
     "";
   const displayName = `${brand} ${model}`.trim();
   return displayName || vehicle?.label || getVehicleSizeInfo(vehicle).label;
-};
-
-const unwrapList = (payload, keys = []) => {
-  if (Array.isArray(payload)) return payload;
-  for (const key of keys) {
-    if (Array.isArray(payload?.[key])) return payload[key];
-  }
-  return [];
 };
 
 const getVoucherCode = (voucher) =>
@@ -204,9 +175,6 @@ const getVoucherStatus = (voucher) =>
 
 const isVoucherSelectable = (voucher) =>
   ["AVAILABLE", "ACTIVE"].includes(getVoucherStatus(voucher));
-
-const unwrapObject = (payload) =>
-  payload?.data?.data ?? payload?.data ?? payload ?? {};
 
 const isMainServiceItem = (service) =>
   Boolean(service?.isMainService ?? service?.isMain ?? service?.mainService);
@@ -250,21 +218,15 @@ const getProfileVehicles = () => {
 };
 
 const mergeVehicles = (...groups) => {
-  const seen = new Set();
-  return groups
-    .flat()
-    .filter(Boolean)
+  return mergeUniqueBy(
+    groups.flat().filter(Boolean)
     .map((vehicle) => ({
       ...vehicle,
       id: vehicle.id || vehicle._id || vehicle.plate,
       label: getVehicleDisplayName(vehicle),
-    }))
-    .filter((vehicle) => {
-      const key = String(vehicle.plate || vehicle.id || "").toUpperCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    })),
+    (vehicle) => String(vehicle.plate || vehicle.id || "").toUpperCase(),
+  );
 };
 
 export default function CustomerBooking() {
@@ -339,7 +301,7 @@ export default function CustomerBooking() {
       const payload = response.data?.data ?? response.data ?? {};
       const config =
         initialConfig ||
-        unwrapObject(await getCustomerBookingConfig().catch(() => ({})));
+        unwrapPayload(await getCustomerBookingConfig().catch(() => ({})));
 
       const businessHours =
         payload.businessHours ||
@@ -491,7 +453,7 @@ export default function CustomerBooking() {
           }
         }
 
-        const config = unwrapObject(configPayload);
+        const config = unwrapPayload(configPayload);
         const fetchedVehicles = Array.isArray(carsPayload) ? carsPayload : [];
         const nextVehicles = mergeVehicles(
           fetchedVehicles,

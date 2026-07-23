@@ -13,6 +13,8 @@ import {
   cancelBooking,
   confirmBookingReceived,
 } from "../../services/customerBookingApi";
+import { sortNewestFirst, unwrapPayload } from "../../utils/dataHelpers";
+import { formatCurrency } from "../../utils/formatters";
 const statusLabels = {
   PENDING: "Chờ tiếp nhận",
   RECEIVED: "Đã tiếp nhận",
@@ -22,31 +24,6 @@ const statusLabels = {
   COMPLETED: "Hoàn thành",
   CANCELLED: "Đã hủy",
 };
-
-const unwrap = (payload) =>
-  payload?.data?.data ?? payload?.data ?? payload ?? {};
-
-const formatCurrency = (value) =>
-  Number(value || 0).toLocaleString("vi-VN") + "đ";
-
-const getNewestValue = (item = {}) => {
-  const raw =
-    item.createdAt ||
-    item.updatedAt ||
-    item.scheduledStartTime ||
-    item.dateTime ||
-    item.date ||
-    "";
-  const time = new Date(raw).getTime();
-  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
-};
-
-const sortNewestFirst = (items = []) =>
-  [...items].sort((a, b) => {
-    const newestDiff = getNewestValue(b) - getNewestValue(a);
-    if (newestDiff !== 0) return newestDiff;
-    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
-  });
 
 const formatDate = (value) => {
   if (!value) return "Chưa có ngày";
@@ -90,20 +67,20 @@ export default function CustomerDashboard() {
         if (!alive) return;
 
         if (bookingRes.status === "fulfilled") {
-          const data = unwrap(bookingRes.value);
+          const data = unwrapPayload(bookingRes.value);
           const list = Array.isArray(data) ? data : data.bookings || [];
           setBookings(sortNewestFirst(list));
         } else {
           setBookings([]);
         }
         if (loyaltyRes.status === "fulfilled") {
-          const data = unwrap(loyaltyRes.value);
+          const data = unwrapPayload(loyaltyRes.value);
           setLoyalty(Object.keys(data || {}).length ? data : null);
         } else {
           setLoyalty(null);
         }
         if (reviewRes.status === "fulfilled") {
-          const data = unwrap(reviewRes.value);
+          const data = unwrapPayload(reviewRes.value);
           const list = Array.isArray(data) ? data : data.reviews || [];
           setReviews(list);
         } else {
@@ -181,6 +158,11 @@ export default function CustomerDashboard() {
   }, [washedBooking]);
 
   const handleSubmitReview = async (payload) => {
+    if (!payload.bookingId) {
+      setReviewMessage("Không tìm thấy mã đơn để gửi đánh giá.");
+      return;
+    }
+
     setReviewLoading(true);
     setReviewMessage("");
 
@@ -626,7 +608,7 @@ export default function CustomerDashboard() {
                     await cancelBooking(cancelBookingItem.id);
 
                     const bookingRes = await getCustomerDashboardBookings();
-                    const data = unwrap(bookingRes);
+                    const data = unwrapPayload(bookingRes);
                     const list = Array.isArray(data)
                       ? data
                       : data.bookings || [];

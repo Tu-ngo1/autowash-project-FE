@@ -17,6 +17,7 @@ import {
   formatLicensePlate as formatVietnamLicensePlate,
   isValidVietnamLicensePlate,
 } from "../../utils/licensePlate";
+import { getNewestValue } from "../../utils/dataHelpers";
 
 const getVehicleBrands = (vehicleModels) =>
   Array.from(new Set(vehicleModels.map((model) => model.brand))).sort((a, b) =>
@@ -41,19 +42,6 @@ const STATUS_STYLES = {
 const getTierStyle = (tierLevel) =>
   TIER_STYLES[String(tierLevel || "MEMBER").toUpperCase()] ||
   TIER_STYLES.MEMBER;
-
-const getNewestValue = (item = {}) => {
-  const rawDate =
-    item.createdAt ||
-    item.created_at ||
-    item.updatedAt ||
-    item.updated_at ||
-    item.registeredAt ||
-    item.joinedAt;
-  const parsedDate = rawDate ? new Date(rawDate).getTime() : NaN;
-  if (Number.isFinite(parsedDate)) return parsedDate;
-  return Number(item.id || item.userId || 0);
-};
 
 const getPageNumbers = (currentPage, totalPages) => {
   if (totalPages <= 1) return [1];
