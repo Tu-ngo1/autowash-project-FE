@@ -10,6 +10,7 @@ import {
   checkInBookingByQr,
   requestCancelBooking,
 } from "../../services/staffBookingApi";
+import { getQueue } from "../../services/staffQueueApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import { formatLicensePlate } from "../../utils/licensePlate";
 
@@ -55,6 +56,28 @@ const sortNewestFirst = (items = []) =>
     return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
   });
 
+const getStaffBookingKey = (item = {}) =>
+  String(
+    item.id ??
+      item._id ??
+      item.bookingId ??
+      item.queueId ??
+      item.plate ??
+      "",
+  );
+
+const mergeStaffItems = (...groups) => {
+  const seen = new Set();
+  return groups
+    .flat()
+    .filter((item) => {
+      const key = getStaffBookingKey(item);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const normalizeStaffBooking = (booking = {}) => {
   const services = Array.isArray(booking.services)
     ? booking.services
@@ -88,8 +111,19 @@ const normalizeStaffBooking = (booking = {}) => {
     tier: booking.tier || booking.tierLevel || booking.status || "Member",
     cancelRequestStatus: booking.cancelRequestStatus || "",
     cancelRequestReason: booking.cancelRequestReason || "",
+    queueStatus: booking.queueStatus || booking.status || "",
   };
 };
+
+const normalizeQueueBooking = (booking = {}) => ({
+  ...normalizeStaffBooking(booking),
+  inQueue: true,
+  queueId: booking.queueId || booking.id,
+  checkinTime:
+    booking.checkinTime ||
+    booking.arrivedAt ||
+    formatStaffTime(booking.scheduledStartTime || booking.time),
+});
 
 function PendingCard({ item, onSelect, onRequestCancel, active }) {
   const tierStyle = TIER_STYLES[item.tier] || TIER_STYLES.Member;
@@ -280,12 +314,35 @@ export default function StaffDashboard() {
     setLoading(true);
     setError("");
     try {
-      const response = await getPendingAppointments();
+      const [pendingResponse, queueResponse] = await Promise.allSettled([
+        getPendingAppointments(),
+        getQueue(),
+      ]);
+
+      if (pendingResponse.status === "rejected" && queueResponse.status === "rejected") {
+        throw pendingResponse.reason || queueResponse.reason;
+      }
+
+      const pendingItems =
+        pendingResponse.status === "fulfilled"
+          ? unwrapStaffPayload(pendingResponse.value, [
+              "items",
+              "bookings",
+              "pending",
+            ]).map(normalizeStaffBooking)
+          : [];
+      const queueItems =
+        queueResponse.status === "fulfilled"
+          ? unwrapStaffPayload(queueResponse.value, [
+              "items",
+              "queue",
+              "bookings",
+            ]).map(normalizeQueueBooking)
+          : [];
+
       setPendingList(
         sortNewestFirst(
-          unwrapStaffPayload(response, ["items", "bookings", "pending"]).map(
-            normalizeStaffBooking,
-          ),
+          mergeStaffItems(pendingItems, queueItems),
         ),
       );
     } catch (err) {
@@ -534,7 +591,7 @@ export default function StaffDashboard() {
                     className="mt-1 text-[14px] font-black uppercase text-[#72f3ff]"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   >
-                    (Pending)
+                    Lịch hẹn & hàng chờ
                   </p>
                 </div>
                 <div className="border border-[#31475e] bg-[#172337] px-3 py-2 text-center">
