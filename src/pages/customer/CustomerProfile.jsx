@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import UserNavbar from "../../components/UserNavbar";
+import VehicleFormFields from "../../components/vehicle/VehicleFormFields";
 import { getUser, updateUser } from "../../utils/auth";
 import {
   getCustomerProfile,
@@ -22,7 +23,7 @@ import {
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 import {
   compactLicensePlate,
-  formatLicensePlate as formatVietnamLicensePlate,
+  formatLicensePlate,
   isValidVietnamLicensePlate,
 } from "../../utils/licensePlate";
 
@@ -302,9 +303,6 @@ export default function CustomerProfile() {
   }, [selectedQrBooking]);
 
   const vehicleBrands = getVehicleBrands(vehicleModels);
-  const currentBrandModels = vehicleModels.filter(
-    (model) => model.brand === vehicleForm.brand,
-  );
 
   useEffect(() => {
     let isMounted = true;
@@ -562,31 +560,21 @@ export default function CustomerProfile() {
     }
   };
 
-  const handleVehicleFieldChange = (key, value) => {
-    setVehicleForm((prev) => {
-      if (key === "brand") {
-        return {
-          ...prev,
-          brand: value,
-          modelId: "",
-          modelName: "",
-          size: "",
-        };
-      }
-      if (key === "modelId") {
-        const selectedModel = getVehicleModelById(vehicleModels, value);
-        return {
-          ...prev,
-          modelId: value,
-          brand: selectedModel?.brand || prev.brand,
-          modelName: selectedModel?.modelName || "",
-          size: selectedModel?.vehicleSize || prev.size,
-        };
-      }
-      if (key === "plate") {
-        return { ...prev, plate: formatVietnamLicensePlate(value) };
-      }
-      return { ...prev, [key]: value };
+  const vehicleFormFieldsValue = {
+    licensePlate: vehicleForm.plate,
+    vehicleBrand: vehicleForm.brand,
+    vehicleModelId: vehicleForm.modelId,
+    vehicleModelName: vehicleForm.modelName,
+    vehicleSize: vehicleForm.size,
+  };
+
+  const handleVehicleFormFieldsChange = (nextVehicle) => {
+    setVehicleForm({
+      plate: nextVehicle.licensePlate,
+      brand: nextVehicle.vehicleBrand,
+      modelId: nextVehicle.vehicleModelId,
+      modelName: nextVehicle.vehicleModelName,
+      size: nextVehicle.vehicleSize,
     });
   };
 
@@ -618,7 +606,7 @@ export default function CustomerProfile() {
         vehicle.modelName || vehicle.model,
       );
     setVehicleForm({
-      plate: formatVietnamLicensePlate(
+      plate: formatLicensePlate(
         vehicle.plate || vehicle.licensePlate || "",
       ),
       brand: vehicleModel?.brand || vehicle.brand || "",
@@ -676,7 +664,7 @@ export default function CustomerProfile() {
       vehicleForm.size || selectedModel.vehicleSize,
     );
     const typeLabel = `${sizeOption.label} - ${sizeOption.description}`;
-    const normalizedPlate = formatVietnamLicensePlate(vehicleForm.plate);
+    const normalizedPlate = formatLicensePlate(vehicleForm.plate);
     if (!isValidVietnamLicensePlate(normalizedPlate)) {
       setVehicleError("Biển số xe phải đúng dạng 50A-123456.");
       return;
@@ -1386,99 +1374,20 @@ export default function CustomerProfile() {
                 className="mt-8 flex flex-col gap-8"
                 onSubmit={handleSaveVehicle}
               >
-                <div className="flex flex-col gap-2">
-                  <label
-                    className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700"
-                    htmlFor="vehicle-add-plate"
-                  >
-                    Biển số xe
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-cyan-700">
-                      license
-                    </span>
-                    <input
-                      id="vehicle-add-plate"
-                      value={vehicleForm.plate}
-                      onChange={(event) =>
-                        handleVehicleFieldChange("plate", event.target.value)
-                      }
-                      type="text"
-                      placeholder="50A-123456"
-                      className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 pl-12 pr-4 text-base font-black uppercase text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                    />
-                  </div>
-                  {vehicleError && (
-                    <p className="text-sm font-semibold text-rose-600">
-                      {vehicleError}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                    Dòng xe
-                  </span>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <label className="flex flex-col gap-2">
-                      <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                        Hãng xe
-                      </span>
-                      <select
-                        value={vehicleForm.brand}
-                        onChange={(event) =>
-                          handleVehicleFieldChange("brand", event.target.value)
-                        }
-                        disabled={
-                          vehicleModelsLoading || vehicleBrands.length === 0
-                        }
-                        className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                      >
-                        <option value="">
-                          {vehicleModelsLoading
-                            ? "Đang tải..."
-                            : "Chọn hãng xe"}
-                        </option>
-                        {vehicleBrands.map((brand) => (
-                          <option key={brand} value={brand}>
-                            {brand}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="flex flex-col gap-2">
-                      <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
-                        Mẫu xe
-                      </span>
-                      <select
-                        value={vehicleForm.modelId}
-                        onChange={(event) =>
-                          handleVehicleFieldChange(
-                            "modelId",
-                            event.target.value,
-                          )
-                        }
-                        disabled={
-                          !vehicleForm.brand || currentBrandModels.length === 0
-                        }
-                        className="h-14 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                      >
-                        <option value="">Chọn mẫu xe</option>
-                        {currentBrandModels.map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.modelName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  {vehicleModelsError && (
-                    <p className="text-sm font-semibold text-rose-600">
-                      {vehicleModelsError}
-                    </p>
-                  )}
-                </div>
+                <VehicleFormFields
+                  brands={vehicleBrands}
+                  disabled={vehicleModelsLoading}
+                  labelClassName="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700"
+                  inputClassName="h-14 rounded-2xl border-cyan-100 bg-white/80 text-base text-slate-950 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                  models={vehicleModels}
+                  onChange={handleVehicleFormFieldsChange}
+                  value={vehicleFormFieldsValue}
+                />
+                {(vehicleError || vehicleModelsError) && (
+                  <p className="text-sm font-semibold text-rose-600">
+                    {vehicleError || vehicleModelsError}
+                  </p>
+                )}
 
                 <div className="relative mt-1 h-40 w-full overflow-hidden rounded-[26px] border border-white/75 bg-[radial-gradient(circle_at_18%_16%,rgba(103,232,249,0.38),transparent_34%),linear-gradient(135deg,rgba(236,254,255,0.94),rgba(186,230,253,0.74)_48%,rgba(14,165,233,0.24))] shadow-md">
                   <div className="absolute inset-0 bg-[linear-gradient(rgba(8,145,178,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(8,145,178,0.08)_1px,transparent_1px)] bg-[size:38px_38px]" />
@@ -1548,93 +1457,22 @@ export default function CustomerProfile() {
                 className="flex flex-col gap-5"
                 onSubmit={handleSaveVehicle}
               >
-                <label className="flex flex-col gap-2" htmlFor="vehicle-plate">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                    Biển số xe
-                  </span>
-                  <input
-                    id="vehicle-plate"
-                    value={vehicleForm.plate}
-                    onChange={(event) =>
-                      handleVehicleFieldChange("plate", event.target.value)
-                    }
-                    type="text"
-                    placeholder="50A-123456"
-                    className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-base font-black uppercase text-slate-950 outline-none transition placeholder:text-slate-400/70 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                  />
-                </label>
-                {vehicleError && (
+                <VehicleFormFields
+                  brandLabel="Hãng xe"
+                  brands={vehicleBrands}
+                  disabled={vehicleModelsLoading}
+                  inputClassName="h-13 rounded-2xl border-cyan-100 bg-white/80 text-sm text-slate-950 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                  labelClassName="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-cyan-700"
+                  modelLabel="Tên xe"
+                  models={vehicleModels}
+                  onChange={handleVehicleFormFieldsChange}
+                  value={vehicleFormFieldsValue}
+                />
+                {(vehicleError || vehicleModelsError) && (
                   <p className="text-sm font-semibold text-rose-600">
-                    {vehicleError}
+                    {vehicleError || vehicleModelsError}
                   </p>
                 )}
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="flex flex-col gap-2">
-                    <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                      Hãng xe
-                    </span>
-                    <select
-                      value={vehicleForm.brand}
-                      onChange={(event) =>
-                        handleVehicleFieldChange("brand", event.target.value)
-                      }
-                      disabled={
-                        vehicleModelsLoading || vehicleBrands.length === 0
-                      }
-                      className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                    >
-                      <option value="">
-                        {vehicleModelsLoading ? "Đang tải..." : "Chọn hãng xe"}
-                      </option>
-                      {vehicleBrands.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="flex flex-col gap-2">
-                    <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                      Tên xe
-                    </span>
-                    <select
-                      value={vehicleForm.modelId}
-                      onChange={(event) =>
-                        handleVehicleFieldChange("modelId", event.target.value)
-                      }
-                      disabled={
-                        !vehicleForm.brand || currentBrandModels.length === 0
-                      }
-                      className="h-13 w-full rounded-2xl border border-cyan-100 bg-white/80 px-4 text-sm font-black text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                    >
-                      <option value="">Chọn tên xe</option>
-                      {currentBrandModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.modelName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                {vehicleModelsError && (
-                  <p className="text-sm font-semibold text-rose-600">
-                    {vehicleModelsError}
-                  </p>
-                )}
-
-                <label className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
-                    Loại xe
-                  </span>
-                  <input
-                    value={vehicleForm.size}
-                    readOnly
-                    placeholder="Tự động theo hãng và tên xe"
-                    className="h-13 w-full cursor-not-allowed rounded-2xl border border-cyan-100 bg-slate-100/80 px-4 text-sm font-black uppercase text-slate-600 outline-none"
-                  />
-                </label>
 
                 <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
                   <button

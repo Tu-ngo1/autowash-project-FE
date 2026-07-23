@@ -4,18 +4,14 @@ export const compactLicensePlate = (value = "") =>
     .replace(/[^A-Z0-9]/g, "");
 
 export const formatLicensePlate = (value = "") => {
-  const raw = compactLicensePlate(value);
-  const province = raw.slice(0, 2);
-  const rest = raw.slice(2);
-  const series = rest.match(/^[A-Z]{0,2}/)?.[0] || "";
-  const serial = rest.slice(series.length).replace(/\D/g, "").slice(0, 6);
+  const raw = compactLicensePlate(value).slice(0, 10);
+  const prefixMatch = raw.match(/^(\d{0,2})([A-Z]{0,2})(\d{0,6})/);
+  if (!prefixMatch) return raw;
 
-  if (!province) return "";
-  if (province.length < 2) return province;
-  if (!series) return province;
-
-  const plateHead = `${province}${series}`;
-  return serial ? `${plateHead}-${serial}` : plateHead;
+  const [, province, series, number] = prefixMatch;
+  const head = `${province}${series}`;
+  if (!number) return head;
+  return `${head}-${number}`;
 };
 
 export const isValidVietnamLicensePlate = (value = "") =>
