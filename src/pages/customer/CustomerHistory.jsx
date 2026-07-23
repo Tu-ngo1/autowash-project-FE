@@ -203,10 +203,12 @@ export default function CustomerHistory() {
       (item) => String(item.status || "").toUpperCase() === "CANCELLED",
     ).length;
     const total = history.length;
-    const spent = history.reduce(
-      (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
-      0,
-    );
+    const spent = history
+      .filter((item) => String(item.status || "").toUpperCase() === "COMPLETED")
+      .reduce(
+        (sum, item) => sum + (Number(getBookingTotal(item)) || 0),
+        0,
+      );
     return { completed, pending, cancelled, total, spent };
   }, [history]);
 
@@ -607,6 +609,16 @@ export default function CustomerHistory() {
                   </p>
                 </div>
               ))}
+              {(detailBooking.cancelRequestAdminNote || detailBooking.cancelRequestReason) && (
+                <div className="col-span-full rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-700">
+                    Lý do hủy đơn
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-rose-950">
+                    {detailBooking.cancelRequestAdminNote || detailBooking.cancelRequestReason}
+                  </p>
+                </div>
+              )}
             </div>
 
           </div>

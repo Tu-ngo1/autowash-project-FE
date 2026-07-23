@@ -353,7 +353,11 @@ export default function CustomerProfile() {
             apiProfile.nextTierTarget ??
             prev.nextTierTarget,
           progress: loyalty.progress ?? apiProfile.progress ?? prev.progress,
-          washes: apiProfile.washes ?? prev.washes,
+          washes:
+            apiProfile.washes ??
+            bookings.filter(
+              (b) => String(b?.status || "").toUpperCase() === "COMPLETED",
+            ).length,
           vehicles: mergeVehicles(
             Array.isArray(carsRes) ? carsRes : [],
             Array.isArray(apiProfile.vehicles) ? apiProfile.vehicles : [],
@@ -1753,6 +1757,10 @@ export default function CustomerProfile() {
             </div>
             <p className="mt-4 text-sm font-semibold leading-relaxed text-slate-600 text-left">
               {(() => {
+                const isPaid = String(cancelBookingItem.paymentStatus || "").toUpperCase() === "PAID";
+                if (!isPaid) {
+                  return "Bạn có chắc chắn muốn hủy đơn đặt lịch này không?";
+                }
                 const scheduledTime = new Date(
                   cancelBookingItem.scheduledStartTime,
                 );
@@ -1762,7 +1770,7 @@ export default function CustomerProfile() {
                 if (diffInMinutes < 60) {
                   return "Bạn đang hủy lịch sát giờ hẹn (dưới 60 phút). Bạn sẽ không được hoàn trả lại tiền cọc. Bạn có chắc chắn muốn hủy không?";
                 }
-                return "Bạn có chắc chắn muốn hủy lịch hẹn này không? Tiền đặt cọc (100%) sẽ được hoàn lại vào ví của bạn.";
+                return "Bạn có chắc chắn muốn hủy lịch hẹn này không? Tiền thanh toán/đặt cọc (100%) sẽ được hoàn lại vào ví của bạn.";
               })()}
             </p>
             <div className="mt-6 flex justify-end gap-3">
@@ -1782,6 +1790,7 @@ export default function CustomerProfile() {
                   setCancelError("");
                   setCancelSuccessMsg("");
                   try {
+                    const isPaid = String(cancelBookingItem.paymentStatus || "").toUpperCase() === "PAID";
                     const scheduledTime = new Date(
                       cancelBookingItem.scheduledStartTime,
                     );
@@ -1799,7 +1808,7 @@ export default function CustomerProfile() {
                     if (profileRes) {
                       const data =
                         profileRes.data?.data ?? profileRes.data ?? {};
-                      setProfileData((prev) => ({
+                      setProfile((prev) => ({
                         ...prev,
                         ...data,
                         walletBalance: data.walletBalance || 0,
@@ -1816,7 +1825,9 @@ export default function CustomerProfile() {
                       setPendingQrBookings(getPendingQrBookings(bookings));
                     }
 
-                    if (diffInMinutes >= 60) {
+                    if (!isPaid) {
+                      setCancelSuccessMsg("Hủy đơn đặt lịch thành công.");
+                    } else if (diffInMinutes >= 60) {
                       setCancelSuccessMsg(
                         "Hủy lịch thành công. Tiền đặt cọc (100%) đã được hoàn lại vào ví của bạn.",
                       );
