@@ -1,3 +1,5 @@
+import { formatLicensePlate } from "../../utils/licensePlate";
+
 const STATUS_STYLES = {
   COMPLETED: "border-emerald-400/50 text-emerald-300 bg-emerald-400/10",
   PENDING:
@@ -108,6 +110,7 @@ export default function AdminBookingsTable({
       <div className="grid gap-3 lg:hidden">
         {bookings.map((booking) => {
           const bookingId = booking.id || booking.bookingId || booking._id;
+          const plate = formatLicensePlate(booking.vehicleLicensePlate || booking.plate || "");
           return (
           <button
             key={bookingId}
@@ -124,7 +127,7 @@ export default function AdminBookingsTable({
                   {booking.customerName || "-"}
                 </p>
                 <p className="font-mono text-xs text-zinc-500">
-                  {booking.vehicleLicensePlate || booking.plate || "-"}
+                  {plate || "-"}
                 </p>
               </div>
               <div className="shrink-0 text-right">
@@ -247,6 +250,7 @@ export default function AdminBookingsTable({
           <tbody className="font-mono text-xs">
             {bookings.map((booking, index) => {
               const bookingId = booking.id || booking.bookingId || booking._id;
+              const plate = formatLicensePlate(booking.vehicleLicensePlate || booking.plate || "");
               return (
               <tr
                 key={bookingId}
@@ -269,13 +273,13 @@ export default function AdminBookingsTable({
                 </td>
                 <td
                   className="truncate whitespace-nowrap px-3 py-3 align-middle"
-                  title={`${booking.customerName || "-"} • ${booking.vehicleLicensePlate || booking.plate || "-"}`}
+                  title={`${booking.customerName || "-"} • ${plate || "-"}`}
                 >
                   <span className="font-semibold text-zinc-100">
                     {booking.customerName}
                   </span>
                   <span className="ml-1 text-zinc-500">
-                    • {booking.vehicleLicensePlate || booking.plate || "-"}
+                    • {plate || "-"}
                   </span>
                 </td>
                 <td

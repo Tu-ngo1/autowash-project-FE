@@ -1,4 +1,5 @@
 import api, { apiPath } from "./apiClient";
+import { formatLicensePlate } from "../utils/licensePlate";
 
 const customerBookingsPath = (path = "") =>
   apiPath(`/customer/bookings${path ? `/${String(path).replace(/^\/+/, "")}` : ""}`);
@@ -21,8 +22,8 @@ const normalizeBooking = (booking = {}) => {
 
   return {
     ...booking,
-    plate: booking.vehicleLicensePlate || booking.plate || "",
-    vehicleLicensePlate: booking.vehicleLicensePlate || booking.plate || "",
+    plate: formatLicensePlate(booking.vehicleLicensePlate || booking.plate || ""),
+    vehicleLicensePlate: formatLicensePlate(booking.vehicleLicensePlate || booking.plate || ""),
     date: booking.date || scheduledStartTime,
     time:
       booking.time ||

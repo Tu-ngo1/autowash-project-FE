@@ -5,6 +5,7 @@ import StartWashConfirmationModal from "../../components/staff/StartWashConfirma
 import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../services/staffQueueApi";
 import { requestCancelBooking } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { formatLicensePlate } from "../../utils/licensePlate";
 
 const TIER_BADGE = {
   Platinum: "border-[#6ff6df] text-[#6ff6df] bg-[#123746]",
@@ -119,12 +120,13 @@ const formatCountdown = (milliseconds) => {
 const normalizeQueueBooking = (booking = {}) => ({
   ...booking,
   id: booking.id ?? booking.bookingId,
-  plate:
+  plate: formatLicensePlate(
     booking.plate ||
-    booking.vehicleLicensePlate ||
-    booking.licensePlate ||
-    booking.vehicle?.licensePlate ||
-    "",
+      booking.vehicleLicensePlate ||
+      booking.licensePlate ||
+      booking.vehicle?.licensePlate ||
+      "",
+  ),
   checkinTime:
     booking.checkinTime ||
     booking.arrivedAt ||

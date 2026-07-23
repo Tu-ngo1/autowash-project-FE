@@ -11,6 +11,7 @@ import {
   requestCancelBooking,
 } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
+import { formatLicensePlate } from "../../utils/licensePlate";
 
 const TIER_STYLES = {
   Platinum: "border-[#6ff6df] text-[#6ff6df] bg-[#6ff6df]/10",
@@ -66,12 +67,13 @@ const normalizeStaffBooking = (booking = {}) => {
   return {
     ...booking,
     id: booking.id ?? booking.bookingId,
-    plate:
+    plate: formatLicensePlate(
       booking.plate ||
-      booking.vehicleLicensePlate ||
-      booking.licensePlate ||
-      booking.vehicle?.licensePlate ||
-      "",
+        booking.vehicleLicensePlate ||
+        booking.licensePlate ||
+        booking.vehicle?.licensePlate ||
+        "",
+    ),
     time:
       booking.time ||
       booking.appointmentTime ||
