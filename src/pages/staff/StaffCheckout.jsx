@@ -479,11 +479,51 @@ export default function StaffCheckout() {
                       onChange={(e) => setPaymentMethodSelect(e.target.value)}
                       className="w-full rounded-xl border border-[#1c3e54] bg-[#040f1a] px-3 py-2.5 text-xs font-bold text-[#ecfeff] focus:border-[#72f3ff] focus:outline-none"
                     >
-                      <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                      <option value="BANK_TRANSFER">Chuyển khoản QR tại quầy</option>
-                      <option value="WALLET">Trừ vào Ví điện tử khách</option>
+                      <option value="CASH">💵 Tiền mặt tại quầy (CASH)</option>
+                      <option value="BANK_TRANSFER">📱 Chuyển khoản / Quét mã QR tại quầy</option>
                     </select>
                   </div>
+
+                  {paymentMethodSelect === "BANK_TRANSFER" && (
+                    <div className="rounded-2xl border border-cyan-400/40 bg-cyan-950/40 p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
+                        <span className="material-symbols-outlined text-[20px]">qr_code_2</span>
+                        <span>Thông tin Quét mã QR / Chuyển khoản ngân hàng</span>
+                      </div>
+                      
+                      <div className="rounded-xl border border-cyan-400/20 bg-[#04111c] p-3 text-[11px] space-y-1.5 text-[#b8d8de]">
+                        <div className="flex justify-between">
+                          <span>Số tài khoản:</span>
+                          <span className="font-extrabold text-[#72f3ff]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            1900 8888 9999 (MB Bank)
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Chủ tài khoản:</span>
+                          <span className="font-extrabold text-white">AUTOWASH CENTER HCMC</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Nội dung chuyển khoản:</span>
+                          <span className="font-extrabold text-amber-300" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {checkoutModalBooking.bookingCode || checkoutModalBooking.id}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-cyan-400/20 pt-1.5 font-bold text-emerald-300">
+                          <span>Số tiền cần chuyển:</span>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {formatCurrency(remaining > 0 ? remaining : finalPrice)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-200 bg-amber-400/10 border border-amber-400/30 p-2.5 rounded-xl">
+                        <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0 mt-0.5">photo_camera</span>
+                        <span>
+                          <strong>Quy trình Staff:</strong> Đưa mã QR cho khách quét, đối soát thông báo tiền về tài khoản và <strong>chụp ảnh màn hình bill chuyển khoản thành công</strong> để đối soát doanh thu cửa hàng trước khi bấm giao xe.
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
