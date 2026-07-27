@@ -18,11 +18,13 @@ import { formatCurrency } from "../../utils/formatters";
 const statusLabels = {
   PENDING: "Chờ tiếp nhận",
   RECEIVED: "Đã tiếp nhận",
+  ARRIVED: "Đã check-in",
   WASHING: "Đang rửa xe",
   IN_PROGRESS: "Đang rửa xe",
   WASHED: "Đã rửa xong",
   COMPLETED: "Hoàn thành",
   CANCELLED: "Đã hủy",
+  CONFIRM: "Đã xác nhận",
 };
 
 const formatDate = (value) => {
