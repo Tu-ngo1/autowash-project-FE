@@ -177,6 +177,9 @@ export default function AddServiceModal({
   const newTotalPrice = selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
   const newTotalDuration = selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
 
+  const hasMainService = selectedServices.some((s) => s.isMainService === true);
+  const isPaid = String(appointment?.paymentStatus || appointment?.payment?.paymentStatus || "").toUpperCase() === "PAID";
+
   const originalPrice = appointment?.finalPrice ?? appointment?.totalPrice ?? 0;
   const priceDelta = newTotalPrice - originalPrice;
 
@@ -227,6 +230,16 @@ export default function AddServiceModal({
                     Size: {carSize}
                   </span>
                 )}
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider border ${
+                    isPaid
+                      ? "bg-emerald-400/20 text-emerald-200 border-emerald-400/30"
+                      : "bg-amber-400/20 text-amber-200 border-amber-400/30"
+                  }`}
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  {isPaid ? "Đã thanh toán" : "Chưa thanh toán"}
+                </span>
               </div>
               <h2
                 id="add-service-title"
@@ -259,7 +272,7 @@ export default function AddServiceModal({
                   : "bg-white/5 text-[#b8d8de] hover:bg-white/10 hover:text-white"
               }`}
             >
-              Gói chính (Chỉ chọn 1 gói) ({mainServices.length})
+              Gói chính (Bắt buộc chọn 1 gói) ({mainServices.length})
             </button>
             <button
               type="button"
@@ -280,7 +293,7 @@ export default function AddServiceModal({
           <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-xs font-semibold text-cyan-200 flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px] text-[#72f3ff]">tune</span>
             <span>
-              Staff có quyền tích/bỏ chọn hoặc thay đổi bất kỳ gói dịch vụ nào cho đơn hàng.
+              Staff có quyền tích/bỏ chọn hoặc thay đổi gói dịch vụ (Bắt buộc giữ ít nhất 1 gói chính).
             </span>
           </div>
 
@@ -427,6 +440,13 @@ export default function AddServiceModal({
 
         {/* Footer & Price Calculation Summary */}
         <div className="shrink-0 border-t border-[#1b3d52] bg-[#05131f] p-4 sm:p-6 space-y-3">
+          {!hasMainService && selectedIds.length > 0 && (
+            <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-xs font-bold text-amber-200 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-amber-400">warning</span>
+              <span>Bắt buộc chọn 1 gói dịch vụ rửa xe chính cho đơn hàng!</span>
+            </div>
+          )}
+
           {selectedIds.length > 0 ? (
             <div className="rounded-2xl border border-[#72f3ff]/40 bg-[#092334] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
               <div className="flex justify-between text-xs font-bold text-[#b8d8de]">
@@ -440,25 +460,34 @@ export default function AddServiceModal({
                 <span className="text-[#6ff6df]">{newTotalDuration} phút</span>
               </div>
 
-              {/* Hóa đơn chênh lệch */}
+              {/* Hóa đơn chênh lệch - CHỈ HIỂN THỊ THU THÊM / HOÀN TIỀN KHI ĐƠN ĐÃ THANH TOÁN (isPaid === true) */}
               <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
-                {priceDelta > 0 ? (
-                  <>
-                    <span className="text-amber-300">Thu thêm tại quầy:</span>
-                    <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      +{formatCurrency(priceDelta)}
-                    </span>
-                  </>
-                ) : priceDelta < 0 ? (
-                  <>
-                    <span className="text-emerald-300">Hoàn lại tiền thừa vào Ví khách:</span>
-                    <span className="text-emerald-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      -{formatCurrency(Math.abs(priceDelta))}
-                    </span>
-                  </>
+                {isPaid ? (
+                  priceDelta > 0 ? (
+                    <>
+                      <span className="text-amber-300">Thu thêm tại quầy (Đơn đã trả trước):</span>
+                      <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        +{formatCurrency(priceDelta)}
+                      </span>
+                    </>
+                  ) : priceDelta < 0 ? (
+                    <>
+                      <span className="text-emerald-300">Hoàn lại tiền thừa vào Ví khách:</span>
+                      <span className="text-emerald-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        -{formatCurrency(Math.abs(priceDelta))}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[#72f3ff]">Giá trị đơn hàng (Không đổi):</span>
+                      <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        {formatCurrency(newTotalPrice)}
+                      </span>
+                    </>
+                  )
                 ) : (
                   <>
-                    <span className="text-[#72f3ff]">Tổng tiền đơn hàng:</span>
+                    <span className="text-[#72f3ff]">Tổng tiền đơn hàng mới (Thanh toán tại quầy):</span>
                     <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {formatCurrency(newTotalPrice)}
                     </span>
@@ -468,11 +497,11 @@ export default function AddServiceModal({
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-[#1c3e54] bg-[#030e17] p-3 text-center text-xs font-medium text-[#8faabf]">
-              💡 Chọn lại danh sách dịch vụ rửa xe cho đơn hàng.
+              💡 Vui lòng chọn danh sách dịch vụ rửa xe cho đơn hàng (Bắt buộc chọn 1 gói chính).
             </div>
           )}
 
-          {/* Banner Thông báo Lỗi (Ví dụ Cảnh báo Chặn đụng lịch từ Backend) */}
+          {/* Banner Thông báo Lỗi */}
           {error && (
             <div className="rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-xs font-bold text-rose-200 flex items-start gap-2.5">
               <span className="material-symbols-outlined text-[20px] text-rose-400 shrink-0">error</span>
@@ -492,7 +521,7 @@ export default function AddServiceModal({
             </button>
             <button
               type="button"
-              disabled={isLoading || selectedIds.length === 0}
+              disabled={isLoading || selectedIds.length === 0 || !hasMainService}
               onClick={() => onConfirm?.(selectedIds)}
               className="flex items-center justify-center gap-2 rounded-2xl bg-[#72f3ff] px-5 py-3.5 font-black text-[#061424] shadow-[0_16px_36px_rgba(114,243,255,0.25)] transition hover:bg-[#9ff4ff] disabled:cursor-not-allowed disabled:opacity-40"
             >
