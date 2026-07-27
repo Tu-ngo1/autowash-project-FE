@@ -42,7 +42,7 @@ export default function AddServiceModal({
     appointment?.car?.vehicleModel?.vehicleSize ||
     "";
 
-  // Lấy danh sách tên & ID dịch vụ ĐÃ CÓ sẵn trong booking này
+  // Danh sách tên & ID dịch vụ ĐÃ CÓ sẵn ban đầu trong booking
   const existingServiceNames = useMemo(() => {
     if (!appointment) return [];
     if (Array.isArray(appointment.services)) {
@@ -63,12 +63,6 @@ export default function AddServiceModal({
     }
     return [];
   }, [appointment]);
-
-  const isAlreadyInBooking = (service) => {
-    const sId = String(service.id || service.serviceId || "");
-    const sName = (service.name || service.serviceName || "").toLowerCase().trim();
-    return existingServiceIds.includes(sId) || (sName && existingServiceNames.includes(sName));
-  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -91,16 +85,32 @@ export default function AddServiceModal({
           const fallbackData = fallbackRes?.data?.data ?? fallbackRes?.data ?? fallbackRes ?? {};
           list = Array.isArray(fallbackData) ? fallbackData : fallbackData?.services || fallbackData?.washServices || [];
         }
-        setServicesList(Array.isArray(list) ? list : []);
+
+        const activeList = Array.isArray(list) ? list : [];
+        setServicesList(activeList);
+
+        // Pre-select tất cả dịch vụ vốn có của đơn hàng để Staff có thể chỉnh sửa/thay đổi linh hoạt
+        const preSelected = activeList
+          .filter((s) => {
+            const sId = String(s.id || s.serviceId || "");
+            const sName = (s.name || s.serviceName || "").toLowerCase().trim();
+            return (
+              existingServiceIds.includes(sId) ||
+              (sName && existingServiceNames.includes(sName))
+            );
+          })
+          .map((s) => s.id || s.serviceId);
+
+        setSelectedIds(preSelected);
       } catch (err) {
-        console.error("Lỗi lấy danh sách dịch vụ bổ sung:", err);
+        console.error("Lỗi lấy danh sách dịch vụ:", err);
       } finally {
         setIsFetchingServices(false);
       }
     };
 
     fetchServices();
-  }, [isOpen, carSize]);
+  }, [isOpen, carSize, existingServiceIds, existingServiceNames]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -119,9 +129,10 @@ export default function AddServiceModal({
     if (!isLoading) onClose?.();
   };
 
-  // Rule: Gói chính chỉ chọn TỐI ĐA 1 gói (Single Choice), Gói phụ chọn nhiều (Multiple Choice)
+  // Staff có quyền chỉnh sửa/thay đổi TOÀN BỘ dịch vụ:
+  // - Gói chính: Chọn TỐI ĐA 1 gói (Single Choice - Radio)
+  // - Gói phụ: Chọn hoặc bỏ chọn tùy ý (Multiple Choice - Checkbox)
   const toggleSelect = (service) => {
-    if (isAlreadyInBooking(service)) return;
     const sId = service.id || service.serviceId;
 
     if (service.isMainService) {
@@ -163,8 +174,11 @@ export default function AddServiceModal({
       : servicesList;
 
   const selectedServices = servicesList.filter((s) => selectedIds.includes(s.id || s.serviceId));
-  const totalAddedPrice = selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
-  const totalAddedDuration = selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
+  const newTotalPrice = selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
+  const newTotalDuration = selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
+
+  const originalPrice = appointment?.finalPrice ?? appointment?.totalPrice ?? 0;
+  const priceDelta = newTotalPrice - originalPrice;
 
   return (
     <div
@@ -176,7 +190,7 @@ export default function AddServiceModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-service-title"
-        className="staff-reveal flex max-h-[92vh] w-full max-w-[820px] flex-col overflow-hidden rounded-3xl border border-[#72f3ff]/30 bg-[#071724] shadow-[0_28px_90px_rgba(0,0,0,0.65)]"
+        className="staff-reveal flex max-h-[92vh] w-full max-w-[840px] flex-col overflow-hidden rounded-3xl border border-[#72f3ff]/30 bg-[#071724] shadow-[0_28px_90px_rgba(0,0,0,0.65)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {/* Header Banner */}
@@ -194,7 +208,7 @@ export default function AddServiceModal({
           <div className="flex items-start gap-4 pr-10">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#72f3ff]/45 bg-[#72f3ff]/15 text-[#72f3ff] shadow-[0_0_24px_rgba(114,243,255,0.2)]">
               <span className="material-symbols-outlined text-[26px]">
-                local_car_wash
+                edit_note
               </span>
             </div>
             <div>
@@ -203,7 +217,7 @@ export default function AddServiceModal({
                   className="rounded-full bg-[#72f3ff]/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#72f3ff] border border-[#72f3ff]/30"
                   style={{ fontFamily: "'JetBrains Mono', monospace" }}
                 >
-                  Bổ sung dịch vụ {plate ? `• ${plate}` : ""}
+                  Chỉnh sửa dịch vụ {plate ? `• ${plate}` : ""}
                 </span>
                 {carSize && (
                   <span
@@ -218,7 +232,7 @@ export default function AddServiceModal({
                 id="add-service-title"
                 className="mt-1 text-xl font-black leading-tight text-[#ecfeff] sm:text-2xl"
               >
-                Chọn thêm dịch vụ rửa xe tại quầy
+                Chỉnh sửa / Thay đổi toàn bộ dịch vụ đơn hàng
               </h2>
             </div>
           </div>
@@ -263,14 +277,12 @@ export default function AddServiceModal({
 
         {/* Content Area - TABLE LAYOUT */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-          {existingServiceNames.length > 0 && (
-            <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-xs font-semibold text-cyan-200 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-[#72f3ff]">info</span>
-              <span>
-                Đơn hàng đã có: <strong className="text-white">{existingServiceNames.join(", ")}</strong> (Đã khóa chọn lại)
-              </span>
-            </div>
-          )}
+          <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-xs font-semibold text-cyan-200 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] text-[#72f3ff]">tune</span>
+            <span>
+              Staff có quyền tích/bỏ chọn hoặc thay đổi bất kỳ gói dịch vụ nào cho đơn hàng.
+            </span>
+          </div>
 
           {isFetchingServices ? (
             <div className="flex flex-col items-center justify-center py-12 text-sm font-semibold text-[#72f3ff]">
@@ -297,7 +309,6 @@ export default function AddServiceModal({
                 <tbody className="divide-y divide-[#163345]">
                   {filteredDisplayList.map((service) => {
                     const sId = service.id || service.serviceId;
-                    const inBooking = isAlreadyInBooking(service);
                     const isChecked = selectedIds.includes(sId);
                     const priceVal = getServicePrice(service);
                     const durationVal = getServiceDuration(service);
@@ -310,21 +321,15 @@ export default function AddServiceModal({
                       <tr
                         key={sId}
                         onClick={() => toggleSelect(service)}
-                        className={`transition-colors ${
-                          inBooking
-                            ? "bg-[#040e17]/50 text-slate-500 cursor-not-allowed opacity-65"
-                            : isChecked
-                            ? "bg-[#72f3ff]/15 text-[#ecfeff] cursor-pointer"
-                            : "hover:bg-[#0a2335] text-[#dff7fb] cursor-pointer"
+                        className={`transition-colors cursor-pointer ${
+                          isChecked
+                            ? "bg-[#72f3ff]/15 text-[#ecfeff]"
+                            : "hover:bg-[#0a2335] text-[#dff7fb]"
                         }`}
                       >
                         {/* Selector Column */}
                         <td className="py-3.5 px-4 text-center">
-                          {inBooking ? (
-                            <span className="material-symbols-outlined text-[18px] text-slate-500">
-                              lock
-                            </span>
-                          ) : isMain ? (
+                          {isMain ? (
                             /* Radio input for Main Service */
                             <div className="flex justify-center">
                               <input
@@ -353,8 +358,6 @@ export default function AddServiceModal({
                             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                               isChecked
                                 ? "bg-[#72f3ff] text-[#061424]"
-                                : inBooking
-                                ? "bg-slate-800 text-slate-500"
                                 : "bg-[#0d2a3c] text-[#72f3ff]"
                             }`}>
                               <span className="material-symbols-outlined text-[18px]">
@@ -390,7 +393,7 @@ export default function AddServiceModal({
 
                         {/* Duration Column */}
                         <td className="py-3.5 px-4 text-center whitespace-nowrap font-bold text-[#6ff6df]">
-                          ⏱️ +{durationVal}m
+                          ⏱️ {durationVal}m
                         </td>
 
                         {/* Price Column */}
@@ -398,22 +401,18 @@ export default function AddServiceModal({
                           className="py-3.5 px-4 text-right whitespace-nowrap font-black text-[#72f3ff] text-sm"
                           style={{ fontFamily: "'JetBrains Mono', monospace" }}
                         >
-                          +{formatCurrency(priceVal)}
+                          {formatCurrency(priceVal)}
                         </td>
 
                         {/* Status Column */}
                         <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          {inBooking ? (
-                            <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-400 border border-slate-700">
-                              Đã có trong đơn
-                            </span>
-                          ) : isChecked ? (
+                          {isChecked ? (
                             <span className="rounded bg-[#72f3ff] px-2 py-0.5 text-[10px] font-black text-[#061424]">
-                              Đã chọn
+                              Đang chọn
                             </span>
                           ) : (
                             <span className="text-[11px] font-medium text-[#7a9bb0]">
-                              Sẵn sàng
+                              Chưa chọn
                             </span>
                           )}
                         </td>
@@ -431,31 +430,53 @@ export default function AddServiceModal({
           {selectedIds.length > 0 ? (
             <div className="rounded-2xl border border-[#72f3ff]/40 bg-[#092334] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
               <div className="flex justify-between text-xs font-bold text-[#b8d8de]">
-                <span>Dịch vụ chọn bổ sung ({selectedIds.length}):</span>
+                <span>Dịch vụ đã chọn ({selectedIds.length}):</span>
                 <span className="text-[#ecfeff] font-extrabold">
                   {selectedServices.map(getServiceName).join(", ")}
                 </span>
               </div>
               <div className="mt-1.5 flex justify-between text-xs font-bold text-[#b8d8de]">
-                <span>Tổng thời gian cộng thêm:</span>
-                <span className="text-[#6ff6df]">+{totalAddedDuration} phút</span>
+                <span>Tổng thời gian rửa:</span>
+                <span className="text-[#6ff6df]">{newTotalDuration} phút</span>
               </div>
+
+              {/* Hóa đơn chênh lệch */}
               <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
-                <span className="text-[#72f3ff]">Thu thêm tại quầy:</span>
-                <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  +{formatCurrency(totalAddedPrice)}
-                </span>
+                {priceDelta > 0 ? (
+                  <>
+                    <span className="text-amber-300">Thu thêm tại quầy:</span>
+                    <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      +{formatCurrency(priceDelta)}
+                    </span>
+                  </>
+                ) : priceDelta < 0 ? (
+                  <>
+                    <span className="text-emerald-300">Hoàn lại tiền thừa vào Ví khách:</span>
+                    <span className="text-emerald-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      -{formatCurrency(Math.abs(priceDelta))}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[#72f3ff]">Tổng tiền đơn hàng:</span>
+                    <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {formatCurrency(newTotalPrice)}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-[#1c3e54] bg-[#030e17] p-3 text-center text-xs font-medium text-[#8faabf]">
-              💡 Tích chọn các dịch vụ khách muốn làm thêm (Gói chính chọn tối đa 1, gói phụ chọn nhiều).
+              💡 Chọn lại danh sách dịch vụ rửa xe cho đơn hàng.
             </div>
           )}
 
+          {/* Banner Thông báo Lỗi (Ví dụ Cảnh báo Chặn đụng lịch từ Backend) */}
           {error && (
-            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-300">
-              {error}
+            <div className="rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-xs font-bold text-rose-200 flex items-start gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-rose-400 shrink-0">error</span>
+              <span className="leading-relaxed">{error}</span>
             </div>
           )}
 
@@ -478,7 +499,7 @@ export default function AddServiceModal({
               {isLoading && (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061424]/30 border-t-[#061424]" />
               )}
-              {isLoading ? "Đang cập nhật đơn hàng..." : `Xác nhận bổ sung (${selectedIds.length})`}
+              {isLoading ? "Đang cập nhật đơn..." : `Xác nhận cập nhật đơn (${selectedIds.length})`}
             </button>
           </div>
         </div>
