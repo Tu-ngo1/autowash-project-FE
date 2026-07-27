@@ -32,9 +32,21 @@ const unwrapStaffPayload = (payload, keys = []) => {
 
 function formatStaffTime(value) {
   if (!value) return "";
-  const text = String(value);
-  if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
-  return text.slice(0, 5);
+  if (Array.isArray(value)) {
+    const [y, m, d, hh = 0, mm = 0] = value;
+    const date = new Date(Date.UTC(y, m - 1, d, hh, mm));
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  let str = String(value).trim();
+  if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+    str += "Z";
+  }
+  const date = new Date(str);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  if (str.includes("T")) return str.split("T")[1]?.slice(0, 5) || "";
+  return str.slice(0, 5);
 }
 
 const getNewestValue = (item = {}) => {
