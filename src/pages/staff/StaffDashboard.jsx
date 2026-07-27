@@ -115,7 +115,7 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
             <span className="material-symbols-outlined text-[14px]">schedule</span>
             <span>Giờ hẹn: {item.time || "--:--"}</span>
           </div>
-          {item.arrivedAt && (
+          {(item.status === "ARRIVED" || item.qrUsed) && item.arrivedAt && (
             <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#4edea3]">
               <span className="material-symbols-outlined text-[14px]">pin_drop</span>
               <span>Check-in: {formatStaffTime(item.arrivedAt)}</span>
