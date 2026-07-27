@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import StaffNavbar from "../../components/StaffNavbar";
 import CompleteWashConfirmationModal from "../../components/staff/CompleteWashConfirmationModal";
 import StartWashConfirmationModal from "../../components/staff/StartWashConfirmationModal";
+import AddServiceModal from "../../components/staff/AddServiceModal";
 import { assignBay, completeBay, startWashBay, getBays, getQueue } from "../../services/staffQueueApi";
-import { requestCancelBooking } from "../../services/staffBookingApi";
+import { requestCancelBooking, addServicesToBooking } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
 const TIER_BADGE = {
@@ -204,7 +205,7 @@ const getQueueItemKey = (item) => {
   return String(item.id ?? item._id ?? item.bookingId ?? item.queueId ?? item.plate ?? "");
 };
 
-function QueueCard({ item, onSelect, isSelected, onRequestCancel }) {
+function QueueCard({ item, onSelect, isSelected, onRequestCancel, onAddServices }) {
   const badgeClass =
     TIER_BADGE[item.tier] || "border-[#4f7883] text-[#b8d8de] bg-[#123746]";
   const cancelPending =
@@ -284,11 +285,21 @@ function QueueCard({ item, onSelect, isSelected, onRequestCancel }) {
           Yêu cầu hủy
         </button>
       </div>
+      <button
+        type="button"
+        disabled={cancelPending}
+        onClick={onAddServices}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#72f3ff]/40 bg-[#72f3ff]/10 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-[#72f3ff] transition-all hover:bg-[#72f3ff]/20 disabled:cursor-not-allowed disabled:opacity-45"
+        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+      >
+        <span className="material-symbols-outlined text-[15px]">add_task</span>
+        <span>Thêm dịch vụ</span>
+      </button>
     </div>
   );
 }
 
-function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, hasSelectedCar, disabled, now }) {
+function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, onAddServices, hasSelectedCar, disabled, now }) {
   const serviceNames = (bay.currentCar?.services || [])
     .map((service) =>
       typeof service === "string"
@@ -359,16 +370,16 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
                 className="text-[10px] font-black uppercase tracking-widest text-[#8df9ef]"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               >
-                Dịch vụ đã chọn
+                Dịch vụ đang thực hiện
               </span>
               <span className="text-[10px] font-bold text-[#b8d8de]">
                 {serviceNames.length} mục
               </span>
             </div>
             <div className="space-y-1.5">
-              {(serviceNames.length ? serviceNames : ["Đang cập nhật dịch vụ"]).slice(0, 3).map((name) => (
+              {(serviceNames.length ? serviceNames : ["Đang rửa xe"]).slice(0, 3).map((name) => (
                 <div key={name} className="flex items-center gap-2 text-[12px] font-semibold text-[#ecfeff]">
-                  <span className="material-symbols-outlined text-[15px] text-[#6ff6df]">
+                  <span className="material-symbols-outlined text-[15px] text-[#8df9ef]">
                     check_circle
                   </span>
                   <span className="truncate">{name}</span>
@@ -376,27 +387,24 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
               ))}
             </div>
           </div>
-          <div className="flex items-center justify-center">
+
+          <div className="relative my-2 flex items-center justify-center">
             <div
-              className="relative flex h-[92px] w-[92px] items-center justify-center rounded-full"
+              className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-[#244653] bg-[#071620]"
               style={{
-                background: `conic-gradient(#f59e0b ${countdownProgress * 3.6}deg, #1a2436 0deg)`,
+                background: `conic-gradient(#fbbf24 ${countdownProgress}%, #111a2b 0)`,
               }}
             >
-              <div className="absolute inset-[8px] rounded-full bg-[#172033] shadow-[inset_0_0_18px_rgba(0,0,0,0.45)]"></div>
-              <div className="relative text-center">
-                <div
-                  className="text-[22px] font-black tracking-widest text-amber-300"
+              <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full bg-[#071620] text-center shadow-inner">
+                <span
+                  className="text-2xl font-black tracking-widest text-[#fef08a]"
                   style={{ fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   {timerLabel}
-                </div>
-                <div
-                  className="mt-0.5 text-[8px] font-bold uppercase tracking-widest text-[#b8d8de]"
-                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                >
+                </span>
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[#b8d8de]">
                   Còn lại
-                </div>
+                </span>
               </div>
             </div>
           </div>
@@ -448,39 +456,70 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, has
         <div className="my-6 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[#244653] bg-[#0b2532]/35 p-5 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-[#4f7883]">
             <span className="material-symbols-outlined text-[34px]">
-              local_shipping
+              local_car_wash
             </span>
           </div>
-          <p className="font-bold text-[#ecfeff]">Khoang trống</p>
-          <p className="mt-2 max-w-[220px] text-[12px] leading-5 text-[#b8d8de]">
-            {hasSelectedCar
-              ? `Sẵn sàng nhận ${selectedCar?.plate || "xe đã chọn"}`
-              : "Sẵn sàng nhận xe tiếp theo từ hàng đợi."}
+          <p
+            className="text-[11px] font-bold uppercase tracking-widest text-[#b8d8de]"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Khoang trống
+          </p>
+          <p className="mt-1 text-xs text-[#4f7883]">
+            Chọn xe từ hàng đợi để đưa vào khoang rửa
           </p>
         </div>
       )}
 
-      <div className="border-t border-[#244653] pt-3 flex justify-end min-h-[40px] gap-2">
+      <div className="border-t border-[#244653] pt-3 flex flex-col min-h-[40px] gap-2">
         {bay.status === "active" ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onComplete}
-            className="w-full rounded-xl bg-[#4edea3] px-4 py-2 text-[11px] font-bold uppercase text-[#003822] transition-all hover:bg-[#62f2b8] disabled:opacity-50"
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Hoàn tất rửa & giao xe
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onComplete}
+              className="w-full rounded-xl bg-[#4edea3] px-4 py-2 text-[11px] font-bold uppercase text-[#003822] transition-all hover:bg-[#62f2b8] disabled:opacity-50"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              Hoàn tất rửa & giao xe
+            </button>
+            {bay.currentCar && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onAddServices?.(bay.currentCar)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#72f3ff]/40 bg-[#72f3ff]/10 py-1.5 text-[11px] font-bold uppercase text-[#72f3ff] transition-all hover:bg-[#72f3ff]/20 disabled:opacity-50"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                <span className="material-symbols-outlined text-[15px]">add_task</span>
+                <span>Thêm dịch vụ</span>
+              </button>
+            )}
+          </>
         ) : bay.status === "ready_to_wash" ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onStartWash}
-            className="w-full rounded-xl bg-[#72f3ff] px-4 py-2 text-[11px] font-bold uppercase text-[#061427] transition-all hover:bg-[#a5f7ff] disabled:opacity-50"
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Bắt đầu rửa
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onStartWash}
+              className="w-full rounded-xl bg-[#72f3ff] px-4 py-2 text-[11px] font-bold uppercase text-[#061427] transition-all hover:bg-[#a5f7ff] disabled:opacity-50"
+              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              Bắt đầu rửa
+            </button>
+            {bay.currentCar && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onAddServices?.(bay.currentCar)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#72f3ff]/40 bg-[#72f3ff]/10 py-1.5 text-[11px] font-bold uppercase text-[#72f3ff] transition-all hover:bg-[#72f3ff]/20 disabled:opacity-50"
+                style={{ fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                <span className="material-symbols-outlined text-[15px]">add_task</span>
+                <span>Thêm dịch vụ</span>
+              </button>
+            )}
+          </>
         ) : (
           hasSelectedCar && (
             <button
@@ -517,7 +556,27 @@ export default function StaffQueue() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
   const [cancelRequestError, setCancelRequestError] = useState("");
+  const [addServiceTarget, setAddServiceTarget] = useState(null);
+  const [addServiceLoading, setAddServiceLoading] = useState(false);
+  const [addServiceError, setAddServiceError] = useState("");
   const [toast, setToast] = useState("");
+
+  const handleConfirmAddServices = async (serviceIds) => {
+    if (!addServiceTarget || !serviceIds || serviceIds.length === 0) return;
+    setAddServiceLoading(true);
+    setAddServiceError("");
+    try {
+      await addServicesToBooking(addServiceTarget.id || addServiceTarget._id, serviceIds);
+      setAddServiceTarget(null);
+      setToast("Đã bổ sung dịch vụ rửa xe thành công!");
+      setTimeout(() => setToast(""), 3000);
+      fetchQueueAndBays();
+    } catch (err) {
+      setAddServiceError(getFriendlyErrorMessage(err, "Không thể bổ sung dịch vụ. Vui lòng thử lại."));
+    } finally {
+      setAddServiceLoading(false);
+    }
+  };
 
   const fetchQueueAndBays = async () => {
     setLoading(true);
@@ -763,6 +822,10 @@ export default function StaffQueue() {
                       isSelected={getQueueItemKey(selectedCar) === getQueueItemKey(item)}
                       onSelect={() => handleSelectCar(item)}
                       onRequestCancel={() => openCancelRequestModal(item)}
+                      onAddServices={() => {
+                        setAddServiceTarget(item);
+                        setAddServiceError("");
+                      }}
                     />
                   </div>
                 ))
@@ -805,6 +868,10 @@ export default function StaffQueue() {
                         onComplete={() => openCompleteWashModal(bay)}
                         onStartWash={() => openStartWashModal(bay)}
                         onAssignToBay={() => handleAssignToBay(bay.id || bay._id)}
+                        onAddServices={(car) => {
+                          setAddServiceTarget(car);
+                          setAddServiceError("");
+                        }}
                       />
                     </div>
                   ))}
@@ -815,6 +882,14 @@ export default function StaffQueue() {
         </main>
       </div>
 
+      <AddServiceModal
+        isOpen={Boolean(addServiceTarget)}
+        appointment={addServiceTarget}
+        isLoading={addServiceLoading}
+        error={addServiceError}
+        onConfirm={handleConfirmAddServices}
+        onClose={() => setAddServiceTarget(null)}
+      />
       <StartWashConfirmationModal
         isOpen={!!startWashBayTarget}
         bay={startWashBayTarget}
