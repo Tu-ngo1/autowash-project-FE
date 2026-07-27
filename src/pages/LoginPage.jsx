@@ -195,6 +195,7 @@ function LoginPanel() {
             </label>
             <button
               type="button"
+              onClick={() => navigate("/forgot-password")}
               className="text-sm font-bold text-cyan-700 hover:underline"
             >
               Quên mật khẩu

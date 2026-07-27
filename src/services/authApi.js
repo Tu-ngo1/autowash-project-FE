@@ -97,3 +97,22 @@ export const verifyRegistrationOtp = (email, otp) =>
     email: email.trim(),
     otp: otp.trim(),
   }).then((response) => response.data);
+
+export const sendForgotPasswordOtp = (email) =>
+  api.post(apiPath("/auth/forgot-password/send-otp"), {
+    email: email.trim(),
+  }).then((response) => response.data);
+
+export const verifyForgotPasswordOtp = (email, otp) =>
+  api.post(apiPath("/auth/forgot-password/verify-otp"), {
+    email: email.trim(),
+    otp: otp.trim(),
+  }).then((response) => response.data);
+
+export const resetPassword = ({ email, otp, newPassword }) =>
+  api.post(apiPath("/auth/forgot-password/reset"), {
+    email: email.trim(),
+    otp: otp.trim(),
+    newPassword,
+  }).then((response) => response.data);
+

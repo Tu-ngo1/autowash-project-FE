@@ -9,6 +9,7 @@ import {
 // Public Pages
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import InfoPage from "./pages/InfoPage";
 import AppFooter from "./components/AppFooter";
 import ScrollToTop from "./components/ScrollToTop";
@@ -52,6 +53,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/about" element={<InfoPage page="about" />} />
         <Route path="/terms" element={<InfoPage page="terms" />} />
         <Route path="/privacy" element={<InfoPage page="privacy" />} />
