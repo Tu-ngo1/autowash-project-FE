@@ -244,6 +244,19 @@ export default function StaffCheckout() {
 
               const tierBadgeClass = TIER_STYLES[item.tierLevel] || TIER_STYLES.Member;
 
+              const displayServices = (Array.isArray(item.details) && item.details.length > 0)
+                ? item.details.map(d => ({
+                    name: d.serviceName || d.name || "Dịch vụ rửa xe",
+                    price: d.actualPrice ?? d.price ?? 0
+                  }))
+                : (Array.isArray(item.services) && item.services.length > 0)
+                  ? item.services.map(s => (
+                      typeof s === "string"
+                        ? { name: s, price: 0 }
+                        : { name: s.serviceName || s.name || s.label || "Dịch vụ rửa xe", price: s.actualPrice ?? s.price ?? s.basePrice ?? 0 }
+                    ))
+                  : [];
+
               return (
                 <div
                   key={item.id}
@@ -305,19 +318,21 @@ export default function StaffCheckout() {
                       {/* Service Items List */}
                       <div className="rounded-2xl border border-white/5 bg-[#030e17] p-3 space-y-1.5">
                         <p className="text-[11px] font-bold text-[#72f3ff] uppercase tracking-wider">
-                          Dịch vụ đã thực hiện ({item.services?.length || 0}):
+                          Dịch vụ đã thực hiện ({displayServices.length}):
                         </p>
-                        {item.services && item.services.length > 0 ? (
-                          item.services.map((svc, idx) => (
+                        {displayServices.length > 0 ? (
+                          displayServices.map((svc, idx) => (
                             <div key={idx} className="flex justify-between text-xs text-[#dff7fb]">
-                              <span className="font-medium">• {svc.name || svc.serviceName}</span>
-                              <span className="font-bold text-[#72f3ff]">
-                                {formatCurrency(svc.price ?? svc.basePrice ?? 0)}
-                              </span>
+                              <span className="font-medium">• {svc.name}</span>
+                              {svc.price > 0 && (
+                                <span className="font-bold text-[#72f3ff]">
+                                  {formatCurrency(svc.price)}
+                                </span>
+                              )}
                             </div>
                           ))
                         ) : (
-                          <p className="text-xs text-[#8faabf]">Rửa xe tiêu chuẩn</p>
+                          <p className="text-xs text-[#8faabf]">Gói rửa xe tiêu chuẩn</p>
                         )}
                       </div>
 
@@ -356,40 +371,30 @@ export default function StaffCheckout() {
                     </div>
                   </div>
 
-                  {/* Card Action Buttons */}
-                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-white/10 pt-4">
-                    {/* Button 1: Modify Services */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedBookingForEdit(item)}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">edit_note</span>
-                      Sửa DV
-                    </button>
-
-                    {/* Button 2: Print/View Receipt */}
+                  {/* Card Action Buttons (Chỉ gồm In Hóa Đơn & Giao Xe) */}
+                  <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
+                    {/* Button 1: Print/View Receipt */}
                     <button
                       type="button"
                       onClick={() => setSelectedBookingForReceipt(item)}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-xs font-bold text-[#dff7fb] transition hover:bg-white/10"
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-bold text-[#dff7fb] transition hover:bg-white/10"
                     >
                       <span className="material-symbols-outlined text-[16px]">print</span>
                       In Hóa Đơn
                     </button>
 
-                    {/* Button 3: Checkout Handover */}
+                    {/* Button 2: Checkout Handover */}
                     {isWashedStatus ? (
                       <button
                         type="button"
                         onClick={() => setCheckoutModalBooking(item)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl bg-[#72f3ff] px-3 py-2.5 text-xs font-black text-[#061424] shadow-[0_4px_20px_rgba(114,243,255,0.3)] transition hover:bg-[#9ff4ff] active:scale-95"
+                        className="flex items-center justify-center gap-1.5 rounded-xl bg-[#72f3ff] px-4 py-2.5 text-xs font-black text-[#061424] shadow-[0_4px_20px_rgba(114,243,255,0.3)] transition hover:bg-[#9ff4ff] active:scale-95"
                       >
                         <span className="material-symbols-outlined text-[18px]">check_circle</span>
                         Giao Xe
                       </button>
                     ) : (
-                      <div className="flex items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold px-3 py-2.5">
+                      <div className="flex items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold px-4 py-2.5">
                         ✓ Đã Hoàn Thành
                       </div>
                     )}

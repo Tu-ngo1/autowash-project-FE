@@ -214,7 +214,15 @@ export default function AddServiceModal({
     (isPaid ? (appointment?.finalPrice ?? appointment?.totalPrice ?? 0) : 0)
   );
 
+  const isSelectionChanged = (() => {
+    if (selectedIds.length !== initialSelectedIds.length) return true;
+    const sortedCurrent = [...selectedIds].sort();
+    const sortedInitial = [...initialSelectedIds].sort();
+    return sortedCurrent.some((val, index) => val !== sortedInitial[index]);
+  })();
+
   const priceDelta = newCalculatedFinalPrice - actualPaid;
+  const effectivePriceDelta = isSelectionChanged ? priceDelta : 0;
 
   return (
     <div
@@ -514,18 +522,18 @@ export default function AddServiceModal({
               {/* Hóa đơn chênh lệch & Giá thực tế cuối cùng */}
               <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
                 {isPaid ? (
-                  priceDelta > 0 ? (
+                  effectivePriceDelta > 0 ? (
                     <>
                       <span className="text-amber-300">Thu thêm tại quầy:</span>
                       <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        +{formatCurrency(priceDelta)}
+                        +{formatCurrency(effectivePriceDelta)}
                       </span>
                     </>
-                  ) : priceDelta < 0 ? (
+                  ) : effectivePriceDelta < 0 ? (
                     <>
                       <span className="text-emerald-300">Hoàn lại tiền thừa vào Ví khách:</span>
                       <span className="text-emerald-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        -{formatCurrency(Math.abs(priceDelta))}
+                        -{formatCurrency(Math.abs(effectivePriceDelta))}
                       </span>
                     </>
                   ) : (
