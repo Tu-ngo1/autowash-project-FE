@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import StaffNavbar from "../../components/StaffNavbar";
 import ArrivalConfirmationModal from "../../components/staff/ArrivalConfirmationModal";
+import AddServiceModal from "../../components/staff/AddServiceModal";
 import {
   confirmPendingAppointment,
   getPendingAppointments,
@@ -9,6 +10,7 @@ import {
 import {
   checkInBookingByQr,
   requestCancelBooking,
+  addServicesToBooking,
 } from "../../services/staffBookingApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
 
@@ -89,7 +91,7 @@ const normalizeStaffBooking = (booking = {}) => {
   };
 };
 
-function PendingCard({ item, onSelect, onRequestCancel, active }) {
+function PendingCard({ item, onSelect, onRequestCancel, onAddServices, active }) {
   const tierStyle = TIER_STYLES[item.tier] || TIER_STYLES.Member;
   const cancelPending = item.cancelRequestStatus === "PENDING";
 
@@ -158,6 +160,15 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
         >
           <span className="material-symbols-outlined text-[14px]">cancel</span>
           {cancelPending ? "Đang chờ duyệt" : "Yêu cầu hủy"}
+        </button>
+        <button
+          type="button"
+          disabled={cancelPending}
+          onClick={() => onAddServices(item)}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 border border-[#72f3ff]/40 bg-[#72f3ff]/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#72f3ff] transition hover:bg-[#72f3ff]/20 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="material-symbols-outlined text-[14px]">add_task</span>
+          <span>Thêm dịch vụ</span>
         </button>
       </div>
     </div>
@@ -279,7 +290,27 @@ export default function StaffDashboard() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelRequestError, setCancelRequestError] = useState("");
   const [cancelRequestLoading, setCancelRequestLoading] = useState(false);
+  const [addServiceTarget, setAddServiceTarget] = useState(null);
+  const [addServiceLoading, setAddServiceLoading] = useState(false);
+  const [addServiceError, setAddServiceError] = useState("");
   const [toast, setToast] = useState("");
+
+  const handleConfirmAddServices = async (serviceIds) => {
+    if (!addServiceTarget || !serviceIds || serviceIds.length === 0) return;
+    setAddServiceLoading(true);
+    setAddServiceError("");
+    try {
+      await addServicesToBooking(addServiceTarget.id || addServiceTarget._id, serviceIds);
+      setAddServiceTarget(null);
+      setToast("Đã bổ sung dịch vụ rửa xe thành công!");
+      setTimeout(() => setToast(""), 3000);
+      fetchPendingAppointments();
+    } catch (err) {
+      setAddServiceError(getFriendlyErrorMessage(err, "Không thể bổ sung dịch vụ. Vui lòng thử lại."));
+    } finally {
+      setAddServiceLoading(false);
+    }
+  };
 
   const fetchPendingAppointments = async () => {
     setLoading(true);
@@ -583,6 +614,10 @@ export default function StaffDashboard() {
                         }
                         onSelect={(target) => setScannedResult(target)}
                         onRequestCancel={openCancelRequestModal}
+                        onAddServices={(target) => {
+                          setAddServiceTarget(target);
+                          setAddServiceError("");
+                        }}
                       />
                     </div>
                   ))}
@@ -657,7 +692,7 @@ export default function StaffDashboard() {
               />
 
               {scannedResult && (
-                <>
+                <div className="flex flex-col gap-3">
                   <button
                     type="button"
                     disabled={submitLoading}
@@ -668,16 +703,38 @@ export default function StaffDashboard() {
                     <span className="material-symbols-outlined">login</span>
                     {submitLoading ? "Đang tiếp nhận..." : "Xác nhận Đã Đến"}
                   </button>
+                  <button
+                    type="button"
+                    disabled={submitLoading}
+                    onClick={() => {
+                      setAddServiceTarget(scannedResult);
+                      setAddServiceError("");
+                    }}
+                    className="flex w-full items-center justify-center gap-2 border border-[#72f3ff]/50 bg-[#72f3ff]/10 px-6 py-3 text-[14px] font-black uppercase text-[#72f3ff] transition hover:bg-[#72f3ff]/20 disabled:opacity-50"
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                  >
+                    <span className="material-symbols-outlined">add_task</span>
+                    <span>Bổ sung dịch vụ</span>
+                  </button>
                   <p className="mx-auto max-w-xl text-center text-[12px] font-medium italic text-[#c8d8e8]">
                     Lưu ý: Bấm nút này sẽ tự động chuyển xe sang hàng đợi ưu
                     tiên và xóa dữ liệu khỏi màn hình tiếp nhận hôm nay.
                   </p>
-                </>
+                </div>
               )}
             </div>
           </section>
         </main>
       </div>
+
+      <AddServiceModal
+        isOpen={Boolean(addServiceTarget)}
+        appointment={addServiceTarget}
+        isLoading={addServiceLoading}
+        error={addServiceError}
+        onConfirm={handleConfirmAddServices}
+        onClose={() => setAddServiceTarget(null)}
+      />
 
       <ArrivalConfirmationModal
         isOpen={!!arrivalTarget}
