@@ -41,6 +41,13 @@ const getBookingDurationMinutes = (booking = {}) => {
   );
   if (directDuration > 0) return directDuration;
 
+  const details = Array.isArray(booking.details) ? booking.details : [];
+  const detailsDuration = details.reduce(
+    (total, d) => total + Number(d?.actualDurationMinutes || d?.durationMinutes || 0),
+    0,
+  );
+  if (detailsDuration > 0) return detailsDuration;
+
   const services = Array.isArray(booking.services) ? booking.services : [];
   const serviceDuration = services.reduce(
     (total, service) => total + getServiceDurationMinutes(service),
@@ -53,9 +60,8 @@ const getBookingStartDate = (booking = {}) => {
   if (!booking) return null;
   return parseStaffDate(
     booking.washStartedAt ||
-      booking.arrivedAt ||
       booking.startedAt ||
-      booking.startTime ||
+      booking.arrivedAt ||
       booking.scheduledStartTime ||
       booking.createdAt,
   );
@@ -63,6 +69,14 @@ const getBookingStartDate = (booking = {}) => {
 
 const getBookingEndDate = (booking = {}) => {
   if (!booking) return null;
+  const durationMinutes = getBookingDurationMinutes(booking);
+
+  // Khi xe đang rửa (có washStartedAt), đếm ngược theo thời gian thực tế bắt đầu rửa + tổng phút dịch vụ
+  const washStart = parseStaffDate(booking.washStartedAt || booking.startedAt);
+  if (washStart && durationMinutes > 0) {
+    return new Date(washStart.getTime() + durationMinutes * 60_000);
+  }
+
   const explicitEnd = parseStaffDate(
     booking.expectedEndTime ||
       booking.estimatedEndTime ||
@@ -73,7 +87,7 @@ const getBookingEndDate = (booking = {}) => {
 
   const startDate = getBookingStartDate(booking);
   if (!startDate) return null;
-  return new Date(startDate.getTime() + getBookingDurationMinutes(booking) * 60_000);
+  return new Date(startDate.getTime() + durationMinutes * 60_000);
 };
 
 const formatCountdown = (milliseconds) => {
@@ -109,10 +123,8 @@ const normalizeQueueBooking = (booking = {}) => ({
   durationMinutes: getBookingDurationMinutes(booking),
   washStartedAt:
     booking.washStartedAt ||
-    booking.arrivedAt ||
     booking.startedAt ||
-    booking.scheduledStartTime ||
-    booking.createdAt,
+    null,
   expectedEndTime:
     booking.expectedEndTime ||
     booking.estimatedEndTime ||
@@ -189,8 +201,17 @@ function QueueCard({ item, onSelect, isSelected, onRequestCancel }) {
           >
             {item.plate}
           </div>
-          <div className="mt-1 text-[12px] text-[#b8d8de]">
-            Check-in: {item.checkinTime || item.time || "--:--"}
+          <div className="mt-2 space-y-1 text-[11px]">
+            <div className="flex items-center gap-1.5 font-bold text-[#6ff6df]">
+              <span className="material-symbols-outlined text-[14px]">schedule</span>
+              <span>Giờ hẹn: {item.time || formatStaffTime(item.scheduledStartTime) || "--:--"}</span>
+            </div>
+            {item.arrivedAt && (
+              <div className="flex items-center gap-1.5 font-semibold text-[#4edea3]">
+                <span className="material-symbols-outlined text-[14px]">pin_drop</span>
+                <span>Check-in: {formatStaffTime(item.arrivedAt)}</span>
+              </div>
+            )}
           </div>
         </div>
         <span

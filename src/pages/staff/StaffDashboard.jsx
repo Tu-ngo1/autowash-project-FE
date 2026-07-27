@@ -107,9 +107,16 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
           >
             {item.plate || "Chưa có biển số"}
           </div>
-          <p className="mt-1 text-[10px] font-bold text-[#9fb7c9]">
-            {item.time || "--:--"} AM
-          </p>
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-[#72f3ff]">
+            <span className="material-symbols-outlined text-[14px]">schedule</span>
+            <span>Giờ hẹn: {item.time || "--:--"}</span>
+          </div>
+          {item.arrivedAt && (
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-[#4edea3]">
+              <span className="material-symbols-outlined text-[14px]">pin_drop</span>
+              <span>Check-in: {formatStaffTime(item.arrivedAt)}</span>
+            </div>
+          )}
           {cancelPending ? (
             <p className="mt-2 inline-flex border border-amber-300/50 bg-amber-300/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-amber-200">
               Chờ duyệt hủy
