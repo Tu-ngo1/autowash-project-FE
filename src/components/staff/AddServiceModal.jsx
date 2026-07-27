@@ -64,9 +64,12 @@ export default function AddServiceModal({
     return [];
   }, [appointment]);
 
+  const [initialTotalPrice, setInitialTotalPrice] = useState(0);
+
   useEffect(() => {
     if (!isOpen) {
       setSelectedIds([]);
+      setInitialTotalPrice(0);
       setActiveTab("all");
       return;
     }
@@ -90,18 +93,20 @@ export default function AddServiceModal({
         setServicesList(activeList);
 
         // Pre-select tất cả dịch vụ vốn có của đơn hàng để Staff có thể chỉnh sửa/thay đổi linh hoạt
-        const preSelected = activeList
-          .filter((s) => {
-            const sId = String(s.id || s.serviceId || "");
-            const sName = (s.name || s.serviceName || "").toLowerCase().trim();
-            return (
-              existingServiceIds.includes(sId) ||
-              (sName && existingServiceNames.includes(sName))
-            );
-          })
-          .map((s) => s.id || s.serviceId);
+        const preSelectedObjects = activeList.filter((s) => {
+          const sId = String(s.id || s.serviceId || "");
+          const sName = (s.name || s.serviceName || "").toLowerCase().trim();
+          return (
+            existingServiceIds.includes(sId) ||
+            (sName && existingServiceNames.includes(sName))
+          );
+        });
+
+        const preSelected = preSelectedObjects.map((s) => s.id || s.serviceId);
+        const initTotal = preSelectedObjects.reduce((sum, s) => sum + Number(s.price ?? s.basePrice ?? s.priceAmount ?? s.actualPrice ?? 0), 0);
 
         setSelectedIds(preSelected);
+        setInitialTotalPrice(initTotal);
       } catch (err) {
         console.error("Lỗi lấy danh sách dịch vụ:", err);
       } finally {
@@ -180,8 +185,8 @@ export default function AddServiceModal({
   const hasMainService = selectedServices.some((s) => s.isMainService === true);
   const isPaid = String(appointment?.paymentStatus || appointment?.payment?.paymentStatus || "").toUpperCase() === "PAID";
 
-  const originalPrice = appointment?.finalPrice ?? appointment?.totalPrice ?? 0;
-  const priceDelta = newTotalPrice - originalPrice;
+  const baselinePrice = initialTotalPrice > 0 ? initialTotalPrice : (appointment?.finalPrice ?? appointment?.totalPrice ?? 0);
+  const priceDelta = newTotalPrice - baselinePrice;
 
   return (
     <div
