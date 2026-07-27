@@ -32,6 +32,7 @@ import AdminOperations from "./pages/admin/AdminOperations";
 import StaffDashboard from "./pages/staff/StaffDashboard";
 import StaffQueue from "./pages/staff/StaffQueue";
 import StaffCustomers from "./pages/staff/StaffCustomers";
+import StaffCheckout from "./pages/staff/StaffCheckout";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -73,6 +74,7 @@ function AnimatedRoutes() {
         {/* ================= STAFF ROUTES ================= */}
         <Route element={<ProtectedRoute role="STAFF" />}>
           <Route path="/staff/dashboard" element={<StaffDashboard />} />
+          <Route path="/staff/checkout" element={<StaffCheckout />} />
           <Route path="/staff/queue" element={<StaffQueue />} />
           <Route path="/staff/customers" element={<StaffCustomers />} />
         </Route>
