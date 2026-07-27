@@ -3,6 +3,7 @@ import { clearAuth, getUserName } from "../utils/auth";
 
 const NAV_LINKS = [
   { label: "Tổng quan", to: "/staff/dashboard", icon: "dashboard" },
+  { label: "Giao xe & Thanh toán", to: "/staff/checkout", icon: "receipt_long" },
   { label: "Hàng chờ", to: "/staff/queue", icon: "queue_play_next" },
   { label: "Đặt lịch nhanh", to: "/staff/customers", icon: "person" },
 ];
@@ -116,7 +117,7 @@ export default function StaffNavbar() {
         </div>
       </aside>
       <nav className="staff-nav-glow fixed inset-x-0 bottom-0 z-50 border-t border-sky-100/15 bg-[#0b2532]/92 px-3 py-2 backdrop-blur-2xl lg:hidden">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           {NAV_LINKS.map(({ label, to, icon }) => {
             const isActive = pathname === to || pathname.startsWith(to + "/");
             return (

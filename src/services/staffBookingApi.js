@@ -15,9 +15,19 @@ export const requestCancelBooking = (id, reason) =>
 export const addServicesToBooking = (bookingId, serviceIds) =>
   api.post(staffBookingsPath(`${bookingId}/add-services`), { serviceIds });
 
+export const getWashedBookings = () =>
+  api.get(apiPath("/staff/washed"));
+
+export const checkoutBooking = (id, paymentMethod = "CASH") =>
+  api.post(staffBookingsPath(`${id}/checkout`), null, {
+    params: { paymentMethod },
+  });
+
 export default {
   checkInBookingByQr,
   updateStaffBookingStatus,
   requestCancelBooking,
   addServicesToBooking,
+  getWashedBookings,
+  checkoutBooking,
 };
