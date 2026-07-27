@@ -25,13 +25,22 @@ export default function AddServiceModal({
     const fetchServices = async () => {
       try {
         setIsFetchingServices(true);
+        const carSize =
+          appointment?.vehicleSize ||
+          appointment?.carSize ||
+          appointment?.vehicle?.vehicleModel?.vehicleSize ||
+          appointment?.vehicle?.size ||
+          appointment?.car?.vehicleModel?.vehicleSize ||
+          "";
+
+        const params = carSize ? { carSize } : {};
         let list = [];
         try {
-          const res = await api.get(apiPath("/staff/bookings/walk-in/data"));
+          const res = await api.get(apiPath("/staff/bookings/walk-in/data"), { params });
           const data = res?.data?.data ?? res?.data ?? res ?? {};
           list = Array.isArray(data) ? data : data?.services || data?.washServices || [];
         } catch {
-          const fallbackRes = await api.get(apiPath("/customer/bookings/data"));
+          const fallbackRes = await api.get(apiPath("/customer/bookings/data"), { params });
           const fallbackData = fallbackRes?.data?.data ?? fallbackRes?.data ?? fallbackRes ?? {};
           list = Array.isArray(fallbackData) ? fallbackData : fallbackData?.services || fallbackData?.washServices || [];
         }
