@@ -482,53 +482,25 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, onA
 
       <div className="border-t border-[#244653] pt-3 flex flex-col min-h-[40px] gap-2">
         {bay.status === "active" ? (
-          <>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onComplete}
-              className="w-full rounded-xl bg-[#4edea3] px-4 py-2 text-[11px] font-bold uppercase text-[#003822] transition-all hover:bg-[#62f2b8] disabled:opacity-50"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              Hoàn tất rửa & giao xe
-            </button>
-            {bay.currentCar && (
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onAddServices?.(bay.currentCar)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#72f3ff]/40 bg-[#72f3ff]/10 py-1.5 text-[11px] font-bold uppercase text-[#72f3ff] transition-all hover:bg-[#72f3ff]/20 disabled:opacity-50"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                <span className="material-symbols-outlined text-[15px]">add_task</span>
-                <span>Thêm dịch vụ</span>
-              </button>
-            )}
-          </>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onComplete}
+            className="w-full rounded-xl bg-[#4edea3] px-4 py-2.5 text-[11px] font-bold uppercase text-[#003822] transition-all hover:bg-[#62f2b8] disabled:opacity-50"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Hoàn tất rửa & giao xe
+          </button>
         ) : bay.status === "ready_to_wash" ? (
-          <>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onStartWash}
-              className="w-full rounded-xl bg-[#72f3ff] px-4 py-2 text-[11px] font-bold uppercase text-[#061427] transition-all hover:bg-[#a5f7ff] disabled:opacity-50"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              Bắt đầu rửa
-            </button>
-            {bay.currentCar && (
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onAddServices?.(bay.currentCar)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#72f3ff]/40 bg-[#72f3ff]/10 py-1.5 text-[11px] font-bold uppercase text-[#72f3ff] transition-all hover:bg-[#72f3ff]/20 disabled:opacity-50"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                <span className="material-symbols-outlined text-[15px]">add_task</span>
-                <span>Thêm dịch vụ</span>
-              </button>
-            )}
-          </>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onStartWash}
+            className="w-full rounded-xl bg-[#72f3ff] px-4 py-2.5 text-[11px] font-bold uppercase text-[#061427] transition-all hover:bg-[#a5f7ff] disabled:opacity-50"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Bắt đầu rửa
+          </button>
         ) : (
           hasSelectedCar && (
             <button
