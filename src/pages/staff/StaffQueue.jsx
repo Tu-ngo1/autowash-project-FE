@@ -596,16 +596,25 @@ export default function StaffQueue() {
         getBays(),
       ]);
 
-      setQueue(
-        sortNewestFirst(
-          unwrapStaffPayload(queueRes, ["items", "queue", "bookings"]).map(
-            normalizeQueueBooking,
-          ),
-        ),
+      const parsedBays = unwrapStaffPayload(baysRes, ["items", "bays"]).map(normalizeBay);
+      setBays(parsedBays);
+
+      const assignedBookingIds = new Set(
+        parsedBays
+          .map((b) => b.currentCar?.id || b.currentCar?.bookingId)
+          .filter(Boolean)
       );
-      setBays(
-        unwrapStaffPayload(baysRes, ["items", "bays"]).map(normalizeBay),
-      );
+
+      const rawQueue = unwrapStaffPayload(queueRes, ["items", "queue", "bookings"])
+        .map(normalizeQueueBooking)
+        .filter((item) => {
+          if (item.bayNumber != null && Number(item.bayNumber) > 0) return false;
+          const itemId = item.id || item.bookingId;
+          if (itemId && assignedBookingIds.has(itemId)) return false;
+          return true;
+        });
+
+      setQueue(sortNewestFirst(rawQueue));
     } catch (err) {
       setError(
         getFriendlyErrorMessage(
