@@ -28,12 +28,12 @@ const unwrapStaffPayload = (payload, keys = []) => {
   return [];
 };
 
-const formatStaffTime = (value) => {
+function formatStaffTime(value) {
   if (!value) return "";
   const text = String(value);
   if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
   return text.slice(0, 5);
-};
+}
 
 const getNewestValue = (item = {}) => {
   const raw =
