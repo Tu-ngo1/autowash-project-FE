@@ -312,6 +312,7 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, onA
   const endDate = getBookingEndDate(bay.currentCar);
   const totalDuration = startDate && endDate ? endDate.getTime() - startDate.getTime() : 0;
   const remaining = endDate ? endDate.getTime() - now : 0;
+  const isOvertime = remaining <= 0;
   const countdownProgress =
     totalDuration > 0
       ? Math.max(0, Math.min(100, (remaining / totalDuration) * 100))
@@ -321,7 +322,9 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, onA
     <div
       className={`staff-panel rounded-2xl p-4 flex min-h-[280px] flex-col justify-between transition-all duration-300 ${
         bay.status === "active"
-          ? "staff-scanline border-amber-400/70 bg-[#172033] shadow-[0_0_28px_rgba(251,191,36,0.12)]"
+          ? isOvertime
+            ? "staff-scanline border-emerald-400/80 bg-[#122329] shadow-[0_0_28px_rgba(78,222,163,0.18)]"
+            : "staff-scanline border-amber-400/70 bg-[#172033] shadow-[0_0_28px_rgba(251,191,36,0.12)]"
           : hasSelectedCar
             ? "border-[#6ff6df] bg-[#6ff6df]/8 border-dashed"
             : "border-dashed border-[#244653] bg-[#0c1725]/55"
@@ -340,14 +343,16 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, onA
         <span
           className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${
             bay.status === "active"
-              ? "border-amber-300/50 text-amber-200 bg-amber-300/10"
+              ? isOvertime
+                ? "border-emerald-300/60 text-emerald-200 bg-emerald-300/15 animate-pulse"
+                : "border-amber-300/50 text-amber-200 bg-amber-300/10"
               : bay.status === "ready_to_wash"
                 ? "border-[#72f3ff] text-[#72f3ff] bg-[#72f3ff]/5"
                 : "border-[#4f7883] text-[#b8d8de]"
           }`}
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
         >
-          {bay.status === "active" ? "ĐANG RỬA" : bay.status === "ready_to_wash" ? "CHỜ RỬA" : "TRỐNG"}
+          {bay.status === "active" ? (isOvertime ? "RỬA XONG" : "ĐANG RỬA") : bay.status === "ready_to_wash" ? "CHỜ RỬA" : "TRỐNG"}
         </span>
       </div>
 
@@ -392,18 +397,22 @@ function BayCard({ bay, selectedCar, onComplete, onStartWash, onAssignToBay, onA
             <div
               className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-[#244653] bg-[#071620]"
               style={{
-                background: `conic-gradient(#fbbf24 ${countdownProgress}%, #111a2b 0)`,
+                background: isOvertime
+                  ? `conic-gradient(#4edea3 100%, #111a2b 0)`
+                  : `conic-gradient(#fbbf24 ${countdownProgress}%, #111a2b 0)`,
               }}
             >
               <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full bg-[#071620] text-center shadow-inner">
                 <span
-                  className="text-2xl font-black tracking-widest text-[#fef08a]"
+                  className={`text-2xl font-black tracking-widest ${isOvertime ? "text-[#4edea3]" : "text-[#fef08a]"}`}
                   style={{ fontFamily: "'JetBrains Mono', monospace" }}
                 >
                   {timerLabel}
                 </span>
-                <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[#b8d8de]">
-                  Còn lại
+                <span
+                  className={`mt-1 text-[9px] font-bold uppercase tracking-widest ${isOvertime ? "text-[#4edea3] animate-pulse" : "text-[#b8d8de]"}`}
+                >
+                  {isOvertime ? "Cần hoàn tất" : "Còn lại"}
                 </span>
               </div>
             </div>
