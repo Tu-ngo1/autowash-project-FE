@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api, { apiPath } from "../../services/apiClient";
 
 const formatCurrency = (val) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val || 0);
+
+const getServiceIcon = (isMainService, name = "") => {
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes("hút bụi") || nameLower.includes("nội thất")) return "cleaning_services";
+  if (nameLower.includes("phủ") || nameLower.includes("nano") || nameLower.includes("bóng")) return "auto_awesome";
+  if (nameLower.includes("kính") || nameLower.includes("tẩy")) return "water_drop";
+  if (nameLower.includes("khoang máy") || nameLower.includes("động cơ")) return "build";
+  return isMainService ? "local_car_wash" : "add_task";
+};
 
 export default function AddServiceModal({
   isOpen,
@@ -15,24 +24,62 @@ export default function AddServiceModal({
   const [servicesList, setServicesList] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isFetchingServices, setIsFetchingServices] = useState(false);
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'main' | 'addon'
+
+  // Kích thước xe & biển số
+  const plate =
+    appointment?.plate ||
+    appointment?.licensePlate ||
+    appointment?.vehicleLicensePlate ||
+    appointment?.vehicle?.licensePlate ||
+    "";
+
+  const carSize =
+    appointment?.vehicleSize ||
+    appointment?.carSize ||
+    appointment?.vehicle?.vehicleModel?.vehicleSize ||
+    appointment?.vehicle?.size ||
+    appointment?.car?.vehicleModel?.vehicleSize ||
+    "";
+
+  // Lấy danh sách tên & ID dịch vụ ĐÃ CÓ sẵn trong booking này
+  const existingServiceNames = useMemo(() => {
+    if (!appointment) return [];
+    if (Array.isArray(appointment.services)) {
+      return appointment.services.map((s) =>
+        typeof s === "string" ? s.toLowerCase().trim() : (s.name || s.serviceName || "").toLowerCase().trim()
+      );
+    }
+    if (Array.isArray(appointment.details)) {
+      return appointment.details.map((d) => (d.serviceName || d.name || "").toLowerCase().trim());
+    }
+    return [];
+  }, [appointment]);
+
+  const existingServiceIds = useMemo(() => {
+    if (!appointment) return [];
+    if (Array.isArray(appointment.details)) {
+      return appointment.details.map((d) => String(d.serviceId || d.id || "")).filter(Boolean);
+    }
+    return [];
+  }, [appointment]);
+
+  const isAlreadyInBooking = (service) => {
+    const sId = String(service.id || service.serviceId || "");
+    const sName = (service.name || service.serviceName || "").toLowerCase().trim();
+    return existingServiceIds.includes(sId) || (sName && existingServiceNames.includes(sName));
+  };
 
   useEffect(() => {
     if (!isOpen) {
       setSelectedIds([]);
+      setActiveTab("all");
       return;
     }
 
     const fetchServices = async () => {
       try {
         setIsFetchingServices(true);
-        const carSize =
-          appointment?.vehicleSize ||
-          appointment?.carSize ||
-          appointment?.vehicle?.vehicleModel?.vehicleSize ||
-          appointment?.vehicle?.size ||
-          appointment?.car?.vehicleModel?.vehicleSize ||
-          "";
-
         const params = carSize ? { carSize } : {};
         let list = [];
         try {
@@ -53,7 +100,7 @@ export default function AddServiceModal({
     };
 
     fetchServices();
-  }, [isOpen]);
+  }, [isOpen, carSize]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -72,18 +119,13 @@ export default function AddServiceModal({
     if (!isLoading) onClose?.();
   };
 
-  const plate =
-    appointment?.plate ||
-    appointment?.licensePlate ||
-    appointment?.vehicleLicensePlate ||
-    appointment?.vehicle?.licensePlate ||
-    "";
-
-  const toggleSelect = (serviceId) => {
+  const toggleSelect = (service) => {
+    if (isAlreadyInBooking(service)) return;
+    const sId = service.id || service.serviceId;
     setSelectedIds((prev) =>
-      prev.includes(serviceId)
-        ? prev.filter((id) => id !== serviceId)
-        : [...prev, serviceId]
+      prev.includes(sId)
+        ? prev.filter((id) => id !== sId)
+        : [...prev, sId]
     );
   };
 
@@ -96,13 +138,24 @@ export default function AddServiceModal({
   const getServiceName = (s) =>
     s.serviceName || s.name || s.title || "Dịch vụ rửa xe";
 
-  const selectedServices = servicesList.filter((s) => selectedIds.includes(s.id));
+  // Phân loại danh sách dịch vụ chính và phụ
+  const mainServices = servicesList.filter((item) => item.isMainService === true);
+  const addonServices = servicesList.filter((item) => item.isMainService === false);
+
+  const filteredDisplayList =
+    activeTab === "main"
+      ? mainServices
+      : activeTab === "addon"
+      ? addonServices
+      : servicesList;
+
+  const selectedServices = servicesList.filter((s) => selectedIds.includes(s.id || s.serviceId));
   const totalAddedPrice = selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
   const totalAddedDuration = selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
 
   return (
     <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-[#03111a]/80 px-4 py-6 backdrop-blur-md"
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-[#020b12]/85 px-3 py-4 backdrop-blur-md sm:p-6"
       onMouseDown={closeIfReady}
       role="presentation"
     >
@@ -110,175 +163,245 @@ export default function AddServiceModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-service-title"
-        className="staff-reveal w-full max-w-[620px] overflow-hidden rounded-2xl border border-[#72f3ff]/25 bg-[#071620] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+        className="staff-reveal flex max-h-[92vh] w-full max-w-[680px] flex-col overflow-hidden rounded-3xl border border-[#72f3ff]/30 bg-[#071724] shadow-[0_28px_90px_rgba(0,0,0,0.65)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {/* Header */}
-        <div className="relative border-b border-[#244653] bg-gradient-to-br from-[#0f3340] via-[#0b2532] to-[#071620] p-5 sm:p-6">
+        {/* Header - Styled like CustomerBooking page banner */}
+        <div className="relative shrink-0 border-b border-[#1b3d52] bg-gradient-to-br from-[#0c293c] via-[#091e2c] to-[#071724] p-5 sm:p-6">
           <button
             type="button"
             disabled={isLoading}
             onClick={closeIfReady}
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#b8d8de] transition hover:border-[#72f3ff]/50 hover:text-[#72f3ff] disabled:cursor-not-allowed disabled:opacity-50"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#b8d8de] transition hover:border-[#72f3ff]/50 hover:bg-white/10 hover:text-[#72f3ff] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Đóng"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
 
-          <div className="flex items-start gap-3.5 pr-8">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#72f3ff]/45 bg-[#72f3ff]/12 text-[#72f3ff] shadow-[0_0_20px_rgba(114,243,255,0.16)]">
-              <span className="material-symbols-outlined text-[24px]">
-                add_task
+          <div className="flex items-start gap-4 pr-10">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#72f3ff]/45 bg-[#72f3ff]/15 text-[#72f3ff] shadow-[0_0_24px_rgba(114,243,255,0.2)]">
+              <span className="material-symbols-outlined text-[26px]">
+                local_car_wash
               </span>
             </div>
             <div>
-              <p
-                className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#72f3ff]"
-                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                Bổ sung dịch vụ {plate ? `• ${plate}` : ""}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className="rounded-full bg-[#72f3ff]/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#72f3ff] border border-[#72f3ff]/30"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                >
+                  Bổ sung dịch vụ {plate ? `• ${plate}` : ""}
+                </span>
+                {carSize && (
+                  <span
+                    className="rounded-full bg-cyan-400/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-200 border border-cyan-400/30"
+                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                  >
+                    Size: {carSize}
+                  </span>
+                )}
+              </div>
               <h2
                 id="add-service-title"
-                className="text-xl font-black leading-tight text-[#ecfeff]"
+                className="mt-1 text-xl font-black leading-tight text-[#ecfeff] sm:text-2xl"
               >
                 Chọn thêm dịch vụ rửa xe tại quầy
               </h2>
             </div>
           </div>
+
+          {/* Navigation Category Tabs */}
+          <div className="mt-5 flex gap-2 border-t border-white/10 pt-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab("all")}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-black transition ${
+                activeTab === "all"
+                  ? "bg-[#72f3ff] text-[#061424] shadow-[0_0_15px_rgba(114,243,255,0.3)]"
+                  : "bg-white/5 text-[#b8d8de] hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              Tất cả ({servicesList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("main")}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-black transition ${
+                activeTab === "main"
+                  ? "bg-[#72f3ff] text-[#061424] shadow-[0_0_15px_rgba(114,243,255,0.3)]"
+                  : "bg-white/5 text-[#b8d8de] hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              Gói chính ({mainServices.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("addon")}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-black transition ${
+                activeTab === "addon"
+                  ? "bg-[#72f3ff] text-[#061424] shadow-[0_0_15px_rgba(114,243,255,0.3)]"
+                  : "bg-white/5 text-[#b8d8de] hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              Dịch vụ phụ ({addonServices.length})
+            </button>
+          </div>
         </div>
 
-        {/* Content Body */}
-        <div className="space-y-4 p-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[#b8d8de]">
-              Tích chọn gói/dịch vụ khách muốn bổ sung:
-            </p>
-            <span className="text-[11px] font-bold text-[#72f3ff]">
-              Khả dụng: {servicesList.length} dịch vụ
-            </span>
-          </div>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {/* Validation Notice if services exist in booking */}
+          {existingServiceNames.length > 0 && (
+            <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-xs font-semibold text-cyan-200 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-[#72f3ff]">info</span>
+              <span>
+                Đơn hàng đã có: <strong className="text-white">{existingServiceNames.join(", ")}</strong> (Đã khóa chọn lại)
+              </span>
+            </div>
+          )}
 
           {isFetchingServices ? (
-            <div className="flex flex-col items-center justify-center py-10 text-sm font-semibold text-[#72f3ff]">
-              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#72f3ff]/30 border-t-[#72f3ff] mb-2" />
-              Đang tải danh sách gói rửa xe...
+            <div className="flex flex-col items-center justify-center py-12 text-sm font-semibold text-[#72f3ff]">
+              <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#72f3ff]/30 border-t-[#72f3ff] mb-3" />
+              Đang tải danh sách dịch vụ rửa xe cho size {carSize || "xe"}...
+            </div>
+          ) : filteredDisplayList.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#1b3d52] bg-[#03111a]/50 p-10 text-center text-xs text-[#9fb7c9]">
+              Không tìm thấy gói dịch vụ rửa xe phù hợp.
             </div>
           ) : (
-            <div className="max-h-[300px] space-y-2.5 overflow-y-auto pr-1">
-              {servicesList.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#244653] bg-[#03111a]/40 p-8 text-center text-xs text-[#9fb7c9]">
-                  Không tìm thấy dịch vụ rửa xe bổ sung.
-                </div>
-              ) : (
-                servicesList.map((service) => {
-                  const isChecked = selectedIds.includes(service.id);
-                  const priceVal = getServicePrice(service);
-                  const durationVal = getServiceDuration(service);
-                  const nameStr = getServiceName(service);
-                  const description = service.description || service.shortDescription || "";
+            <div className="grid gap-3 sm:grid-cols-2">
+              {filteredDisplayList.map((service) => {
+                const sId = service.id || service.serviceId;
+                const inBooking = isAlreadyInBooking(service);
+                const isChecked = selectedIds.includes(sId);
+                const priceVal = getServicePrice(service);
+                const durationVal = getServiceDuration(service);
+                const nameStr = getServiceName(service);
+                const description = service.description || service.shortDescription || "";
+                const iconName = getServiceIcon(service.isMainService, nameStr);
 
-                  return (
-                    <div
-                      key={service.id}
-                      onClick={() => toggleSelect(service.id)}
-                      className={`group flex cursor-pointer items-center justify-between rounded-xl border p-3.5 transition-all ${
+                return (
+                  <div
+                    key={sId}
+                    onClick={() => toggleSelect(service)}
+                    className={`relative flex flex-col justify-between rounded-2xl border p-4 transition-all ${
+                      inBooking
+                        ? "border-[#1b3d52] bg-[#040e17]/60 opacity-60 cursor-not-allowed"
+                        : isChecked
+                        ? "border-[#72f3ff] bg-[#72f3ff]/15 shadow-[0_0_24px_rgba(114,243,255,0.18)] cursor-pointer"
+                        : "border-[#1c3e54] bg-[#051421]/80 hover:-translate-y-0.5 hover:border-[#72f3ff]/60 hover:bg-[#0a2032] cursor-pointer"
+                    }`}
+                  >
+                    {/* Top Row: Icon + Checkbox / Status Badge */}
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
                         isChecked
-                          ? "border-[#72f3ff] bg-[#72f3ff]/12 shadow-[0_0_18px_rgba(114,243,255,0.15)]"
-                          : "border-[#244653] bg-[#03111a]/70 hover:border-[#72f3ff]/50 hover:bg-[#091b27]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
+                          ? "bg-[#72f3ff] text-[#061424]"
+                          : inBooking
+                          ? "bg-slate-800 text-slate-400"
+                          : "bg-[#0f2e42] text-[#72f3ff]"
+                      }`}>
+                        <span className="material-symbols-outlined text-[22px]">
+                          {inBooking ? "lock" : iconName}
+                        </span>
+                      </span>
+
+                      {inBooking ? (
+                        <span className="rounded-md bg-slate-800/80 px-2 py-0.5 text-[10px] font-black uppercase text-slate-300 border border-slate-700">
+                          Đã có trong đơn
+                        </span>
+                      ) : (
                         <div
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all ${
+                          className={`flex h-6 w-6 items-center justify-center rounded-lg border transition-all ${
                             isChecked
-                              ? "border-[#72f3ff] bg-[#72f3ff] text-[#061427]"
-                              : "border-[#4f7883] bg-transparent group-hover:border-[#72f3ff]/70"
+                              ? "border-[#72f3ff] bg-[#72f3ff] text-[#061424]"
+                              : "border-[#3d6579] bg-transparent"
                           }`}
                         >
                           {isChecked && (
-                            <span className="material-symbols-outlined text-[15px] font-black">
+                            <span className="material-symbols-outlined text-[16px] font-black">
                               check
                             </span>
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-[#ecfeff]">
-                              {nameStr}
-                            </p>
-                            {service.isMainService !== undefined && (
-                              <span
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                  service.isMainService
-                                    ? "border border-[#72f3ff]/40 bg-[#72f3ff]/10 text-[#72f3ff]"
-                                    : "border border-purple-300/40 bg-purple-300/10 text-purple-200"
-                                }`}
-                                style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                              >
-                                {service.isMainService ? "Gói chính" : "Đính kèm"}
-                              </span>
-                            )}
-                          </div>
-                          {description && (
-                            <p className="mt-0.5 text-[11px] text-[#8faabf] line-clamp-1">
-                              {description}
-                            </p>
-                          )}
-                          <p className="mt-1 text-[11px] font-semibold text-[#6ff6df]">
-                            ⏱️ +{durationVal} phút
-                          </p>
-                        </div>
+                      )}
+                    </div>
+
+                    {/* Middle Info */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-base font-black leading-tight text-[#ecfeff]">
+                          {nameStr}
+                        </h4>
                       </div>
 
-                      <div className="text-right">
-                        <span
-                          className="text-sm font-black text-[#72f3ff]"
-                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                        >
-                          +{formatCurrency(priceVal)}
-                        </span>
-                      </div>
+                      {description && (
+                        <p className="mt-1.5 text-xs text-[#8eb0c4] line-clamp-2 leading-relaxed">
+                          {description}
+                        </p>
+                      )}
                     </div>
-                  );
-                })
-              )}
+
+                    {/* Bottom Row: Duration + Price */}
+                    <div className="mt-4 flex items-end justify-between border-t border-white/10 pt-3">
+                      <span className="text-xs font-bold text-[#6ff6df]">
+                        ⏱️ +{durationVal} phút
+                      </span>
+                      <span
+                        className="text-base font-black text-[#72f3ff]"
+                        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                      >
+                        +{formatCurrency(priceVal)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
+        </div>
 
-          {/* Price Calculation Summary */}
-          {selectedIds.length > 0 && (
-            <div className="rounded-xl border border-[#72f3ff]/35 bg-[#0b2434] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
+        {/* Footer & Price Calculation Summary */}
+        <div className="shrink-0 border-t border-[#1b3d52] bg-[#05131f] p-4 sm:p-6 space-y-3">
+          {selectedIds.length > 0 ? (
+            <div className="rounded-2xl border border-[#72f3ff]/40 bg-[#092334] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
               <div className="flex justify-between text-xs font-bold text-[#b8d8de]">
-                <span>Dịch vụ bổ sung:</span>
-                <span className="text-[#ecfeff]">{selectedIds.length} dịch vụ đã chọn</span>
+                <span>Dịch vụ chọn bổ sung ({selectedIds.length}):</span>
+                <span className="text-[#ecfeff] font-extrabold">
+                  {selectedServices.map(getServiceName).join(", ")}
+                </span>
               </div>
-              <div className="mt-1 flex justify-between text-xs font-bold text-[#b8d8de]">
-                <span>Thời gian rửa cộng thêm:</span>
+              <div className="mt-1.5 flex justify-between text-xs font-bold text-[#b8d8de]">
+                <span>Tổng thời gian cộng thêm:</span>
                 <span className="text-[#6ff6df]">+{totalAddedDuration} phút</span>
               </div>
-              <div className="mt-2 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
+              <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
                 <span className="text-[#72f3ff]">Thu thêm tại quầy:</span>
-                <span className="text-[#72f3ff] text-base" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   +{formatCurrency(totalAddedPrice)}
                 </span>
               </div>
             </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[#1c3e54] bg-[#030e17] p-3 text-center text-xs font-medium text-[#8faabf]">
+              💡 Tích chọn các dịch vụ khách muốn làm thêm để tự động tính lại hóa đơn đơn hàng.
+            </div>
           )}
 
           {error && (
-            <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-300">
               {error}
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="grid gap-3 sm:grid-cols-[1fr_1.5fr]">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1.6fr]">
             <button
               type="button"
               disabled={isLoading}
               onClick={closeIfReady}
-              className="rounded-xl border border-[#244653] bg-white/5 px-5 py-3 font-bold text-[#dff7fb] transition hover:border-[#72f3ff]/50 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl border border-[#1b3d52] bg-white/5 px-5 py-3.5 font-bold text-[#dff7fb] transition hover:border-[#72f3ff]/50 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Hủy
             </button>
@@ -286,12 +409,12 @@ export default function AddServiceModal({
               type="button"
               disabled={isLoading || selectedIds.length === 0}
               onClick={() => onConfirm?.(selectedIds)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#72f3ff] px-5 py-3 font-black text-[#061427] shadow-[0_16px_34px_rgba(114,243,255,0.22)] transition hover:bg-[#a5f7ff] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-[#72f3ff] px-5 py-3.5 font-black text-[#061424] shadow-[0_16px_36px_rgba(114,243,255,0.25)] transition hover:bg-[#9ff4ff] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isLoading && (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061427]/30 border-t-[#061427]" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061424]/30 border-t-[#061424]" />
               )}
-              {isLoading ? "Đang xử lý..." : `Xác nhận bổ sung (${selectedIds.length})`}
+              {isLoading ? "Đang cập nhật đơn hàng..." : `Xác nhận bổ sung (${selectedIds.length})`}
             </button>
           </div>
         </div>
