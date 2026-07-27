@@ -437,21 +437,56 @@ export default function StaffCheckout() {
               </div>
             </div>
 
-            {/* Payment Method Select */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b8d8de]">
-                Hình thức thu tiền tại quầy:
-              </label>
-              <select
-                value={paymentMethodSelect}
-                onChange={(e) => setPaymentMethodSelect(e.target.value)}
-                className="w-full rounded-xl border border-[#1c3e54] bg-[#040f1a] px-3 py-2.5 text-xs font-bold text-[#ecfeff] focus:border-[#72f3ff] focus:outline-none"
-              >
-                <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                <option value="BANK_TRANSFER">Chuyển khoản QR tại quầy</option>
-                <option value="WALLET">Trừ vào Ví điện tử khách</option>
-              </select>
-            </div>
+            {/* Thông tin Thanh toán chi tiết */}
+            {(() => {
+              const isPaid = String(checkoutModalBooking.paymentStatus || "").toUpperCase() === "PAID";
+              const finalPrice = checkoutModalBooking.finalPrice ?? checkoutModalBooking.totalPrice ?? 0;
+              const actualPaid = checkoutModalBooking.actualPaidAmount ?? (isPaid ? finalPrice : 0);
+              const remaining = finalPrice - actualPaid;
+              const isFullyPrepaid = isPaid && remaining <= 0;
+
+              if (isFullyPrepaid) {
+                return (
+                  <div className="rounded-2xl border border-emerald-400/40 bg-emerald-500/15 p-4 text-xs font-bold text-emerald-200 flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[26px] text-emerald-400">check_circle</span>
+                    <div>
+                      <p className="font-extrabold text-[#ecfeff]">Đã thanh toán đủ 100% qua {checkoutModalBooking.paymentMethod || "Trực tuyến"}</p>
+                      <p className="mt-0.5 text-[11px] text-emerald-300/90 font-normal">
+                        Khách không cần trả thêm bất kỳ khoản phí nào tại quầy. Bấm nút dưới để hoàn tất giao xe.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {remaining > 0 && (
+                    <div className="rounded-2xl border border-amber-400/40 bg-amber-400/15 p-3.5 text-xs font-bold text-amber-200 flex justify-between items-center">
+                      <span>Cần thu tại quầy:</span>
+                      <span className="text-base text-amber-300 font-black" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        +{formatCurrency(remaining)}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#b8d8de]">
+                      Hình thức thu tiền tại quầy:
+                    </label>
+                    <select
+                      value={paymentMethodSelect}
+                      onChange={(e) => setPaymentMethodSelect(e.target.value)}
+                      className="w-full rounded-xl border border-[#1c3e54] bg-[#040f1a] px-3 py-2.5 text-xs font-bold text-[#ecfeff] focus:border-[#72f3ff] focus:outline-none"
+                    >
+                      <option value="CASH">Tiền mặt tại quầy (CASH)</option>
+                      <option value="BANK_TRANSFER">Chuyển khoản QR tại quầy</option>
+                      <option value="WALLET">Trừ vào Ví điện tử khách</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
