@@ -179,14 +179,40 @@ export default function AddServiceModal({
       : servicesList;
 
   const selectedServices = servicesList.filter((s) => selectedIds.includes(s.id || s.serviceId));
-  const newTotalPrice = selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
+  const newSubTotal = selectedServices.reduce((sum, s) => sum + getServicePrice(s), 0);
   const newTotalDuration = selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
 
   const hasMainService = selectedServices.some((s) => s.isMainService === true);
   const isPaid = String(appointment?.paymentStatus || appointment?.payment?.paymentStatus || "").toUpperCase() === "PAID";
 
-  const baselinePrice = initialTotalPrice > 0 ? initialTotalPrice : (appointment?.finalPrice ?? appointment?.totalPrice ?? 0);
-  const priceDelta = newTotalPrice - baselinePrice;
+  // Tier Discount calculation
+  const tierPercent = Number(
+    appointment?.tierDiscountPercent ??
+    appointment?.tierPercent ??
+    appointment?.user?.customerProfile?.tierConfig?.autoDiscountPercent ??
+    0
+  );
+  const tierDiscountAmount = Math.round((newSubTotal * tierPercent) / 100);
+
+  // Voucher Discount calculation
+  const voucherDiscountAmount = Number(
+    appointment?.voucherDiscount ??
+    appointment?.voucherDiscountAmount ??
+    appointment?.discountAmount ??
+    0
+  ) > tierDiscountAmount ? (
+    Number(appointment?.discountAmount ?? 0) - tierDiscountAmount
+  ) : 0;
+
+  const totalDiscount = tierDiscountAmount + voucherDiscountAmount;
+  const newCalculatedFinalPrice = Math.max(newSubTotal - totalDiscount, 0);
+
+  const actualPaid = Number(
+    appointment?.actualPaidAmount ??
+    (isPaid ? (appointment?.finalPrice ?? appointment?.totalPrice ?? 0) : 0)
+  );
+
+  const priceDelta = newCalculatedFinalPrice - actualPaid;
 
   return (
     <div
@@ -464,13 +490,31 @@ export default function AddServiceModal({
                 <span>Tổng thời gian rửa:</span>
                 <span className="text-[#6ff6df]">{newTotalDuration} phút</span>
               </div>
+              <div className="mt-1 flex justify-between text-xs font-semibold text-[#b8d8de]">
+                <span>Tổng giá niêm yết:</span>
+                <span className="text-[#dff7fb]">{formatCurrency(newSubTotal)}</span>
+              </div>
 
-              {/* Hóa đơn chênh lệch - CHỈ HIỂN THỊ THU THÊM / HOÀN TIỀN KHI ĐƠN ĐÃ THANH TOÁN (isPaid === true) */}
+              {/* Chi tiết Giảm giá */}
+              {tierDiscountAmount > 0 && (
+                <div className="mt-1 flex justify-between text-xs font-semibold text-emerald-400">
+                  <span>Giảm giá Hạng thành viên ({tierPercent}%):</span>
+                  <span>-{formatCurrency(tierDiscountAmount)}</span>
+                </div>
+              )}
+              {voucherDiscountAmount > 0 && (
+                <div className="mt-1 flex justify-between text-xs font-semibold text-amber-300">
+                  <span>Giảm giá Voucher:</span>
+                  <span>-{formatCurrency(voucherDiscountAmount)}</span>
+                </div>
+              )}
+
+              {/* Hóa đơn chênh lệch & Giá thực tế cuối cùng */}
               <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
                 {isPaid ? (
                   priceDelta > 0 ? (
                     <>
-                      <span className="text-amber-300">Thu thêm tại quầy (Đơn đã trả trước):</span>
+                      <span className="text-amber-300">Thu thêm tại quầy:</span>
                       <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                         +{formatCurrency(priceDelta)}
                       </span>
@@ -486,15 +530,15 @@ export default function AddServiceModal({
                     <>
                       <span className="text-[#72f3ff]">Giá trị đơn hàng (Không đổi):</span>
                       <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        {formatCurrency(newTotalPrice)}
+                        {formatCurrency(newCalculatedFinalPrice)}
                       </span>
                     </>
                   )
                 ) : (
                   <>
-                    <span className="text-[#72f3ff]">Tổng tiền đơn hàng mới (Thanh toán tại quầy):</span>
+                    <span className="text-[#72f3ff]">Tổng tiền đơn hàng mới:</span>
                     <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {formatCurrency(newTotalPrice)}
+                      {formatCurrency(newCalculatedFinalPrice)}
                     </span>
                   </>
                 )}
