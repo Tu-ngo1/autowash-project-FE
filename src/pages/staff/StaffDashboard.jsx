@@ -10,11 +10,7 @@ import {
   checkInBookingByQr,
   requestCancelBooking,
 } from "../../services/staffBookingApi";
-import { getQueue } from "../../services/staffQueueApi";
 import { getFriendlyErrorMessage } from "../../utils/errorMessage";
-import { formatLicensePlate } from "../../utils/licensePlate";
-import { mergeUniqueBy, sortNewestFirst, unwrapList } from "../../utils/dataHelpers";
-import { formatTimeFromDateTime } from "../../utils/formatters";
 
 const TIER_STYLES = {
   Platinum: "border-[#6ff6df] text-[#6ff6df] bg-[#6ff6df]/10",
@@ -23,19 +19,40 @@ const TIER_STYLES = {
   Member: "border-[#4f7883] text-[#b8d8de] bg-[#123746]",
 };
 
-const getStaffBookingKey = (item = {}) =>
-  String(
-    item.id ??
-      item._id ??
-      item.bookingId ??
-      item.queueId ??
-      item.plate ??
-      "",
-  );
-
-const mergeStaffItems = (...groups) => {
-  return mergeUniqueBy(groups.flat(), getStaffBookingKey);
+const unwrapStaffPayload = (payload, keys = []) => {
+  const data = payload?.data?.data ?? payload?.data ?? payload ?? {};
+  if (Array.isArray(data)) return data;
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+  return [];
 };
+
+function formatStaffTime(value) {
+  if (!value) return "";
+  const text = String(value);
+  if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
+  return text.slice(0, 5);
+}
+
+const getNewestValue = (item = {}) => {
+  const raw =
+    item.createdAt ||
+    item.updatedAt ||
+    item.scheduledStartTime ||
+    item.dateTime ||
+    item.startTime ||
+    "";
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? Number(item.id || item.bookingId || 0) : time;
+};
+
+const sortNewestFirst = (items = []) =>
+  [...items].sort((a, b) => {
+    const newestDiff = getNewestValue(b) - getNewestValue(a);
+    if (newestDiff !== 0) return newestDiff;
+    return Number(b?.id || b?.bookingId || 0) - Number(a?.id || a?.bookingId || 0);
+  });
 
 const normalizeStaffBooking = (booking = {}) => {
   const services = Array.isArray(booking.services)
@@ -49,18 +66,17 @@ const normalizeStaffBooking = (booking = {}) => {
   return {
     ...booking,
     id: booking.id ?? booking.bookingId,
-    plate: formatLicensePlate(
+    plate:
       booking.plate ||
-        booking.vehicleLicensePlate ||
-        booking.licensePlate ||
-        booking.vehicle?.licensePlate ||
-        "",
-    ),
+      booking.vehicleLicensePlate ||
+      booking.licensePlate ||
+      booking.vehicle?.licensePlate ||
+      "",
     time:
       booking.time ||
       booking.appointmentTime ||
       booking.bookingTime ||
-      formatTimeFromDateTime(scheduledStartTime),
+      formatStaffTime(scheduledStartTime),
     service:
       booking.service ||
       booking.serviceName ||
@@ -70,24 +86,12 @@ const normalizeStaffBooking = (booking = {}) => {
     tier: booking.tier || booking.tierLevel || booking.status || "Member",
     cancelRequestStatus: booking.cancelRequestStatus || "",
     cancelRequestReason: booking.cancelRequestReason || "",
-    queueStatus: booking.queueStatus || booking.status || "",
   };
 };
-
-const normalizeQueueBooking = (booking = {}) => ({
-  ...normalizeStaffBooking(booking),
-  inQueue: true,
-  queueId: booking.queueId || booking.id,
-  checkinTime:
-    booking.checkinTime ||
-    booking.arrivedAt ||
-    formatTimeFromDateTime(booking.scheduledStartTime || booking.time),
-});
 
 function PendingCard({ item, onSelect, onRequestCancel, active }) {
   const tierStyle = TIER_STYLES[item.tier] || TIER_STYLES.Member;
   const cancelPending = item.cancelRequestStatus === "PENDING";
-  const inQueue = Boolean(item.inQueue) || String(item.status || "").toUpperCase() === "ARRIVED";
 
   return (
     <div
@@ -142,9 +146,9 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
           }`}
         >
           <span className="material-symbols-outlined text-[14px]">
-            {inQueue ? "pending_actions" : active ? "check_circle" : "qr_code_scanner"}
+            {active ? "check_circle" : "qr_code_scanner"}
           </span>
-          {inQueue ? "Đã vào hàng chờ" : active ? "Đã nhận mã quét" : "Chưa quét QR"}
+          {active ? "Đã nhận mã quét" : "Chưa quét QR"}
         </button>
         <button
           type="button"
@@ -158,6 +162,18 @@ function PendingCard({ item, onSelect, onRequestCancel, active }) {
       </div>
     </div>
   );
+}
+
+function getAppointmentValue(item, keys, fallback = "Chưa có dữ liệu") {
+  const value = keys
+    .map((key) => item?.[key])
+    .find((entry) => entry !== undefined && entry !== null && entry !== "");
+
+  if (typeof value === "object") {
+    return value.name || value.fullName || value.title || fallback;
+  }
+
+  return value || fallback;
 }
 
 function AppointmentSnapshot({ appointment, scannedCode }) {
@@ -269,35 +285,12 @@ export default function StaffDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [pendingResponse, queueResponse] = await Promise.allSettled([
-        getPendingAppointments(),
-        getQueue(),
-      ]);
-
-      if (pendingResponse.status === "rejected" && queueResponse.status === "rejected") {
-        throw pendingResponse.reason || queueResponse.reason;
-      }
-
-      const pendingItems =
-        pendingResponse.status === "fulfilled"
-          ? unwrapList(pendingResponse.value, [
-              "items",
-              "bookings",
-              "pending",
-            ]).map(normalizeStaffBooking)
-          : [];
-      const queueItems =
-        queueResponse.status === "fulfilled"
-          ? unwrapList(queueResponse.value, [
-              "items",
-              "queue",
-              "bookings",
-            ]).map(normalizeQueueBooking)
-          : [];
-
+      const response = await getPendingAppointments();
       setPendingList(
         sortNewestFirst(
-          mergeStaffItems(pendingItems, queueItems),
+          unwrapStaffPayload(response, ["items", "bookings", "pending"]).map(
+            normalizeStaffBooking,
+          ),
         ),
       );
     } catch (err) {
@@ -430,12 +423,8 @@ export default function StaffDashboard() {
     if (cameraActive && videoRef.current) {
       startQrScanner();
     }
-    // Scanner lifecycle is controlled by cameraActive and refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraActive]);
 
-  // Release camera resources once when leaving the page.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => stopCamera(), []);
 
   const openArrivalModal = (appointment) => {
@@ -550,7 +539,7 @@ export default function StaffDashboard() {
                     className="mt-1 text-[14px] font-black uppercase text-[#72f3ff]"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   >
-                    Lịch hẹn & hàng chờ
+                    (Pending)
                   </p>
                 </div>
                 <div className="border border-[#31475e] bg-[#172337] px-3 py-2 text-center">
@@ -667,7 +656,7 @@ export default function StaffDashboard() {
                 scannedCode={scannedCode}
               />
 
-              {scannedResult && !scannedResult.inQueue ? (
+              {scannedResult && (
                 <>
                   <button
                     type="button"
@@ -684,11 +673,7 @@ export default function StaffDashboard() {
                     tiên và xóa dữ liệu khỏi màn hình tiếp nhận hôm nay.
                   </p>
                 </>
-              ) : scannedResult?.inQueue ? (
-                <div className="rounded-md border border-[#72f3ff]/30 bg-[#72f3ff]/10 px-4 py-3 text-center text-[13px] font-bold text-[#bff8ff]">
-                  Xe này đã nằm trong hàng chờ, vui lòng qua mục Hàng chờ để điều phối vào khoang rửa.
-                </div>
-              ) : null}
+              )}
             </div>
           </section>
         </main>
