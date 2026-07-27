@@ -186,23 +186,25 @@ export default function AddServiceModal({
   const isPaid = String(appointment?.paymentStatus || appointment?.payment?.paymentStatus || "").toUpperCase() === "PAID";
 
   // Tier Discount calculation
-  const tierPercent = Number(
+  let tierPercent = Number(
     appointment?.tierDiscountPercent ??
     appointment?.tierPercent ??
     appointment?.user?.customerProfile?.tierConfig?.autoDiscountPercent ??
     0
   );
+
+  // Nếu appointment có discount và initialTotalPrice > 0 nhưng chưa truyền tierPercent
+  if (tierPercent === 0 && initialTotalPrice > 0 && (appointment?.discount ?? appointment?.discountAmount) > 0) {
+    const rawDiscount = Number(appointment?.discount ?? appointment?.discountAmount ?? 0);
+    tierPercent = Math.round((rawDiscount / initialTotalPrice) * 100);
+  }
+
   const tierDiscountAmount = Math.round((newSubTotal * tierPercent) / 100);
 
   // Voucher Discount calculation
-  const voucherDiscountAmount = Number(
-    appointment?.voucherDiscount ??
-    appointment?.voucherDiscountAmount ??
-    appointment?.discountAmount ??
-    0
-  ) > tierDiscountAmount ? (
-    Number(appointment?.discountAmount ?? 0) - tierDiscountAmount
-  ) : 0;
+  const totalRawDiscount = Number(appointment?.discount ?? appointment?.discountAmount ?? 0);
+  const initialTierDiscount = initialTotalPrice > 0 ? Math.round((initialTotalPrice * tierPercent) / 100) : 0;
+  const voucherDiscountAmount = Math.max(totalRawDiscount - initialTierDiscount, 0);
 
   const totalDiscount = tierDiscountAmount + voucherDiscountAmount;
   const newCalculatedFinalPrice = Math.max(newSubTotal - totalDiscount, 0);
