@@ -73,9 +73,20 @@ const formatTimeFromDateTimeString = (value) => {
   return "00:00";
 };
 
-const normalizeHourlySlots = (slots = [], businessHours = {}) => {
+const normalizeHourlySlots = (slots = [], businessHours = {}, dateParam = "") => {
   const startHour = getHourFromTime(businessHours.startTime);
   const endHour = getHourFromTime(businessHours.endTime);
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const todayKey = `${year}-${month}-${day}`;
+
+  const isToday = !dateParam || dateParam === todayKey;
+  // Khung giờ tối thiểu: thời gian hiện tại + 30 phút buffer
+  const minAllowedMinutes = isToday ? now.getHours() * 60 + now.getMinutes() + 30 : 0;
+
   const normalized = slots
     .map((slot) => {
       const startTimeVal = slot.startTime || slot.time || slot.slot || slot;
@@ -93,14 +104,20 @@ const normalizeHourlySlots = (slots = [], businessHours = {}) => {
         ? formatTimeFromDateTimeString(endTimeVal)
         : getSlotEndTime(start);
 
+      const [sHour, sMin] = start.split(":").map(Number);
+      const slotTotalMinutes = (sHour || 0) * 60 + (sMin || 0);
+      const isPastOrTooSoon = isToday && slotTotalMinutes < minAllowedMinutes;
+
+      const isAvailableInPayload =
+        typeof slot === "object" && slot.available !== undefined
+          ? Boolean(slot.available)
+          : true;
+
       return {
         slot: start,
         endTime: end,
         label: slot?.label || `${start} - ${end}`,
-        available:
-          typeof slot === "object" && slot.available !== undefined
-            ? Boolean(slot.available)
-            : true,
+        available: isPastOrTooSoon ? false : isAvailableInPayload,
       };
     })
     .filter(Boolean);
@@ -325,6 +342,7 @@ export default function CustomerBooking() {
           payload.availableTimeSlots ||
           [],
         businessHours,
+        dateParam,
       );
 
       setBookingConfig({
@@ -340,6 +358,12 @@ export default function CustomerBooking() {
       });
       setServices(fetchedServices);
       setTimeSlots(fetchedSlots);
+
+      setTimeSlot((prevSlot) => {
+        if (!prevSlot) return "";
+        const matched = fetchedSlots.find((s) => s.slot === prevSlot);
+        return matched && matched.available ? prevSlot : "";
+      });
 
       if (carSizeChanged) {
         if (fetchedServices.length > 0) {
