@@ -56,13 +56,17 @@ const parseStaffDate = (value) => {
 
   if (Array.isArray(value)) {
     const [y, m, d, hh = 0, mm = 0, ss = 0] = value;
-    return new Date(Date.UTC(y, m - 1, d, hh, mm, ss));
+    return new Date(y, m - 1, d, hh, mm, ss);
   }
 
-  let str = String(value).trim();
-  // Nếu chuỗi ISO có chứa chữ T nhưng chưa có hậu tố múi giờ Z hay +07:00, bổ sung Z để trình duyệt hiểu là giờ UTC từ server
-  if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(str)) {
-    str += "Z";
+  const str = String(value).trim();
+  if (str.includes("T")) {
+    const parts = str.split("T");
+    const dateParts = parts[0].split("-").map(Number);
+    const timeParts = parts[1].replace(/Z|[+-].*$/, "").split(":").map(Number);
+    const [y, m, d] = dateParts;
+    const [hh = 0, mm = 0, ss = 0] = timeParts;
+    return new Date(y, m - 1, d, hh, mm, ss);
   }
 
   const parsed = new Date(str);

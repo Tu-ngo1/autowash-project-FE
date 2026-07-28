@@ -34,18 +34,17 @@ function formatStaffTime(value) {
   if (!value) return "";
   if (Array.isArray(value)) {
     const [y, m, d, hh = 0, mm = 0] = value;
-    const date = new Date(Date.UTC(y, m - 1, d, hh, mm));
-    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   }
-  let str = String(value).trim();
-  if (str.includes("T") && !str.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(str)) {
-    str += "Z";
+  const str = String(value).trim();
+  if (str.includes("T")) {
+    const timePart = str.split("T")[1];
+    if (timePart) return timePart.slice(0, 5);
   }
-  const date = new Date(str);
-  if (!Number.isNaN(date.getTime())) {
-    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (str.includes(":")) {
+    const parts = str.split(":");
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
   }
-  if (str.includes("T")) return str.split("T")[1]?.slice(0, 5) || "";
   return str.slice(0, 5);
 }
 
