@@ -23,6 +23,7 @@ export default function AddServiceModal({
 }) {
   const [servicesList, setServicesList] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [initialSelectedIds, setInitialSelectedIds] = useState([]);
   const [isFetchingServices, setIsFetchingServices] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'main' | 'addon'
 
@@ -53,6 +54,9 @@ export default function AddServiceModal({
     if (Array.isArray(appointment.details)) {
       return appointment.details.map((d) => (d.serviceName || d.name || "").toLowerCase().trim());
     }
+    if (typeof appointment.service === "string" && appointment.service) {
+      return appointment.service.split(",").map((s) => s.toLowerCase().trim());
+    }
     return [];
   }, [appointment]);
 
@@ -60,6 +64,9 @@ export default function AddServiceModal({
     if (!appointment) return [];
     if (Array.isArray(appointment.details)) {
       return appointment.details.map((d) => String(d.serviceId || d.id || "")).filter(Boolean);
+    }
+    if (Array.isArray(appointment.services)) {
+      return appointment.services.map((s) => (typeof s === "object" ? String(s.serviceId || s.id || "") : "")).filter(Boolean);
     }
     return [];
   }, [appointment]);
@@ -69,6 +76,7 @@ export default function AddServiceModal({
   useEffect(() => {
     if (!isOpen) {
       setSelectedIds([]);
+      setInitialSelectedIds([]);
       setInitialTotalPrice(0);
       setActiveTab("all");
       return;
@@ -106,6 +114,7 @@ export default function AddServiceModal({
         const initTotal = preSelectedObjects.reduce((sum, s) => sum + Number(s.price ?? s.basePrice ?? s.priceAmount ?? s.actualPrice ?? 0), 0);
 
         setSelectedIds(preSelected);
+        setInitialSelectedIds(preSelected);
         setInitialTotalPrice(initTotal);
       } catch (err) {
         console.error("Lỗi lấy danh sách dịch vụ:", err);
