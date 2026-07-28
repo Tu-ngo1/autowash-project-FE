@@ -1169,7 +1169,7 @@ export default function CustomerProfile() {
                             </p>
                           </div>
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
+                            className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1 text-xs font-black uppercase ${
                               CUSTOMER_STATUS_STYLES[String(item.status).toUpperCase()] ||
                               "bg-slate-100 text-slate-700"
                             }`}

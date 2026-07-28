@@ -25,8 +25,19 @@ const unwrapStaffPayload = (payload, keys = []) => {
 
 function formatStaffTime(value) {
   if (!value) return "";
-  const text = String(value);
-  if (text.includes("T")) return text.split("T")[1]?.slice(0, 5) || "";
+  if (Array.isArray(value)) {
+    const [y, m, d, hh = 0, mm = 0] = value;
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  }
+  const text = String(value).trim();
+  if (text.includes("T")) {
+    const timePart = text.split("T")[1];
+    if (timePart) return timePart.slice(0, 5);
+  }
+  if (text.includes(":")) {
+    const parts = text.split(":");
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
+  }
   return text.slice(0, 5);
 }
 
