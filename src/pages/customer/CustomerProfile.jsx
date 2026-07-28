@@ -39,7 +39,7 @@ import {
   isActiveVehicleModel,
   normalizeVehicleSize,
 } from "../../utils/vehicleDisplay";
-import { CUSTOMER_STATUS_STYLES } from "../../utils/bookingStatus";
+import { CUSTOMER_STATUS_STYLES, getBookingStatusLabel } from "../../utils/bookingStatus";
 import {
   mergeUniqueBy,
   sortNewestFirst,
@@ -58,11 +58,30 @@ const getBookingTimeValue = (booking) => {
   return Number.isNaN(time) ? 0 : time;
 };
 
+const formatDateDisplay = (value) => {
+  if (!value) return "--/--/----";
+  const str = String(value).trim();
+  const datePart = str.includes("T") ? str.split("T")[0] : str;
+  if (datePart.includes("-")) {
+    const [y, m, d] = datePart.split("-");
+    if (y && m && d) return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+  }
+  const date = new Date(str);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+  return str;
+};
+
 const getPendingQrBookings = (bookings = []) =>
   [...bookings]
     .filter((booking) => {
       const status = String(booking?.status || "").toUpperCase();
-      return status === "PENDING" || status === "CONFIRM";
+      return status === "PENDING" || status === "CONFIRM" || status === "ARRIVED";
     })
     .sort((a, b) => {
       const timeDiff = getBookingTimeValue(b) - getBookingTimeValue(a);
@@ -1155,7 +1174,7 @@ export default function CustomerProfile() {
                               "bg-slate-100 text-slate-700"
                             }`}
                           >
-                            {item.status}
+                            {getBookingStatusLabel(item.status)}
                           </span>
                         </div>
                         <div className="mt-4 flex items-center justify-between gap-3">
@@ -1164,7 +1183,7 @@ export default function CustomerProfile() {
                               {item.time || "--:--"}
                             </p>
                             <p className="mt-1 text-sm font-black text-slate-950">
-                              {item.date || "--/--/----"}
+                              {formatDateDisplay(item.date || item.scheduledStartTime)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
