@@ -192,7 +192,17 @@ export default function AddServiceModal({
   const newTotalDuration = selectedServices.reduce((sum, s) => sum + getServiceDuration(s), 0);
 
   const hasMainService = selectedServices.some((s) => s.isMainService === true);
-  const isPaid = String(appointment?.paymentStatus || appointment?.payment?.paymentStatus || "").toUpperCase() === "PAID";
+
+  const paymentStatusStr = String(
+    appointment?.paymentStatus ||
+    appointment?.payment?.paymentStatus ||
+    appointment?.status ||
+    ""
+  ).toUpperCase();
+
+  const isPaid =
+    appointment?.isPaid === true ||
+    ["PAID", "SUCCESS", "COMPLETED", "PAID_ONLINE", "PAYMENT_SUCCESS"].includes(paymentStatusStr);
 
   // Tier Discount calculation
   let tierPercent = Number(
@@ -220,18 +230,11 @@ export default function AddServiceModal({
 
   const actualPaid = Number(
     appointment?.actualPaidAmount ??
+    appointment?.paidAmount ??
     (isPaid ? (appointment?.finalPrice ?? appointment?.totalPrice ?? 0) : 0)
   );
 
-  const isSelectionChanged = (() => {
-    if (selectedIds.length !== initialSelectedIds.length) return true;
-    const sortedCurrent = [...selectedIds].sort();
-    const sortedInitial = [...initialSelectedIds].sort();
-    return sortedCurrent.some((val, index) => val !== sortedInitial[index]);
-  })();
-
   const priceDelta = newCalculatedFinalPrice - actualPaid;
-  const effectivePriceDelta = isSelectionChanged ? priceDelta : 0;
 
   return (
     <div
@@ -529,37 +532,49 @@ export default function AddServiceModal({
               )}
 
               {/* Hóa đơn chênh lệch & Giá thực tế cuối cùng */}
-              <div className="mt-2.5 flex justify-between border-t border-white/10 pt-2 text-sm font-black">
+              <div className="mt-2.5 border-t border-white/10 pt-2 space-y-1.5">
                 {isPaid ? (
-                  effectivePriceDelta > 0 ? (
-                    <>
-                      <span className="text-amber-300">Thu thêm tại quầy:</span>
-                      <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        +{formatCurrency(effectivePriceDelta)}
-                      </span>
-                    </>
-                  ) : effectivePriceDelta < 0 ? (
-                    <>
-                      <span className="text-emerald-300">Hoàn lại tiền thừa vào Ví khách:</span>
-                      <span className="text-emerald-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        -{formatCurrency(Math.abs(effectivePriceDelta))}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-[#72f3ff]">Giá trị đơn hàng (Không đổi):</span>
-                      <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                        {formatCurrency(newCalculatedFinalPrice)}
-                      </span>
-                    </>
-                  )
-                ) : (
                   <>
-                    <span className="text-[#72f3ff]">Tổng tiền đơn hàng mới:</span>
+                    <div className="flex justify-between text-xs font-semibold text-[#8faabf]">
+                      <span>Đã thanh toán trước đó:</span>
+                      <span className="text-[#ecfeff] font-bold">{formatCurrency(actualPaid)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-semibold text-[#8faabf]">
+                      <span>Giá trị đơn hàng mới:</span>
+                      <span className="text-[#ecfeff] font-bold">{formatCurrency(newCalculatedFinalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-black pt-1 border-t border-white/5">
+                      {priceDelta > 0 ? (
+                        <>
+                          <span className="text-amber-300">Cần thu thêm tại quầy:</span>
+                          <span className="text-amber-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            +{formatCurrency(priceDelta)}
+                          </span>
+                        </>
+                      ) : priceDelta < 0 ? (
+                        <>
+                          <span className="text-emerald-300">Hoàn lại tiền thừa vào Ví khách:</span>
+                          <span className="text-emerald-300 text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            -{formatCurrency(Math.abs(priceDelta))}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[#72f3ff]">Giá trị đơn hàng (Không đổi):</span>
+                          <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {formatCurrency(newCalculatedFinalPrice)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm font-black">
+                    <span className="text-[#72f3ff]">Tổng tiền cần thu tại quầy:</span>
                     <span className="text-[#72f3ff] text-lg" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                       {formatCurrency(newCalculatedFinalPrice)}
                     </span>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
