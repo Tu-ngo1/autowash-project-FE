@@ -394,7 +394,7 @@ export default function StaffDashboard() {
     scanned: true,
   });
 
-  const handleQrDetected = async (qrContent) => {
+  const handleQrDetected = (qrContent) => {
     if (!qrContent || submitLoading) return;
     if (lastQrRef.current === qrContent) return;
 
@@ -403,26 +403,28 @@ export default function StaffDashboard() {
     setScanWarning("");
     releaseScanner();
     setCameraActive(false);
-    setSubmitLoading(true);
-    setScanStatus("Đã đọc mã, đang check-in...");
-    try {
-      const response = await checkInBookingByQr(qrContent);
-      const booking = normalizeScannedBooking(response);
-      setScannedResult(booking);
-      setScanStatus("Check-in thành công.");
-      fetchPendingAppointments();
-    } catch (err) {
-      setScanStatus("Đã đọc mã, backend chưa nhận.");
-      const backendMessage = err.response?.data?.message;
-      setScanWarning(
-        backendMessage ||
-          getFriendlyErrorMessage(
-            err,
-            "Đã đọc được mã, nhưng backend chưa check-in được mã này.",
-          ),
-      );
-    } finally {
-      setSubmitLoading(false);
+
+    const normalizedQr = String(qrContent).trim();
+    const matched = pendingList.find(
+      (b) =>
+        b.qrContent === normalizedQr ||
+        b.bookingCode === normalizedQr ||
+        (b.bookingCode && normalizedQr.includes(String(b.bookingCode))) ||
+        (b.id && normalizedQr.includes(String(b.id)))
+    );
+
+    if (matched) {
+      setScannedResult(matched);
+      setArrivalTarget(matched);
+      setScanStatus("Đã đọc mã QR hợp lệ. Vui lòng kiểm tra và bấm 'Xác nhận Đã Đến'.");
+    } else {
+      setScannedResult({
+        plate: "Mã QR đã quét",
+        tier: "Member",
+        qrContent: normalizedQr,
+      });
+      setScanStatus("Đã đọc mã QR.");
+      setScanWarning("Đã đọc được mã QR. Vui lòng kiểm tra và bấm 'Xác nhận Đã Đến' để tiếp nhận xe.");
     }
   };
 
@@ -482,15 +484,23 @@ export default function StaffDashboard() {
   };
 
   const handleConfirm = async () => {
-    const id = arrivalTarget?.id || arrivalTarget?._id;
-    if (!id) return;
+    const target = arrivalTarget || scannedResult;
+    const id = target?.id || target?._id;
+    if (!id && !scannedCode) return;
+
     setSubmitLoading(true);
     setArrivalError("");
     try {
-      await confirmPendingAppointment(id);
+      if (scannedCode) {
+        await checkInBookingByQr(scannedCode);
+      } else if (id) {
+        await confirmPendingAppointment(id);
+      }
 
       setArrivalTarget(null);
       setScannedResult(null);
+      setScannedCode("");
+      lastQrRef.current = "";
       setToast("Đã xác nhận xe đến và chuyển vào hàng đợi");
       await fetchPendingAppointments();
       window.setTimeout(() => setToast(""), 2800);
@@ -713,19 +723,6 @@ export default function StaffDashboard() {
                   >
                     <span className="material-symbols-outlined">login</span>
                     {submitLoading ? "Đang tiếp nhận..." : "Xác nhận Đã Đến"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={submitLoading}
-                    onClick={() => {
-                      setAddServiceTarget(scannedResult);
-                      setAddServiceError("");
-                    }}
-                    className="flex w-full items-center justify-center gap-2 border border-[#72f3ff]/50 bg-[#72f3ff]/10 px-6 py-3 text-[14px] font-black uppercase text-[#72f3ff] transition hover:bg-[#72f3ff]/20 disabled:opacity-50"
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                  >
-                    <span className="material-symbols-outlined">add_task</span>
-                    <span>Bổ sung dịch vụ</span>
                   </button>
                   <p className="mx-auto max-w-xl text-center text-[12px] font-medium italic text-[#c8d8e8]">
                     Lưu ý: Bấm nút này sẽ tự động chuyển xe sang hàng đợi ưu
