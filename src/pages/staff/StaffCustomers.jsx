@@ -835,23 +835,63 @@ export default function StaffCustomers() {
                   )}
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Họ tên khách hàng">
-                      <input
-                        required
-                        readOnly
-                        value={form.customerName}
-                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                        placeholder="Tự lấy từ hồ sơ khách"
-                      />
-                    </Field>
-                    <Field label="Số điện thoại">
-                      <input
-                        readOnly
-                        value={form.customerPhone}
-                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
-                        placeholder="Tự lấy từ hồ sơ khách"
-                      />
-                    </Field>
+                    <div className="sm:col-span-2">
+                      <Field label="Họ tên khách hàng">
+                        <input
+                          required
+                          readOnly
+                          value={form.customerName}
+                          className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-extrabold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-90"
+                          placeholder="Tự lấy từ hồ sơ khách"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <Field label="Số điện thoại">
+                        <input
+                          readOnly
+                          value={form.customerPhone}
+                          className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-90"
+                          placeholder="Tự lấy từ hồ sơ khách"
+                        />
+                      </Field>
+                    </div>
+
+                    {registeredVehicles.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <Field label="Chọn xe rửa lần này (Trong danh sách xe của khách)">
+                          <select
+                            value={selectedVehicleKey}
+                            onChange={(e) => {
+                              const key = e.target.value;
+                              setSelectedVehicleKey(key);
+                              const sel = registeredVehicles.find((v) => v.key === key);
+                              if (sel) {
+                                const matchedModel = findVehicleModelForVehicle(sel);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  licensePlate: normalizePlate(sel.licensePlate || ""),
+                                  vehicleBrand: matchedModel?.brand || sel.brand || "",
+                                  vehicleModelId: matchedModel?.id || sel.vehicleModelId || "",
+                                  vehicleModelName: matchedModel?.modelName || sel.modelName || "",
+                                  vehicleSize: matchedModel?.vehicleSize || sel.vehicleSize || "",
+                                }));
+                                setVehicleLocked(Boolean(matchedModel || sel.vehicleModelId));
+                              }
+                            }}
+                            className="w-full rounded-xl border border-[#6ff6df]/40 bg-[#0b2532] px-4 py-3 text-sm font-bold text-[#ecfeff] outline-none focus:border-[#6ff6df]"
+                          >
+                            {registeredVehicles.map((v) => (
+                              <option key={v.key || v.id} value={v.key}>
+                                🚗 {v.licensePlate || "Chưa có biển số"} - {v.brand || ""} {v.modelName || ""} ({v.vehicleSize || ""})
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      </div>
+                    )}
+
                     <div className="sm:col-span-2">
                       <VehicleFormFields
                         brands={vehicleBrands}
@@ -870,6 +910,7 @@ export default function StaffCustomers() {
                         }}
                       />
                     </div>
+
                     <Field label="Hạng thành viên">
                       <input
                         readOnly
@@ -877,6 +918,7 @@ export default function StaffCustomers() {
                         className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold uppercase text-[#6ff6df] outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-70"
                       />
                     </Field>
+
                     <Field label="Thanh toán">
                       <select
                         value={form.paymentMethod}
@@ -893,6 +935,13 @@ export default function StaffCustomers() {
                         ))}
                       </select>
                     </Field>
+
+                    {form.paymentMethod === "BANK_TRANSFER" && (
+                      <div className="sm:col-span-2 rounded-xl border border-cyan-400/30 bg-cyan-950/30 p-3 text-xs font-bold text-cyan-200 flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-[20px] text-[#72f3ff]">point_of_sale</span>
+                        <span>Thanh toán qua máy quét MoMo / POS bên ngoài — Khách quét mã & tự xác nhận số tiền tại quầy.</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
