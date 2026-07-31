@@ -453,17 +453,10 @@ export default function AdminServices() {
                                 setIsDrawerOpen(true);
                               }}
                               className="flex h-8 w-8 items-center justify-center border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 transition hover:bg-cyan-400/20"
+                              title="Sửa dịch vụ"
                             >
                               <span className="material-symbols-outlined text-[20px]">
                                 edit
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => setDeleteTarget(service)}
-                              className="flex h-8 w-8 items-center justify-center border border-red-400/40 bg-red-400/10 text-red-300 transition hover:bg-red-400/20"
-                            >
-                              <span className="material-symbols-outlined text-[20px]">
-                                delete
                               </span>
                             </button>
                           </div>

@@ -3,9 +3,9 @@ import { clearAuth, getUserName } from "../utils/auth";
 
 const NAV_LINKS = [
   { label: "Tổng quan", to: "/staff/dashboard", icon: "dashboard" },
-  { label: "Giao xe & Thanh toán", to: "/staff/checkout", icon: "receipt_long" },
   { label: "Hàng chờ", to: "/staff/queue", icon: "queue_play_next" },
   { label: "Đặt lịch nhanh", to: "/staff/customers", icon: "person" },
+  { label: "Giao xe & Thanh toán", to: "/staff/checkout", icon: "receipt_long" },
 ];
 
 export default function StaffNavbar() {
