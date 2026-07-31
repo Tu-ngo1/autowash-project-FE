@@ -568,9 +568,12 @@ export default function StaffCustomers() {
           : "Đã tìm thấy khách hàng. Khách chưa có xe đã đăng ký.",
       );
     } catch {
-      const normalizedLookupPlate = /^\d{2}/.test(compactLicensePlate(lookup))
-        ? normalizePlate(lookup)
-        : "";
+      const compactedLookup = compactLicensePlate(lookup);
+      const isPhoneQuery = /^\d{10}$/.test(compactedLookup);
+      const isPlateQuery = /^\d{2}/.test(compactedLookup);
+      const normalizedLookupPlate = isPlateQuery ? normalizePlate(lookup) : "";
+      const normalizedLookupPhone = isPhoneQuery ? lookup : "";
+
       setRegisteredVehicles([]);
       setSelectedVehicleKey("new");
       setVehicleLocked(false);
@@ -578,22 +581,20 @@ export default function StaffCustomers() {
       setForm((prev) => ({
         ...prev,
         customerName: "",
-        customerPhone: "",
-        licensePlate: normalizedLookupPlate,
+        customerPhone: normalizedLookupPhone || prev.customerPhone,
+        licensePlate: normalizedLookupPlate || prev.licensePlate,
         vehicleBrand: "",
         vehicleModelId: "",
         vehicleModelName: "",
-        vehicleSize: "",
+        vehicleSize: "SMALL",
         tier: "Member",
       }));
       setMainServiceId("");
       setAddonIds([]);
       setSelectedSlot(null);
-      setMessage("");
-      setError(
-        normalizedLookupPlate
-          ? "Không tìm thấy hồ sơ xe theo biển số này. Cần xe đã đăng ký để tự lấy hãng, mẫu và kích thước."
-          : "Không tìm thấy khách hàng trong hệ thống.",
+      setError("");
+      setMessage(
+        "Không tìm thấy hồ sơ khách hàng. Bạn có thể tự nhập Họ tên khách hàng, Số điện thoại & Thông tin xe bên dưới để tiếp nhận.",
       );
     } finally {
       setLookupLoading(false);
@@ -617,12 +618,12 @@ export default function StaffCustomers() {
       triggerError("Vui lòng tìm khách bằng số điện thoại hoặc biển số trước.");
       return;
     }
-    if (!isExistingCustomer) {
-      setError("Vui lòng tìm đúng khách hàng hoặc xe đã đăng ký trước khi tạo lịch.");
+    if (!form.customerName.trim()) {
+      triggerError("Vui lòng nhập họ tên khách hàng.");
       return;
     }
-    if (!form.customerName.trim()) {
-      setError("Hồ sơ khách hàng thiếu họ tên. Vui lòng kiểm tra lại dữ liệu khách.");
+    if (!form.customerPhone.trim()) {
+      triggerError("Vui lòng nhập số điện thoại khách hàng.");
       return;
     }
     if (!form.licensePlate.trim()) {
@@ -631,11 +632,11 @@ export default function StaffCustomers() {
     }
     const normalizedPlate = normalizePlate(form.licensePlate);
     if (!isValidVietnamLicensePlate(normalizedPlate)) {
-      setError("Biển số xe phải đúng dạng 50A-123456.");
+      triggerError("Biển số xe phải đúng dạng 50A-123456.");
       return;
     }
     if (!form.vehicleModelId || !form.vehicleSize) {
-      setError("Hồ sơ xe thiếu hãng, mẫu hoặc kích thước. Vui lòng cập nhật xe trước khi tạo lịch.");
+      triggerError("Vui lòng chọn Hãng xe, Mẫu xe và Kích thước xe.");
       return;
     }
     if (!mainServiceId) {
@@ -813,21 +814,20 @@ export default function StaffCustomers() {
                     </div>
                   )}
                   {lookupState === "not-found" && (
-                    <div className="mb-6 rounded-2xl border border-rose-300/35 bg-rose-300/10 px-4 py-3">
+                    <div className="mb-6 rounded-2xl border border-cyan-400/35 bg-cyan-400/10 px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[22px] text-rose-200">
-                          report
+                        <span className="material-symbols-outlined text-[22px] text-[#72f3ff]">
+                          person_add
                         </span>
                         <div>
                           <p
-                            className="text-xs font-black uppercase tracking-[0.18em] text-rose-200"
+                            className="text-xs font-black uppercase tracking-[0.18em] text-[#72f3ff]"
                             style={{ fontFamily: "'JetBrains Mono', monospace" }}
                           >
-                            Không tìm thấy hồ sơ xe
+                            Tiếp nhận khách hàng mới / Khách vãng lai
                           </p>
                           <p className="mt-1 text-xs font-semibold text-[#b8d8de]">
-                            Không tự nhập hãng/mẫu/kích thước tại đây. Hãy kiểm
-                            tra lại biển số hoặc đăng ký xe cho khách trước.
+                            Không tìm thấy hồ sơ có sẵn. Bạn có thể tự nhập Họ tên khách, Số điện thoại và thông tin Xe bên dưới để tạo lịch.
                           </p>
                         </div>
                       </div>
@@ -839,10 +839,13 @@ export default function StaffCustomers() {
                       <Field label="Họ tên khách hàng">
                         <input
                           required
-                          readOnly
+                          readOnly={isExistingCustomer}
                           value={form.customerName}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, customerName: e.target.value }))
+                          }
                           className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-extrabold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-90"
-                          placeholder="Tự lấy từ hồ sơ khách"
+                          placeholder={isExistingCustomer ? "Tự lấy từ hồ sơ khách" : "Nhập họ tên khách hàng..."}
                         />
                       </Field>
                     </div>
@@ -850,10 +853,14 @@ export default function StaffCustomers() {
                     <div className="sm:col-span-2">
                       <Field label="Số điện thoại">
                         <input
-                          readOnly
+                          required
+                          readOnly={isExistingCustomer}
                           value={form.customerPhone}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, customerPhone: e.target.value }))
+                          }
                           className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] read-only:cursor-not-allowed read-only:opacity-90"
-                          placeholder="Tự lấy từ hồ sơ khách"
+                          placeholder={isExistingCustomer ? "Tự lấy từ hồ sơ khách" : "Nhập số điện thoại khách..."}
                         />
                       </Field>
                     </div>
@@ -897,10 +904,10 @@ export default function StaffCustomers() {
                         brands={vehicleBrands}
                         inputClassName="border-cyan-100/15 bg-[#0b2532] text-white focus:border-[#6ff6df] read-only:bg-[#071620] read-only:text-white/80"
                         labelClassName="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-[#8df9ef]"
-                        locked={isLookupResolved || vehicleLocked}
+                        locked={isExistingCustomer && vehicleLocked}
                         models={vehicleModels}
                         onChange={handleVehicleFormFieldsChange}
-                        readOnly={isLookupResolved}
+                        readOnly={isExistingCustomer && vehicleLocked}
                         value={{
                           licensePlate: form.licensePlate,
                           vehicleBrand: form.vehicleBrand,
@@ -922,11 +929,10 @@ export default function StaffCustomers() {
                     <Field label="Thanh toán">
                       <select
                         value={form.paymentMethod}
-                        disabled={!isExistingCustomer}
                         onChange={(event) =>
                           setForm({ ...form, paymentMethod: event.target.value })
                         }
-                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df] disabled:cursor-not-allowed disabled:opacity-55"
+                        className="w-full rounded-xl border border-cyan-100/15 bg-[#0b2532] px-4 py-3 text-sm font-bold text-white outline-none focus:border-[#6ff6df]"
                       >
                         {PAYMENT_METHODS.map(([value, label]) => (
                           <option key={value} value={value}>
