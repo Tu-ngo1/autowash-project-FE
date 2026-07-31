@@ -405,9 +405,21 @@ export default function AdminServices() {
                           {getDurationRange(service)}
                         </td>
                         <td className="px-6 py-5 text-zinc-300">
-                          {service.rating ? `★ ${service.rating}` : "-"}
+                          {service.rating ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-amber-300">
+                              <span className="text-amber-400">★</span>
+                              {service.rating}
+                              {service.ratingCount ? (
+                                <span className="text-[11px] text-zinc-500 font-normal">
+                                  ({service.ratingCount})
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-600">-</span>
+                          )}
                         </td>
-                        <td className="px-6 py-5 text-zinc-300">
+                        <td className="px-6 py-5 font-bold text-emerald-400">
                           {formatCurrency(service.totalRevenue)}
                         </td>
                         <td className="px-6 py-5">

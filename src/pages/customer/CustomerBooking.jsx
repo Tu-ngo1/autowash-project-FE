@@ -1046,15 +1046,24 @@ export default function CustomerBooking() {
                                     local_car_wash
                                   </span>
                                 </span>
-                                <span
-                                  className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] ${
-                                    active
-                                      ? "bg-cyan-400 text-slate-950"
-                                      : "bg-white text-cyan-800 ring-1 ring-cyan-100"
-                                  }`}
-                                >
-                                  {active ? "Đã chọn" : "Gói chính"}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  {item.rating ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                                      <span className="text-amber-500">★</span>
+                                      {item.rating}
+                                      {item.ratingCount ? <span className="text-[10px] text-amber-700">({item.ratingCount})</span> : null}
+                                    </span>
+                                  ) : null}
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] ${
+                                      active
+                                        ? "bg-cyan-400 text-slate-950"
+                                        : "bg-white text-cyan-800 ring-1 ring-cyan-100"
+                                    }`}
+                                  >
+                                    {active ? "Đã chọn" : "Gói chính"}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex flex-1 flex-col">
                                 <h4 className="text-xl font-black leading-tight text-slate-950">
@@ -1121,9 +1130,17 @@ export default function CustomerBooking() {
                               <h4 className="font-black text-slate-950">
                                 {item.name || "Dịch vụ phụ"}
                               </h4>
-                              <span className="whitespace-nowrap font-black text-cyan-700">
-                                {formatPrice(item.price)}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                {item.rating ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                                    <span className="text-amber-500">★</span>
+                                    {item.rating}
+                                  </span>
+                                ) : null}
+                                <span className="whitespace-nowrap font-black text-cyan-700">
+                                  {formatPrice(item.price)}
+                                </span>
+                              </div>
                             </div>
                             <p className="line-clamp-2 text-xs font-semibold text-slate-500">
                               {item.description}

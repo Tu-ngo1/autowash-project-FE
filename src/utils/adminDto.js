@@ -133,6 +133,9 @@ export const normalizeAdminBooking = (booking = {}) => {
       cancelRequestedBy?.name ??
       cancelRequestedBy?.username ??
       "",
+    reviewRating: booking.reviewRating ?? booking.review?.rating ?? null,
+    reviewComment: booking.reviewComment ?? booking.review?.comment ?? "",
+    reviewCreatedAt: booking.reviewCreatedAt ?? booking.review?.createdAt ?? "",
   };
 };
 

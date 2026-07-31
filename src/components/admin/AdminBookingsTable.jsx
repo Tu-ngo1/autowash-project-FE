@@ -237,6 +237,9 @@ export default function AdminBookingsTable({
               <th className="w-[125px] whitespace-nowrap px-2 py-3 font-mono text-[10.5px] font-black uppercase tracking-wider text-zinc-500">
                 TRẠNG THÁI
               </th>
+              <th className="w-[150px] whitespace-nowrap px-2 py-3 font-mono text-[10.5px] font-black uppercase tracking-wider text-zinc-500">
+                ĐÁNH GIÁ
+              </th>
               <th className="w-[100px] whitespace-nowrap px-2 py-3 text-right font-mono text-[10.5px] font-black uppercase tracking-wider text-zinc-500">
                 TỔNG TIỀN
               </th>
@@ -249,6 +252,10 @@ export default function AdminBookingsTable({
             {bookings.map((booking, index) => {
               const bookingId = booking.id || booking.bookingId || booking._id;
               const plate = formatLicensePlate(booking.vehicleLicensePlate || booking.plate || "");
+              const isCompleted = String(booking.status || "").toUpperCase() === "COMPLETED";
+              const reviewRating = booking.reviewRating ?? booking.review?.rating;
+              const reviewComment = booking.reviewComment ?? booking.review?.comment;
+
               return (
               <tr
                 key={bookingId}
@@ -292,6 +299,24 @@ export default function AdminBookingsTable({
                     <StatusBadge status={booking.status} />
                     <CancelRequestBadge status={booking.cancelRequestStatus} />
                   </div>
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 align-middle">
+                  {isCompleted ? (
+                    reviewRating ? (
+                      <span
+                        className="inline-flex items-center gap-1 border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-300"
+                        title={reviewComment ? `Nhận xét: "${reviewComment}"` : "Đã đánh giá"}
+                      >
+                        <span className="text-amber-400">★</span> {reviewRating}/5
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[10px] text-zinc-500 italic">
+                        - Khách hàng chưa đánh giá
+                      </span>
+                    )
+                  ) : (
+                    <span className="font-mono text-zinc-600">-</span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-2 py-2.5 text-right align-middle">
                   <span className="font-black text-zinc-100">

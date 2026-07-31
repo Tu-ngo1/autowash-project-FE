@@ -867,6 +867,58 @@ export default function AdminBookings() {
                 </div>
               </div>
 
+              {/* Customer Review Section */}
+              {String(selectedBooking.status || "").toUpperCase() === "COMPLETED" && (
+                <div className="bg-surface-container-low border border-outline-variant">
+                  <div className="px-5 py-3 border-b border-outline-variant bg-surface-container-highest flex items-center justify-between">
+                    <h3 className="font-label-caps text-label-caps text-on-surface-variant">
+                      ĐÁNH GIÁ TỪ KHÁCH HÀNG
+                    </h3>
+                    <span className="material-symbols-outlined text-[18px] text-amber-400">
+                      rate_review
+                    </span>
+                  </div>
+                  <div className="p-5">
+                    {selectedBooking.reviewRating ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex text-amber-400">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <span
+                                key={star}
+                                className="material-symbols-outlined text-[18px]"
+                                style={{
+                                  fontVariationSettings: star <= selectedBooking.reviewRating ? "'FILL' 1" : "'FILL' 0",
+                                }}
+                              >
+                                star
+                              </span>
+                            ))}
+                          </div>
+                          <span className="font-mono text-xs font-black text-amber-300">
+                            {selectedBooking.reviewRating}/5 sao
+                          </span>
+                        </div>
+                        {selectedBooking.reviewComment && (
+                          <p className="text-xs text-zinc-300 italic bg-black/40 p-3 border border-zinc-800 rounded">
+                            "{selectedBooking.reviewComment}"
+                          </p>
+                        )}
+                        {selectedBooking.reviewCreatedAt && (
+                          <p className="text-[10px] text-zinc-500 text-right">
+                            Đánh giá lúc: {formatDateTime(selectedBooking.reviewCreatedAt)}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs font-mono text-zinc-500 italic">
+                        - Khách hàng chưa đánh giá
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Operational Timeline */}
               <div className="bg-surface-container-low border border-outline-variant">
                 <div className="px-5 py-3 border-b border-outline-variant bg-surface-container-highest">
