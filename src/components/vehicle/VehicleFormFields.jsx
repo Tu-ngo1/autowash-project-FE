@@ -111,7 +111,9 @@ export default function VehicleFormFields({
             onChange={(event) => handleModelChange(event.target.value)}
             className={`${inputBase} ${inputClassName}`}
           >
-            <option value="">Chọn mẫu xe</option>
+            <option value="">
+              {!form.vehicleBrand ? "-- Vui lòng chọn Hãng xe trước --" : "-- Chọn mẫu xe --"}
+            </option>
             {form.vehicleModelId &&
               form.vehicleModelName &&
               !currentModels.some(
