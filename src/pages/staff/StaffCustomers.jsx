@@ -977,10 +977,10 @@ export default function StaffCustomers() {
                           <button
                             key={id}
                             type="button"
-                            disabled={!isExistingCustomer}
+                            disabled={!isLookupResolved}
                             onClick={() => setMainServiceId(id)}
                             className={`rounded-2xl border p-4 text-left transition ${
-                              !isExistingCustomer
+                              !isLookupResolved
                                 ? "cursor-not-allowed border-cyan-100/10 bg-white/[0.035] opacity-45"
                                 : selected
                                 ? "border-[#6ff6df] bg-[#6ff6df]/12 shadow-[0_0_24px_rgba(111,246,223,0.12)]"
@@ -1032,10 +1032,10 @@ export default function StaffCustomers() {
                           <button
                             key={id}
                             type="button"
-                            disabled={!isExistingCustomer}
+                            disabled={!isLookupResolved}
                             onClick={() => toggleAddon(id)}
                             className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${
-                              !isExistingCustomer
+                              !isLookupResolved
                                 ? "cursor-not-allowed border-cyan-100/10 bg-white/[0.035] opacity-45"
                                 : selected
                                 ? "border-[#4edea3] bg-[#4edea3]/12"
@@ -1115,10 +1115,10 @@ export default function StaffCustomers() {
                       <button
                         key={`${getSlotLabel(slot)}-${index}`}
                         type="button"
-                        disabled={!available || !isExistingCustomer}
+                        disabled={!available || !isLookupResolved}
                         onClick={() => setSelectedSlot(slot)}
                         className={`rounded-2xl border p-4 text-left transition ${
-                          !isExistingCustomer
+                          !isLookupResolved
                             ? "cursor-not-allowed border-cyan-100/10 bg-white/[0.035] opacity-45"
                             : selected
                             ? "border-[#6ff6df] bg-[#6ff6df]/15 shadow-[0_0_28px_rgba(111,246,223,0.16)]"
@@ -1134,8 +1134,8 @@ export default function StaffCustomers() {
                           {getSlotLabel(slot)}
                         </p>
                         <p className="mt-2 text-xs font-semibold uppercase tracking-widest text-[#b8d8de]">
-                          {!isExistingCustomer
-                            ? "Cần hồ sơ xe"
+                          {!isLookupResolved
+                            ? "Cần tìm kiếm trước"
                             : available
                               ? "Còn trống"
                               : "Đã bận"}
@@ -1222,14 +1222,14 @@ export default function StaffCustomers() {
 
               <button
                 type="submit"
-                disabled={submitting || loadingData || !isExistingCustomer}
+                disabled={submitting || loadingData || !isLookupResolved}
                 className="mt-5 w-full rounded-2xl bg-[#6ff6df] px-5 py-4 text-sm font-bold uppercase tracking-[0.16em] text-[#06343a] shadow-[0_0_34px_rgba(111,246,223,0.22)] transition hover:bg-[#9fffee] hover:shadow-[0_0_44px_rgba(111,246,223,0.35)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-300"
                 style={{ fontFamily: "'JetBrains Mono', monospace" }}
               >
                 {submitting
                   ? "Đang tạo lịch..."
-                  : !isExistingCustomer
-                    ? "Cần tìm thấy hồ sơ xe trước"
+                  : !isLookupResolved
+                    ? "Vui lòng tìm kiếm khách trước"
                   : "Tạo lịch đặt & tiếp nhận ngay"}
               </button>
             </section>
